@@ -14,6 +14,9 @@ public interface OrgSettingRepository extends JpaRepository<OrgSetting, Long> {
 
     List<OrgSetting> findByOrganizationId(Long organizationId);
 
+    /** HC-1c — every organisation holding {@code key = value} (the pharmacies that accept clinics). */
+    List<OrgSetting> findBySettingKeyAndSettingValue(String settingKey, String settingValue);
+
     /**
      * ONB-1 — the rows a shape change clears.
      *

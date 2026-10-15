@@ -160,7 +160,7 @@ describe('Test Book — HC-1a Healthcare tenants (captured)', () => {
     cy.location('pathname', { timeout: 20000 }).should('eq', '/clinicHome')
     cy.get('#chTiles [data-ws="frontdesk"]').should('be.visible')
     cy.get('#chTiles [data-ws="doctor"]').should('be.visible')
-    cy.get('#chTiles [data-ws="admin"]').should('be.visible')
+    cy.get('#chTiles [data-ws="clinic_admin"]').should('be.visible')   // HC-1b: the clinic's own Administration tile
     cy.get('#chTiles [data-ws="pharmacy"]').should('not.exist')
     cy.get('#chTiles [data-ws="store"]').should('not.exist')
     g.snap(a2, 'clinic-home')
@@ -191,11 +191,12 @@ describe('Test Book — HC-1a Healthcare tenants (captured)', () => {
     cy.get('#MyQueueDiv', { timeout: 20000 }).should('be.visible')
     g.snap(a2, 'my-queue')
 
-    const a3 = g.act('Go back and press **Administration**.', ['The overview opens (today at a glance).'])
+    const a3 = g.act('Go back and press **Administration**.', ["The clinic screen opens on **Team** — the clinic's own admin work (HC-1b), not the shop's overview."])
     cy.visit('/clinicHome')
-    cy.get('#chTiles [data-ws="admin"]').click()
-    cy.location('pathname', { timeout: 20000 }).should('eq', '/overview')
-    g.snap(a3, 'overview')
+    cy.get('#chTiles [data-ws="clinic_admin"]').click()
+    cy.location('pathname', { timeout: 20000 }).should('eq', '/clinicDashboard')
+    cy.get('#TeamDiv', { timeout: 20000 }).should('be.visible')
+    g.snap(a3, 'administration')
 
     const c1 = g.act(`As the operator, open **${CLINIC.org}** in Tenants, set the status to **SUSPENDED**, give the reason **guide cleanup** and confirm.`,
       ['The status reads **SUSPENDED**; the tenant is kept, nothing is deleted.'], { cleanup: true })

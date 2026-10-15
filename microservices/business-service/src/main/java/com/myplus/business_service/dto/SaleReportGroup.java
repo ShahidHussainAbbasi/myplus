@@ -44,6 +44,16 @@ public class SaleReportGroup {
     private BigDecimal bonusQuantity = BigDecimal.ZERO;
     private BigDecimal bonusValue = BigDecimal.ZERO;
 
+    /*
+     * SRA-4b — nested grouping (Rep → Area → Product …, up to four levels), one column split, and drill-down.
+     *   children    the next level's groups; empty on the last level (and on a one-level report, as before).
+     *   cols        one cell per value of the column split (e.g. one per rep), in first-seen order; null with no split.
+     *   invoiceNos  the distinct invoices behind this figure — what a click on it opens. Sorted, so a test can compare.
+     */
+    private java.util.List<SaleReportGroup> children = new java.util.ArrayList<>();
+    private java.util.List<SaleReportGroup> cols;
+    private java.util.List<String> invoiceNos = new java.util.ArrayList<>();
+
     public SaleReportGroup(String label, int invoices, BigDecimal quantity, BigDecimal total, BigDecimal tax) {
         this.label = label;
         this.invoices = invoices;

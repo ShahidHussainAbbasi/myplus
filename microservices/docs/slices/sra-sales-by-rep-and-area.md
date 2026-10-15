@@ -246,8 +246,8 @@ the file and the screen cannot disagree (§3.4):
 | Part | What | Status |
 |---|---|---|
 | **4a** | the new dimensions as filters + ONE group-by + grid columns + CSV columns; bonus at TP; who sees which rows | GREEN 15 Oct |
-| 4b | filtering and grouping move into SQL; nested groups (up to 4); one column split; drill-down to the invoices | next |
-| 4c | Excel (.xlsx, POI) and PDF downloads | after 4b |
+| 4b | nested groups (up to 4); one column split; drill-down to the invoices — SQL move DEFERRED (below) | GREEN 15 Oct |
+| 4c | Excel (.xlsx, POI, server) and the report PDF (pdfmake, from the screen's answer) | written 15 Oct, not built |
 
 **4a as written:**
 
@@ -266,6 +266,40 @@ Checked and NOT a problem: a void deletes the sale lines (SaleVoidService), so a
 first purchase (SSR); bonus value = bonus qty × TP = last purchase rate (SSR) — so the two reports agree.
 **Known edge:** two areas with the same name in different cities read alike in the Area filter (names only); 4b's
 nested City → Area grouping is the answer.
+
+### 7.7 SRA-4b (2026-10-15) — deployed, GREEN: gate 11/11, report regression 97/97, Test Book D3
+
+**The SQL move is deferred, on measurement.** §7.4 planned to move filtering and grouping into SQL. Measured on the dev
+stack: the largest business has **1,104** sale lines in all, ≤ **478** in 30 days; `/loadSR` for 30 days answers in
+**0.08–0.15 s**. The cost is the ~**1 MB** of line detail sent, not the query — and SQL cannot group by product, category,
+company or supplier at all: those live in catalog-service, not in the business database. So grouping stays in the ONE
+in-memory engine the screen and the CSV share. Revisit when a business passes ~20,000 lines a period, or the payload
+hurts (then: page the detail, send the tree alone).
+
+| Where | What |
+|---|---|
+| business-service | `groupBy` is a comma list (`REP,AREA,PRODUCT`, ≤ 4 levels, unknown/repeated dropped — `SaleReportGrouping.levels`); `SaleReportGrouping.tree()` builds the nested groups, each node with `children`, the DISTINCT `invoiceNos` behind it, and with `splitBy` one `cols` cell per split value; one level + no split = the SRA-4a answer (plus `invoiceNos`). NEW `SaleReportCsv` — one row per node at every level, each repeating its parents, split values as columns; one level + no split = byte-for-byte the SRA-4a file. `SellDTO.splitBy` (+ mapper ignore) |
+| monolith | rail: “Then by” ×3 (each shown under a chosen level, a used level disabled) + “Columns”; the group table is a TREE (▸/▾, deeper levels closed, a grand-total row, split columns); a group's invoice count DRILLS: the line grid narrows to exactly those invoices (anchored regex on the html-typed invoice column), a chip names the group, × restores; a reload clears a stale drill; CSV link carries `splitBy`; 8 keys × 6 bundles |
+| tests | `SaleReportTreeTest` (5, incl. the CSV); gate `sra-sales-analysis.cy.js` + R8–R11 |
+
+**Found, NOT changed (owner to decide):** Print invoices / Download PDF read the RENDERED rows, i.e. the grid's current
+page (10 by default). A filtered or drilled report of 25 invoices prints the first page's worth.
+
+### 7.8 SRA-4c + the owner's two rulings (2026-10-15) — written, NOT yet built or gated
+
+**Owner, 15 Oct: "It should fetch real time and complete data"** (Print invoices / Download PDF) **and "fresh invoice data
+should be cached to avoid performance issues for re fetching it from the database".**
+
+| Where | What |
+|---|---|
+| monolith | `srVisibleInvoiceNos()` reads every row the grid KEEPS (`rows({search:'applied'})` — filters, search box, a drill), across all pages, not the rendered page. Each invoice is still fetched from the server when printed |
+| business-service — INV-CACHE | `InvoiceLinesCache` (Caffeine, cache-aside, key business+invoice, TTL `app.cache.invoice-lines.ttl-seconds`=300, 0 = off, generation guard so a print racing a write cannot store the old lines) holds ONLY a printed invoice's LINES (lines + catalog names + batches + store credit). The HEADER — paid, due, totals, balance — is read live on every print, so no money figure is ever served from a cache. `InvoiceLinesEvictor` = entity listener on `Sell` + `Payment`: every JPA writer (4 + 2 classes; no native SQL writes them) evicts at once and again after the transaction completes. `SellBatch` (1 writer, always in the same transaction as its lines) is covered by its lines' eviction. Catalog renames reach a cached invoice within the TTL. `getReceipt` → `buildReceiptLines(ch)` on a miss |
+| business-service — 4c | `/saleReport.xlsx` from `loadSR` itself (same scoping/filters/grouping as the screen and the CSV): `SaleReportXlsx` — header block (period DATES via `SaleReportPeriod.days`, every filter, grouping, columns, generated time), numbers as numbers with formats, the tree as Excel's outline (+/−, `groupRow`), a bold grand total; ungrouped = the CSV's detail columns |
+| monolith — 4c | `/saleReport.xlsx` proxy (bytes, `BusinessRestClient.getBytes`); rail: **Export Excel** link + **Report PDF** button; `srExportQuery(v)` = ONE query for CSV and Excel; `srReportPdf()` builds a landscape A4 PDF from `window.srLast` (what the screen drew) with the period, filters and grouping in words, the tree indented, the grand total; 7 keys × 6 bundles |
+| tests | `InvoiceLinesCacheTest` (6), `SaleReportXlsxTest` (2); gate R12–R13 (Excel, PDF) in `sra-sales-analysis.cy.js`; `sale-report-invoices.cy.js` + "every row, not the page" and "INV-CACHE never stale" |
+
+**Known limit:** the report PDF uses pdfmake's default font, so Urdu / Arabic names print as boxes (the receipts' raster
+route is not used here). Excel and CSV carry them correctly.
 
 ---
 

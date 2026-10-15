@@ -28,6 +28,8 @@ import lombok.Data;
  */
 @Data
  @Entity
+// INV-CACHE: a write here evicts the printed invoice's cached lines (InvoiceLinesCache).
+@jakarta.persistence.EntityListeners(com.myplus.business_service.service.InvoiceLinesEvictor.class)
 @Table(name = "sell", uniqueConstraints = { @UniqueConstraint(columnNames = "sell_id") })
 
 public class Sell implements Serializable {

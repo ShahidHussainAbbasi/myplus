@@ -93,6 +93,11 @@ public enum SaleReportPeriod {
      *
      * @throws IllegalStateException for {@link #CUSTOM}, whose range comes from the request, not from here
      */
+    /** SRA-4c: the period's first and last DAY, for a downloaded report's header; null for CUSTOM (its dates are the request's). */
+    public LocalDate[] days(LocalDate today) {
+        return daysOf == null ? null : daysOf.apply(today);
+    }
+
     public LocalDateTime[] range(LocalDate today) {
         if (daysOf == null) {
             throw new IllegalStateException("CUSTOM has no computed range — resolve it from sd/ed");

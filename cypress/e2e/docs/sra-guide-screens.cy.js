@@ -16,6 +16,7 @@
  *   C3  SRA-3 — a rep booking signed in has no picker and is credited themselves
  *   D1  SRA-4a — the Sale Detail Report filters by sales rep and shows rep, area and supplier on each line
  *   D2  SRA-4a — grouped by how the sale came in, the sources in words; old sales read "Not recorded"
+ *   D3  SRA-4b — group by rep then by area; open a rep; drill from its figure to the invoices behind it
  *
  * The cases with no screen (import, another business, the takeover by id, the credit account, refusals at the server)
  * are proven by the gates — sra-areas.cy.js, sra-reps.cy.js, territory-assignment.cy.js — and listed under the section.
@@ -625,5 +626,63 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
     cy.contains('#srGroups td', 'Rep signed in').should('be.visible')
     cy.get('#srGroups').scrollIntoView()
     g.snap(a1, 'grouped-by-source')
+  })
+  // ── D3 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('D3', 'Group by rep, then by area; open a rep; drill from its figure to the invoices behind it', () => {
+    g.testCase('D3', 'Group by rep, then by area; open a rep; drill from its figure to the invoices behind it', {
+      tenant: OWNER, role: 'Owner',
+      purpose: 'Nested grouping as the market does it (Odoo): each level adds up to the one above, and a total nobody can open is a total nobody can check — so every group’s invoice count opens the invoices behind it.',
+      prereq: ['C1 and C2 done this run: two sales credited to SRA Irfan.'],
+      data: [`Sales rep **SRA Irfan ${RUN}**, Group by **Sales rep**, then by **Area**`],
+      rollback: 'Nothing is saved — a report only reads. × on the chip shows every line again.',
+    })
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('SRDiv', { force: true })
+    cy.get('#dateRangeDDSR').select('0', { force: true })
+    cy.get('#rfRep').focus()
+    cy.get(`#rfRep option[value="${ctx.irfan}"]`, { timeout: 15000 }).should('exist')
+    cy.intercept('POST', '**/loadSR').as('sr')
+    cy.get('#rfRep').select(String(ctx.irfan), { force: true })
+    cy.wait('@sr')
+
+    const a1 = g.act('Set **Group by** to **Sales rep**.',
+      ['A **Then by** box appears beside it.', `The subtotal table shows one row, **SRA Irfan ${RUN}**, with a ▸ and a **Grand total** row under it.`])
+    cy.get('#rfGroupBy').select('REP', { force: true })
+    cy.wait('@sr')
+    cy.get('#rfGroupBy2').closest('.sr-field').should('be.visible')
+    cy.contains('#srGroups tr.sr-depth-0', `SRA Irfan ${RUN}`).should('be.visible')
+    cy.contains('#srGroups tr.sr-grand', 'Grand total').should('be.visible')
+    cy.get('#SR').scrollIntoView()
+    g.snap(a1, 'then-by')
+
+    const a2 = g.act('Set **Then by** to **Area**, then press **▸** on the rep’s row.',
+      ['Under the rep, one row per area his sales went to. The areas add up to the rep’s total.'])
+    cy.get('#rfGroupBy2').select('AREA', { force: true })
+    cy.wait('@sr').then((x) => {
+      const rep = (x.response.body.object || [])[0]
+      const sum = rep.children.reduce((a, c) => a + Number(c.total), 0)
+      expect(Math.round(sum * 100) / 100, 'the areas add up to the rep').to.eq(Number(rep.total))
+    })
+    cy.contains('#srGroups tr.sr-depth-0', `SRA Irfan ${RUN}`).find('.sr-toggle').click()
+    cy.get('#srGroups tr.sr-depth-1').first().should('be.visible')
+    cy.get('#srGroups').scrollIntoView()
+    g.snap(a2, 'rep-opened')
+
+    const a3 = g.act('On the rep’s row, click the number under **Invoices**.',
+      [`A blue note: **Showing the invoices of: SRA Irfan ${RUN} (2)**, with ×.`,
+        'The lines below narrow to exactly those two invoices — Print invoices and Download PDF now act on them.'])
+    cy.contains('#srGroups tr.sr-depth-0', `SRA Irfan ${RUN}`).find('.sr-drill').click()
+    cy.get('#srDrill').should('be.visible').and('contain.text', `SRA Irfan ${RUN}`)
+    cy.get('#tableSellReport tbody .sr-inv').should(($i) => {
+      expect([...new Set($i.toArray().map((x) => x.textContent.trim()))].sort()).to.deep.eq([...ctx.irfanInvoices].sort())
+    })
+    cy.get('#srDrill').scrollIntoView()
+    g.snap(a3, 'drilled')
+
+    const c1 = g.act('Press **×** on the blue note.', ['The note goes and every line of the report is back.'], { cleanup: true })
+    cy.get('#srDrillClear').click()
+    cy.get('#srDrill').should('not.be.visible')
+    g.snap(c1, 'drill-cleared')
   })
 })

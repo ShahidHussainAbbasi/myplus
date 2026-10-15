@@ -124,6 +124,8 @@ public class SellDTO implements Serializable {
 	private String supplier;
 	private java.math.BigDecimal bonusValue;
 	private String bonus;
+	/** SRA-4b: cut every group the other way — one column per value of this dimension (a SaleReportGrouping name). */
+	private String splitBy;
 
 	/**
 	 * B2B-P3b-2 (#4): the batch(es) this line drew from, for the receipt and for traceability.

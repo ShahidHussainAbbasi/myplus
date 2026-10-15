@@ -59,6 +59,11 @@ public class BusinessRestClient {
         return gateway.forString(PREFIX, directBaseUrl, withQuery(path, queryString), HttpMethod.GET, null, null);
     }
 
+    /** SRA-4c — a binary answer (an Excel workbook) passed through untouched; a String body would corrupt it. */
+    public org.springframework.http.ResponseEntity<byte[]> getBytes(String path, String queryString) {
+        return gateway.forBytesEntity(PREFIX, directBaseUrl, withQuery(path, queryString));
+    }
+
     /** POST with form params (application/x-www-form-urlencoded). */
     public Map<String, Object> postForm(String path, Map<String, String> params) {
         return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.POST, form(params),

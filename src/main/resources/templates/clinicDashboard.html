@@ -8,6 +8,7 @@
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
 <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
 <link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
+<link rel="stylesheet" th:href="@{/css/permissions.css}"/>  <!-- HC-1b: the shared Team block's permission matrix -->
 <link rel="stylesheet" th:href="@{/css/clinic.css}"/>
 </head>
 <body class="has-sidebar">
@@ -49,6 +50,18 @@
               <div class="snav-dd" th:if="${@perm.menu('clinic.settings')}">
                 <button class="snav-btn" id="clinNavSettings" onclick="Clinic.show('ClinicSettingsDiv')">
                   <span class="glyphicon glyphicon-cog"></span><span th:text="#{ui.clinicSettings}">Clinic settings</span>
+                </button>
+              </div>
+              <!-- HC-1c: the clinic's pharmacy (a separate business it links to) — owner / admin. -->
+              <div class="snav-dd" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+                <button class="snav-btn" id="clinNavPharmacyLink" onclick="Clinic.show('PharmacyLinkDiv')">
+                  <span class="glyphicon glyphicon-link"></span><span th:text="#{ui.pl.title}">Linked pharmacy</span>
+                </button>
+              </div>
+              <!-- HC-1b: Team on the clinic's own page — the same gate as the shop's Team menu (owner or admin). -->
+              <div class="snav-dd" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+                <button class="snav-btn" id="clinNavTeam" onclick="Clinic.show('TeamDiv')">
+                  <span class="glyphicon glyphicon-user"></span><span th:text="#{ui.team}">Team</span>
                 </button>
               </div>
               <div class="snav-dd" th:if="${@perm.menu('clinic.pharmacy') and !@perm.ownHome()}">
@@ -354,6 +367,11 @@
             <div id="clinSettingsBody" class="clin-settings"></div>
           </div>
         </section>
+
+        <!-- HC-1c — the clinic's side of the clinic ↔ pharmacy link (fragments/org-links.html). -->
+        <section th:replace="~{fragments/org-links :: clinic}"></section>
+        <!-- HC-1b — Team & Users: the shared fragment (shop · school · clinic). A clinic assigns no locations. -->
+        <div th:replace="~{fragments/team :: team('clinic')}"></div>
       </div>
     </div>
   </div>
@@ -362,6 +380,10 @@
   <script th:src="@{/js/business/sidebar.js}"></script>
   <script th:src="@{/js/common/sessions.js}"></script>
   <script th:inline="javascript">var serverContext = [[@{/}]];</script>
+  <script th:src="@{/js/common/api-response.js}"></script>   <!-- apiMessage(), which team.js / permissions.js use -->
+  <script th:src="@{/js/common/team.js}"></script>
+  <script th:src="@{/js/common/org-links.js}"></script>
+  <script th:src="@{/js/common/permissions.js}"></script>
   <script th:src="@{/js/clinic/clinic.js}"></script>
 </body>
 </html>

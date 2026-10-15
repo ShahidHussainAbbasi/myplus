@@ -1109,9 +1109,17 @@ function priceRuleState(r){
  * see -- so these buttons cannot produce something they were not shown.
  */
 function srVisibleInvoiceNos(){
+	/*
+	 * ⚠ EVERY row the grid keeps, not the rendered PAGE (owner, 15 Oct: "fetch real time and complete data").
+	 * This read the <tbody> — which DataTables fills with the current page only, 10 rows by default — so a report
+	 * filtered (or drilled, SRA-4b) to 25 invoices printed the first page's worth and said nothing about the rest.
+	 * `search: 'applied'` is every row the report's filters, its search box and a drill keep, across all pages.
+	 * Real time: each invoice is still fetched from the server when printed (getReceipt), never taken from the grid.
+	 */
 	var seen = {}, out = [];
-	$('#tableSellReport tbody .sr-inv').each(function(){
-		var no = $.trim($(this).text());
+	if (!tableSellReport) return out;
+	tableSellReport.rows({ search: 'applied', order: 'applied' }).data().each(function(row){
+		var no = $.trim($('<div>').html(row[1]).text());
 		if (!no || no === '—' || seen[no]) return;
 		seen[no] = true;
 		out.push(no);
@@ -4459,32 +4467,121 @@ function srQtyText(o){
 function renderSRGroups(groups){
 	var host = document.getElementById('srGroups');
 	if (!host) return;
+	srClearDrill(true);
 	if (!groups || !groups.length) { host.style.display = 'none'; host.innerHTML = ''; return; }
-	var h = '<table class="table table-striped" style="width:100%"><thead><tr>'
-		+ '<th>' + escHtml(t('ui.js.groupBy')) + '</th>'
-		+ '<th class="text-right">' + escHtml(t('ui.js.invoices')) + '</th>'
+	/*
+	 * SRA-4b — the groups as a TREE (Rep → Area → Product …): the first level shows, each deeper level opens with ▸.
+	 * With a column split every row also carries one cell per split value, in the order they first appear. A group's
+	 * invoice count is the drill-down: it narrows the lines below to exactly the invoices behind that figure.
+	 */
+	var label = function(g){
+		return g.label != null ? g.label : (typeof saleReportCodeLabel === 'function' ? saleReportCodeLabel(g.labelCode) : (g.labelCode || ''));
+	};
+	var colKey = function(c){ return c.label != null ? 'n:' + c.label : 'c:' + c.labelCode; };
+	var splitCols = [], seen = {};
+	(function collect(list){ (list || []).forEach(function(g){
+		(g.cols || []).forEach(function(c){ var k = colKey(c); if (!seen[k]) { seen[k] = true; splitCols.push({ key: k, label: label(c) }); } });
+		collect(g.children);
+	}); })(groups);
+	var num = function(v, places){ return (v != null && Number(v) !== 0) ? Number(v).toFixed(places) : ''; };
+	var nodes = window.srTreeNodes = [];
+	var h = '<table class="table table-striped sr-tree" style="width:100%"><thead><tr>'
+		+ '<th>' + escHtml(t('ui.js.groupBy')) + '</th>';
+	splitCols.forEach(function(c){ h += '<th class="text-right">' + escHtml(c.label) + '</th>'; });
+	h += '<th class="text-right">' + escHtml(t('ui.js.invoices')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.qty2')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.total')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.taxAmount')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.grossSales')) + '</th>'
-		// SRA-4a: free goods, quantity and value at TP.
 		+ '<th class="text-right">' + escHtml(t('ui.js.bonusQty')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.bonusValue')) + '</th></tr></thead><tbody>';
-	groups.forEach(function(g){
-		// SRA-4a: a group with no name carries a CODE (NOT_RECORDED, NO_REP, COUNTER …) — shown in words from the bundle.
-		var label = g.label != null ? g.label : (typeof saleReportCodeLabel === 'function' ? saleReportCodeLabel(g.labelCode) : (g.labelCode || ''));
-		h += '<tr><td>' + escHtml(label || '') + '</td>'
-			+ '<td class="text-right">' + (g.invoices != null ? g.invoices : '') + '</td>'
-			+ '<td class="text-right">' + escHtml(g.soldUnit ? looseQtyText(g)
-					: (g.quantity != null ? String(Number(g.quantity)) : '')) + '</td>'
-			+ '<td class="text-right">' + (g.total != null ? Number(g.total).toFixed(2) : '') + '</td>'
-			+ '<td class="text-right">' + (g.tax != null ? Number(g.tax).toFixed(2) : '') + '</td>'
+	var grand = { total: 0, tax: 0, gross: 0, qty: 0, bq: 0, bv: 0, inv: {} };
+	(function rows(list, depth, parent, path){ (list || []).forEach(function(g){
+		var id = nodes.length, kids = g.children && g.children.length;
+		var myPath = path.concat([label(g)]);
+		nodes.push({ invoiceNos: g.invoiceNos || [], path: myPath });
+		var cells = {};
+		(g.cols || []).forEach(function(c){ cells[colKey(c)] = c.total; });
+		h += '<tr data-sr-node="' + id + '"' + (parent != null ? ' data-sr-parent="' + parent + '" style="display:none"' : '')
+			+ ' class="sr-depth-' + depth + '"><td style="padding-left:' + (8 + depth * 22) + 'px">'
+			+ (kids ? '<button type="button" class="btn btn-link btn-xs sr-toggle" aria-expanded="false" data-sr-toggle="' + id + '">▸</button> '
+			        : '<span class="sr-toggle-gap"></span> ')
+			+ escHtml(label(g)) + '</td>';
+		splitCols.forEach(function(c){ h += '<td class="text-right">' + num(cells[c.key], 2) + '</td>'; });
+		h += '<td class="text-right"><button type="button" class="btn btn-link btn-xs sr-drill" data-sr-drill="' + id + '" title="'
+				+ escHtml(t('ui.js.showTheseInvoices')) + '">' + (g.invoices != null ? g.invoices : '') + '</button></td>'
+			+ '<td class="text-right">' + escHtml(g.soldUnit ? looseQtyText(g) : (g.quantity != null ? String(Number(g.quantity)) : '')) + '</td>'
+			+ '<td class="text-right">' + num(g.total, 2) + '</td>'
+			+ '<td class="text-right">' + num(g.tax, 2) + '</td>'
 			+ '<td class="text-right"><b>' + (g.gross != null ? Number(g.gross).toFixed(2) : '') + '</b></td>'
 			+ '<td class="text-right">' + (Number(g.bonusQuantity) > 0 ? escHtml(String(Number(g.bonusQuantity))) : '') + '</td>'
-			+ '<td class="text-right">' + (Number(g.bonusValue) > 0 ? Number(g.bonusValue).toFixed(2) : '') + '</td></tr>';
-	});
+			+ '<td class="text-right">' + num(g.bonusValue, 2) + '</td></tr>';
+		if (depth === 0) {
+			grand.total += Number(g.total) || 0; grand.tax += Number(g.tax) || 0; grand.gross += Number(g.gross) || 0;
+			grand.qty += Number(g.quantity) || 0; grand.bq += Number(g.bonusQuantity) || 0; grand.bv += Number(g.bonusValue) || 0;
+			(g.invoiceNos || []).forEach(function(n){ grand.inv[n] = true; });
+		}
+		rows(g.children, depth + 1, id, myPath);
+	}); })(groups, 0, null, []);
+	// The grand total, from the first level — the figure every deeper level must add up to.
+	h += '<tr class="sr-grand"><td><b>' + escHtml(t('ui.js.grandTotal')) + '</b></td>';
+	splitCols.forEach(function(){ h += '<td></td>'; });
+	h += '<td class="text-right"><b>' + Object.keys(grand.inv).length + '</b></td>'
+		+ '<td class="text-right"><b>' + escHtml(String(Math.round(grand.qty * 10000) / 10000)) + '</b></td>'
+		+ '<td class="text-right"><b>' + grand.total.toFixed(2) + '</b></td>'
+		+ '<td class="text-right"><b>' + grand.tax.toFixed(2) + '</b></td>'
+		+ '<td class="text-right"><b>' + grand.gross.toFixed(2) + '</b></td>'
+		+ '<td class="text-right"><b>' + (grand.bq > 0 ? escHtml(String(grand.bq)) : '') + '</b></td>'
+		+ '<td class="text-right"><b>' + (grand.bv > 0 ? grand.bv.toFixed(2) : '') + '</b></td></tr>';
 	host.innerHTML = h + '</tbody></table>';
 	host.style.display = '';
+}
+
+/** SRA-4b — open / close a group: closing hides every level beneath it, opening shows only the next one. */
+$(document).on('click', '#srGroups .sr-toggle', function(){
+	var id = $(this).attr('data-sr-toggle'), open = $(this).attr('aria-expanded') !== 'true';
+	$(this).attr('aria-expanded', open ? 'true' : 'false').text(open ? '▾' : '▸');
+	(function hide(pid){ $('#srGroups tr[data-sr-parent="' + pid + '"]').each(function(){
+		var $r = $(this);
+		if (open) { $r.show(); return; }
+		$r.hide();
+		$r.find('.sr-toggle').attr('aria-expanded', 'false').text('▸');
+		hide($r.attr('data-sr-node'));
+	}); })(id);
+});
+
+/** Escape a value for a regular expression (an invoice number is matched literally). */
+function srRegexLiteral(x){
+	return String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * SRA-4b — drill-down: a group's invoice count narrows the lines below to EXACTLY the invoices behind that figure, with
+ * a chip naming the group. Print invoices / Download PDF then act on what is shown. Each invoice number is matched whole
+ * (anchored), so INV-1 can never match INV-10.
+ */
+$(document).on('click', '#srGroups .sr-drill', function(){
+	var node = (window.srTreeNodes || [])[Number($(this).attr('data-sr-drill'))];
+	if (!node || !tableSellReport) return;
+	var re = node.invoiceNos.length ? '^(' + node.invoiceNos.map(srRegexLiteral).join('|') + ')$' : '^$';
+	tableSellReport.column(1).search(re, true, false).draw();
+	var $chip = $('#srDrill');
+	if (!$chip.length) $chip = $('<div id="srDrill" class="alert alert-info sr-drill-chip" role="status"></div>').insertAfter('#srGroups');
+	$chip.html(escHtml(t('ui.js.showingInvoicesOf')) + ' <b>' + escHtml(node.path.join(' › ')) + '</b> ('
+		+ node.invoiceNos.length + ') <button type="button" class="close" id="srDrillClear" aria-label="'
+		+ escHtml(t('ui.js.showAllLines')) + '">&times;</button>').show();
+	var grid = document.getElementById('tableSellReport');
+	if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+$(document).on('click', '#srDrillClear', function(){ srClearDrill(); });
+
+/** Back to every line of the report (also on every reload of the report, so a stale drill never narrows new data). */
+function srClearDrill(silent){
+	$('#srDrill').hide();
+	if (tableSellReport && tableSellReport.column(1).search() !== '') {
+		tableSellReport.column(1).search('', true, false);
+		if (!silent) tableSellReport.draw();
+	}
 }
 
 /**
@@ -4497,15 +4594,9 @@ function srRepCell(o){
 	return '<span class="text-muted">' + escSR(o.saleSource ? src : saleReportCodeLabel('NOT_RECORDED')) + '</span>';
 }
 
-function mountSRFilters(){
-	if (window.srFilters || typeof mountReportFilters !== 'function') return;
-	window.srFilters = mountReportFilters({
-		container : 'srFilterRail',
-		dimensions: ['groupBy','customer','product','category','company','channel',
-		             'rep','source','area','city','supplier','bonus'],   // SRA-4a
-		onApply   : function(){ loadSR(); },
-		exportUrl : function(v){
-			var q = 'rp=' + encodeURIComponent(srPeriod())
+/** The report's own query, for every download — one builder, so the CSV, the Excel file and the screen cannot disagree. */
+function srExportQuery(v){
+	return 'rp=' + encodeURIComponent(srPeriod())
 				+ '&sd=' + encodeURIComponent($('#srsd').val() || '')
 				+ '&ed=' + encodeURIComponent($('#sred').val() || '')
 				+ '&customerId=' + encodeURIComponent(v.customerId || '')
@@ -4514,6 +4605,7 @@ function mountSRFilters(){
 				+ '&manufacturer=' + encodeURIComponent(v.manufacturer || '')
 				+ '&customerType=' + encodeURIComponent(v.customerType || '')
 				+ '&groupBy=' + encodeURIComponent(v.groupBy || '')
+				+ '&splitBy=' + encodeURIComponent(v.splitBy || '')   // SRA-4b
 				// SRA-4a — the file carries every filter the screen does, or the two disagree.
 				+ '&repId=' + encodeURIComponent(v.repId || '')
 				+ '&saleSource=' + encodeURIComponent(v.saleSource || '')
@@ -4521,8 +4613,110 @@ function mountSRFilters(){
 				+ '&cityId=' + encodeURIComponent(v.cityId || '')
 				+ '&supplierId=' + encodeURIComponent(v.supplierId || '')
 				+ '&bonus=' + encodeURIComponent(v.bonus || '');
-			return serverContext + 'saleReport.csv?' + q;
-		}
+}
+
+/**
+ * SRA-4c — the report as a landscape PDF, built from the LAST answer the screen drew (window.srLast), so the file is what
+ * is on screen: the same scoping, filters, grouping and split. The header says what the file is — the period, every
+ * filter chosen (in the words the rail shows), the grouping and the columns. Built with the page's own pdfmake, loaded on
+ * first use (LazyExport), like every other PDF here.
+ */
+function srReportPdf(){
+	var last = window.srLast;
+	if (!last || !last.rows || !last.rows.length) { if (window.showFormError) showFormError(t('ui.js.noSalesFoundForTheSelectedPeriod')); return; }
+	if (!window.LazyExport || typeof LazyExport.ensurePdfMake !== 'function') { if (window.showFormError) showFormError(t('ui.js.pdfUnavailable')); return; }
+	var picked = function(id){
+		var el = document.getElementById(id);
+		return (el && el.value) ? $.trim($(el).find('option:selected').text()) : '';
+	};
+	var about = [];
+	var period = $('#dateRangeDDSR option:selected').text();
+	if ($('#dateRangeDDSR').val() === '4') period += ': ' + ($('#srsd').val() || '…') + ' – ' + ($('#sred').val() || '…');
+	about.push([t('ui.js.period'), period]);
+	var filters = ['rfCustomer','rfProduct','rfCategory','rfCompany','rfChannel','rfRep','rfSource','rfArea','rfCity','rfSupplier','rfBonus']
+		.map(picked).filter(Boolean);
+	about.push([t('ui.js.filters'), filters.length ? filters.join(' · ') : t('ui.js.none')]);
+	var levels = ['rfGroupBy','rfGroupBy2','rfGroupBy3','rfGroupBy4'].map(picked).filter(Boolean);
+	if (levels.length) about.push([t('ui.js.groupBy'), levels.join(' › ')]);
+	if (picked('rfSplitBy')) about.push([t('ui.js.columnsBy'), picked('rfSplitBy')]);
+
+	var money = function(v){ return (v != null && Number(v) !== 0) ? Number(v).toFixed(2) : ''; };
+	var num = function(v){ return (v != null && Number(v) !== 0) ? String(Number(v)) : ''; };
+	var label = function(g){ return g.label != null ? g.label : saleReportCodeLabel(g.labelCode); };
+	var R = function(x){ return { text: x, alignment: 'right' }; };
+	var body = [], widths;
+
+	if (last.groups && last.groups.length) {
+		var colKey = function(c){ return c.label != null ? 'n:' + c.label : 'c:' + c.labelCode; };
+		var split = [], seen = {};
+		(function collect(list){ (list || []).forEach(function(g){
+			(g.cols || []).forEach(function(c){ var k = colKey(c); if (!seen[k]) { seen[k] = true; split.push({ key: k, label: label(c) }); } });
+			collect(g.children);
+		}); })(last.groups);
+		body.push([t('ui.js.groupBy')].concat(split.map(function(c){ return R(c.label); }),
+			[R(t('ui.js.invoices')), R(t('ui.js.qty2')), R(t('ui.js.total')), R(t('ui.js.taxAmount')), R(t('ui.js.grossSales')),
+			 R(t('ui.js.bonusQty')), R(t('ui.js.bonusValue'))]).map(function(c){ return typeof c === 'string' ? { text: c, bold: true } : $.extend(c, { bold: true }); }));
+		var grand = { inv: {}, q: 0, total: 0, tax: 0, gross: 0, bq: 0, bv: 0 };
+		(function rows(list, depth){ (list || []).forEach(function(g){
+			var cells = {};
+			(g.cols || []).forEach(function(c){ cells[colKey(c)] = c.total; });
+			body.push([{ text: label(g), margin: [depth * 12, 0, 0, 0], bold: depth === 0 }]
+				.concat(split.map(function(c){ return R(money(cells[c.key])); }),
+				[R(String(g.invoices || '')), R(num(g.quantity)), R(money(g.total)), R(money(g.tax)), R(money(g.gross)),
+				 R(num(g.bonusQuantity)), R(money(g.bonusValue))]));
+			if (depth === 0) {
+				(g.invoiceNos || []).forEach(function(n){ grand.inv[n] = true; });
+				grand.q += Number(g.quantity) || 0; grand.total += Number(g.total) || 0; grand.tax += Number(g.tax) || 0;
+				grand.gross += Number(g.gross) || 0; grand.bq += Number(g.bonusQuantity) || 0; grand.bv += Number(g.bonusValue) || 0;
+			}
+			rows(g.children, depth + 1);
+		}); })(last.groups, 0);
+		body.push([{ text: t('ui.js.grandTotal'), bold: true }].concat(split.map(function(){ return ''; }),
+			[R(String(Object.keys(grand.inv).length)), R(num(grand.q)), R(grand.total.toFixed(2)), R(grand.tax.toFixed(2)),
+			 R(grand.gross.toFixed(2)), R(num(grand.bq)), R(money(grand.bv))]).map(function(c){ return typeof c === 'object' ? $.extend(c, { bold: true }) : c; }));
+		widths = ['*'].concat(split.map(function(){ return 'auto'; }), ['auto','auto','auto','auto','auto','auto','auto']);
+	} else {
+		body.push([t('ui.js.date2'), t('ui.js.invoice'), t('ui.js.customer'), t('ui.js.product'), R(t('ui.js.qty2')),
+			R(t('ui.js.total')), R(t('ui.js.taxAmount')), t('ui.js.groupRep'), t('ui.js.groupArea'), R(t('ui.js.bonusValue'))]
+			.map(function(c){ return typeof c === 'string' ? { text: c, bold: true } : $.extend(c, { bold: true }); }));
+		var tq = 0, tt = 0, tx = 0, tb = 0;
+		last.rows.forEach(function(o){
+			body.push([o.dated || '', o.invoiceNo || '', o.cn || '', (o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''),
+				R(num(o.quantity)), R(money(o.totalAmount)), R(money(o.taxAmount)),
+				o.repName || (o.saleSource ? saleReportCodeLabel(o.saleSource) : saleReportCodeLabel('NOT_RECORDED')),
+				o.area ? o.area + (o.city ? ', ' + o.city : '') : '', R(money(o.bonusValue))]);
+			tq += Number(o.quantity) || 0; tt += Number(o.totalAmount) || 0; tx += Number(o.taxAmount) || 0; tb += Number(o.bonusValue) || 0;
+		});
+		body.push([{ text: t('ui.js.grandTotal'), bold: true }, '', '', '', R(num(tq)), R(tt.toFixed(2)), R(tx.toFixed(2)), '', '', R(money(tb))]);
+		widths = ['auto','auto','*','*','auto','auto','auto','auto','auto','auto'];
+	}
+
+	var doc = {
+		pageOrientation: 'landscape', pageSize: 'A4', pageMargins: [24, 24, 24, 30],
+		defaultStyle: { fontSize: 8 },
+		footer: function(page, pages){ return { text: page + ' / ' + pages, alignment: 'right', margin: [0, 6, 24, 0], fontSize: 7 }; },
+		content: [
+			{ text: t('ui.js.saleDetailReport'), fontSize: 14, bold: true, margin: [0, 0, 0, 6] },
+			{ table: { widths: ['auto', '*'], body: about.map(function(r){ return [{ text: r[0], bold: true }, r[1]]; }) },
+			  layout: 'noBorders', margin: [0, 0, 0, 8] },
+			{ table: { headerRows: 1, widths: widths, body: body }, layout: 'lightHorizontalLines' }
+		]
+	};
+	LazyExport.ensurePdfMake().then(function(){
+		pdfMake.createPdf(doc).download('sale-report.pdf');
+	}).catch(function(){ if (window.showFormError) showFormError(t('ui.js.pdfUnavailable')); });
+}
+
+function mountSRFilters(){
+	if (window.srFilters || typeof mountReportFilters !== 'function') return;
+	window.srFilters = mountReportFilters({
+		container : 'srFilterRail',
+		dimensions: ['groupBy','customer','product','category','company','channel',
+		             'rep','source','area','city','supplier','bonus'],   // SRA-4a
+		onApply   : function(){ loadSR(); },
+		exportUrl : function(v){ return serverContext + 'saleReport.csv?' + srExportQuery(v); },
+		exportXlsxUrl : function(v){ return serverContext + 'saleReport.xlsx?' + srExportQuery(v); },   // SRA-4c
+		onExportPdf : function(){ srReportPdf(); }                                                           // SRA-4c
 	});
 }
 
@@ -4570,6 +4764,7 @@ function loadSR(){
 			if (window.srFilters) window.srFilters.categoriesFrom(rows);   // B2B-P3e-1: real categories only
 			if (window.srFilters) window.srFilters.companiesFrom(rows);    // #18: real companies only
 			renderSRGroups(data.object);   // B2B-P3e-2 (#6): subtotals, from the same response
+			window.srLast = { rows: rows, groups: data.object || null };   // SRA-4c: the Report PDF is what is on screen
 			rows.forEach(function(o){
 				var product = escSR((o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''));
 				var dueRaw  = parseFloat(o.dueAmount);

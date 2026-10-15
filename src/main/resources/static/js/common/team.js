@@ -30,6 +30,14 @@ function tMsg(key, fallback) {
 	return fallback;
 }
 
+/**
+ * HC-1b — does this page assign locations? The shop (stores) and the school (branches) do; the clinic does not, and
+ * its Team block has no #teamStores — so no picker, no location column, no "Edit access", and no getStores call.
+ */
+function teamHasLocations() {
+	return $('#teamStores').length > 0;
+}
+
 function showTeam() {
 	$('.formDiv').hide();
 	$('#TeamDiv').show();
@@ -37,7 +45,7 @@ function showTeam() {
 	cancelTeamAccessEdit();
 	// Locations FIRST: the team rows name each member's stores/branches, and can only do that once the id→label
 	// map exists — otherwise the table renders raw ids on first paint.
-	loadTeamLocations(loadTeamUsers);
+	if (teamHasLocations()) loadTeamLocations(loadTeamUsers); else loadTeamUsers();
 	/*
 	 * PERM-1 — the matrix loads with the screen it lives on.
 	 *
@@ -73,7 +81,7 @@ function loadTeamUsers() {
 			if (removed) $tr.addClass('text-muted');
 			// Where this member works, and a way to CHANGE it — assignment used to be a one-way door: you could
 			// grant on creation and never move or revoke afterwards.
-			$tr.append($('<td>').text(teamLocationNames(u.locationIds)));
+			if (teamHasLocations()) $tr.append($('<td>').text(teamLocationNames(u.locationIds)));
 
 			/*
 			 * PERM-1 — which permission set this member is on, changeable in place.
@@ -112,7 +120,7 @@ function loadTeamUsers() {
 					+ tMsg('ui.js.permOwnerAll', 'Owner · full access') + '</span>'));
 			}
 			var $acts = $('<td class="team-actions">');
-			if (!removed) {
+			if (!removed && teamHasLocations()) {
 				$acts.append($('<button type="button" class="btn btn-xs btn-default">')
 					.text(tMsg('ui.js.teamEditAccess', 'Edit access'))
 					.on('click', function () { editTeamAccess(u); }));

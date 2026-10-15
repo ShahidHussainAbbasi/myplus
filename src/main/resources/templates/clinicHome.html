@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" th:lang="${htmlLang}" th:dir="${htmlDir}">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:lang="${htmlLang}" th:dir="${htmlDir}">
 <head>
 <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
 <title th:text="#{ui.ch.title} + ' — MyPlus'">Clinic home — MyPlus</title>
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
+<link rel="stylesheet" th:href="@{/css/overview.css}"/>
 <style>
-  /* HC-1a — the Hospital / Clinic home. Its own page (not workspaces.html) so clinic-only options can be added here. */
-  .ch-home { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+  /* HC-1a/HC-1b — the Hospital / Clinic home: Today, Set up your clinic (owner / admin), Where to work.
+     Its own page (not workspaces.html) so clinic-only options can be added here. */
+  .ch-home { max-width: 1040px; margin: 28px auto; padding: 0 16px; }
   .ch-home h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
-  .ch-home p.ch-lede { color: #5b6472; margin: 0 0 24px; }
+  .ch-home p.ch-lede { color: #5b6472; margin: 0 0 22px; }
   .ch-section { margin: 0 0 28px; }
   .ch-section h2 { font-size: 1rem; font-weight: 700; color: #0d2353; margin: 0 0 12px; }
   .ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
@@ -18,6 +21,15 @@
   .ch-tile .glyphicon { font-size: 24px; color: #1565C0; }
   .ch-tile b { font-size: 1.05rem; }
   .ch-empty { color: #5b6472; }
+  .ch-setup { background: #fff; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 20px; }
+  .ch-setup ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .ch-setup li { display: flex; align-items: center; gap: 10px; }
+  .ch-setup .ch-mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #b8c2d1; flex: none;
+                       display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #fff; }
+  .ch-setup li[data-done="true"] .ch-mark { background: #1f7a3f; border-color: #1f7a3f; }
+  .ch-setup li[data-done="true"] .ch-mark::before { content: "\2713"; }
+  .ch-setup li[data-done="true"] a { color: #5b6472; text-decoration: line-through; }
+  .ch-setup .ch-opt { color: #5b6472; font-size: .9rem; }
 </style>
 </head>
 <body>
@@ -25,7 +37,32 @@
     <th:block th:replace="~{fragments/header :: header}" />
     <main class="ch-home" id="clinicHome">
       <h1 th:text="#{ui.ch.title}">Clinic home</h1>
-      <p class="ch-lede" th:text="#{ui.ch.lede}">Choose where to work today. You can switch any time from the top bar.</p>
+      <p class="ch-lede" id="ovDate">&nbsp;</p>
+
+      <!-- HC-1b · D1 — what is happening today: the overview's clinic cards (each a ui_menu row, so who sees it is data). -->
+      <section class="ch-section" id="chToday" aria-labelledby="chTodayTitle">
+        <h2 id="chTodayTitle" th:text="#{ui.ch.today}">Today</h2>
+        <div class="ov-grid">
+          <th:block th:replace="~{fragments/clinic-today :: cards}"></th:block>
+        </div>
+      </section>
+
+      <!-- HC-1b · D1 — a new clinic's first steps, owner / admin only; each ticks itself from real data (clinic-home.js). -->
+      <section class="ch-section ch-setup" id="chSetup" aria-labelledby="chSetupTitle"
+               sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+        <h2 id="chSetupTitle" th:text="#{ui.ch.setup}">Set up your clinic</h2>
+        <ol>
+          <li data-step="doctors" data-required="true" data-done="false"><span class="ch-mark" aria-hidden="true"></span>
+            <a th:href="@{/clinicDashboard(open='DoctorsDiv')}" th:text="#{ui.ch.setupDoctors}">Add your doctors</a></li>
+          <li data-step="pharmacy" data-required="true" data-done="false"><span class="ch-mark" aria-hidden="true"></span>
+            <a th:href="@{/clinicDashboard(open='PharmacyLinkDiv')}" th:text="#{ui.ch.setupPharmacy}">Link your pharmacy</a></li>
+          <li data-step="staff" data-required="true" data-done="false"><span class="ch-mark" aria-hidden="true"></span>
+            <a th:href="@{/clinicDashboard(open='TeamDiv')}" th:text="#{ui.ch.setupStaff}">Add your staff</a></li>
+          <li data-step="settings" data-required="false"><span class="ch-mark" aria-hidden="true"></span>
+            <a th:href="@{/clinicDashboard(open='ClinicSettingsDiv')}" th:text="#{ui.ch.setupSettings}">Check your clinic settings</a>
+            <span class="ch-opt" th:text="#{ui.ch.optional}">(optional)</span></li>
+        </ol>
+      </section>
 
       <!-- Where to work: the clinic's workspaces (auth rows V27, filtered to this person and to the clinic type, V34). -->
       <section class="ch-section" aria-labelledby="chWorkTitle">
@@ -40,11 +77,13 @@
           <span th:text="#{ui.ch.none}">No clinic workspace is set up for your role yet. Ask the clinic owner.</span>
         </p>
       </section>
-      <!-- Later (HC-1b+): clinic-only panels — today's appointments, queue at a glance, prescriptions sent to the
-           linked pharmacy. Each a section here, each gated like the tiles. -->
+      <!-- Later: prescriptions sent to the linked pharmacy (HC-1d) — its own section here, gated like the rest. -->
     </main>
   </div>
   <th:block th:replace="~{fragments/header :: header-js}"></th:block>
   <script th:src="@{/js/common/sessions.js}"></script>
+  <script th:inline="javascript">var serverContext = [[@{/}]];</script>
+  <script th:src="@{/js/common/overview.js}"></script>
+  <script th:src="@{/js/clinic/clinic-home.js}"></script>
 </body>
 </html>

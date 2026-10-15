@@ -139,8 +139,8 @@ const SECTIONS = {
   },
   sra: {
     dir: 'sra', anchor: 'sra', number: Number(process.env.TB_NUMBER || 29), prefix: 'sra',
-    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3', 'D1', 'D2'],
-    title: 'Sales by rep and area: City / Area, sales reps, territory, the rep on every invoice, and the report by rep and area (SRA-1 – SRA-4a)',
+    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'],
+    title: 'Sales by rep and area: City / Area, sales reps, territory, the rep on every invoice, and the report by rep and area (SRA-1 – SRA-4b)',
     spec: 'cypress/e2e/docs/sra-guide-screens.cy.js',
     notes: [
       ['red', '⚠ What was broken (found while building SRA-1 / SRA-2, fixed 14 Oct)', `<strong>Another business could take
@@ -188,6 +188,60 @@ const SECTIONS = {
         <code>WorkspaceOrgTypeTest</code>, <code>ModuleRouterTest</code> — 15 Oct.`],
       ['amber', 'Clean-up', `Each run creates its own two tenants (names carry the run stamp, owner e-mails end in .test, the
         set-password link is read from Mailpit) and suspends them on screen. Tenants are never deleted.`],
+    ],
+  },
+  hc1b: {
+    dir: 'hc-1b', anchor: 'hc1b', number: Number(process.env.TB_NUMBER || 33), prefix: 'hc1b',
+    order: ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'],
+    title: 'A new clinic, set up and seeing its first patient: Clinic home, doctors, Team, Reception, My queue (HC-1b)',
+    spec: 'cypress/e2e/docs/hc-1b-clinic-setup-guide-screens.cy.js',
+    notes: [
+      ['blue', 'What is new (15 Oct)', `The <strong>Clinic home</strong> opens on <strong>Today</strong> (tokens, waiting, doctors on duty)
+        and, for the owner, <strong>Set up your clinic</strong>: add your doctors, add your staff &mdash; each ticks itself from what
+        the clinic actually has, and the list goes once both are done. <strong>Team</strong> is now on the clinic's own page (until
+        now it lived only on the shop and school dashboards, so a clinic owner could add nobody). The clinic's
+        <strong>Administration</strong> tile opens Team.`],
+      ['red', '⚠ Found while building', `Registering a patient on a Hospital / Clinic tenant had never been run (K4 is the first time).
+        The school's Team table had no <em>Permission set</em> header while its rows had the column, and its permission matrix had no
+        stylesheet &mdash; both fixed by sharing one Team block across the shop, the school and the clinic.`],
+      ['amber', 'Not on this page', `The shop's Team screen after the sharing change: <code>team-invite-first-login</code> 10/10 and
+        <code>team-members-manage</code> 5/5. The school's Team screen has no automated case &mdash; walk it once by hand. The clinic
+        owner's permission matrix still lists shop areas (a clinic uses the business permission list).`],
+      ['amber', 'Clean-up', `The run provisions its own clinic (name carries the run stamp, e-mails end in .test, set-password links
+        are read from Mailpit) and suspends it on screen at the end. Tenants are never deleted.`],
+    ],
+  },
+  hc1c: {
+    dir: 'hc-1c', anchor: 'hc1c', number: Number(process.env.TB_NUMBER || 34), prefix: 'hc1c',
+    order: ['L1', 'L2', 'L3', 'L4', 'L5', 'L6'],
+    title: 'A clinic links to its pharmacy: opt in, find, request, accept, one at a time, end (HC-1c)',
+    spec: 'cypress/e2e/docs/hc-1c-link-guide-screens.cy.js',
+    notes: [
+      ['blue', 'What is new (15 Oct)', `A Hospital / Clinic and a Pharmacy &amp; Pharmaceutical are separate businesses; this <strong>link</strong>
+        is the only thing that joins them. The pharmacy turns on <strong>Clinics may send us prescriptions</strong> (Pharmacy &rarr;
+        Linked clinics); the clinic finds it by name (<strong>Linked pharmacy</strong>), sends a request, the pharmacy accepts; either side
+        ends it with a reason. One pharmacy per clinic, today. Prescriptions across the link come next (HC-1d) &mdash; patient name, phone
+        and MRN, the medicines and the prescriber; <strong>never the diagnosis</strong>.`],
+      ['amber', 'Refusals &mdash; no screen can try these, so check them in the browser console', `Signed in as the account named,
+        <strong>F12 &rarr; Console</strong>, paste, press Enter. Each must print <code>false</code> and a reason code (gate
+        <code>healthcare/hc-1c-link-api.cy.js</code> 6/6, 15 Oct):
+        <br>&bull; <strong>A shop cannot search</strong> &mdash; as <code>owner.business@myplus.com</code>:
+        <code>$.get(serverContext+'links/pharmacies?q=ph',r=&gt;console.log(r.success,r.reason))</code> &rarr; <code>false LINK_NOT_CLINIC</code>
+        <br>&bull; <strong>A pharmacy that has not opted in is not found</strong> &mdash; as the clinic owner, search its name on Linked pharmacy: not listed.
+        <br>&bull; <strong>Another pharmacy cannot accept</strong> &mdash; as a DIFFERENT pharmacy's owner, with the link's number:
+        <code>$.post(serverContext+'links/&lt;id&gt;/accept',r=&gt;console.log(r.success,r.reason))</code> &rarr; <code>false LINK_NOT_FOUND</code>
+        (the clinic itself gets the same answer).
+        <br>&bull; <strong>A second request is refused</strong> &mdash; as the clinic owner while one is waiting or linked:
+        <code>$.post(serverContext+'links',{pharmacyOrgId:&lt;id&gt;},r=&gt;console.log(r.success,r.reason))</code> &rarr; <code>false LINK_ALREADY</code>
+        <br>&bull; <strong>Ending needs a reason</strong>:
+        <code>$.post(serverContext+'links/&lt;id&gt;/end',{reason:' '},r=&gt;console.log(r.success,r.reason))</code> &rarr; <code>false LINK_REASON_REQUIRED</code>
+        <br>Read the link number with <code>$.get(serverContext+'links',r=&gt;console.table(r.data))</code>.`],
+      ['amber', 'What each side sees of the other', `Only the other business's <strong>name</strong> and the link's status and dates.
+        The clinic never sees the pharmacy's stock, prices or customers; the pharmacy never sees the clinic's patients. Every step is in
+        both businesses' audit trails.`],
+      ['amber', 'Clean-up', `The run provisions its own clinic and two pharmacies (names carry the run stamp, e-mails end in .test,
+        set-password links come from Mailpit). L6 ends the link on screen; the three tenants are suspended after the run. A link is never
+        deleted &mdash; it stays as Ended.`],
     ],
   },
 }

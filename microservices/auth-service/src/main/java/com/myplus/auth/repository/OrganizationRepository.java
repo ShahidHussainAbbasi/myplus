@@ -13,6 +13,11 @@ import java.util.List;
 @Repository
 public interface OrganizationRepository extends JpaRepository<Organization, Long> {
     List<Organization> findByOwnerUserId(Long ownerUserId);
+
+    /** HC-1c — the clinic's row, locked: serialises "one waiting-or-active link per clinic" (MySQL has no partial unique). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select o from Organization o where o.id = :id")
+    java.util.Optional<Organization> lockById(@org.springframework.data.repository.query.Param("id") Long id);
     List<Organization> findByParentId(Long parentId);
 
     /**
