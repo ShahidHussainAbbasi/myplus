@@ -484,3 +484,13 @@ were overwritten; its cause was not captured. The same cases passed on a fresh p
 
 **Open (4b):** the deadline is a fixed 24 hours; no support case is opened automatically for a late part.
 
+## 22. MKT-4c — a slow supplier never hangs checkout (run 2026-10-15)
+
+**Gate `mkt-4c-supplier-resilience.cy.js`: 3 / 3** on the usual clock, marketplace-service started with the routing
+test switch. No product code changed; three `LiveRoutingTest` cases gained the R22.5 tag (run: green).
+
+**Walk M-4-02: recorded**, 6 steps and a cleanup, each expected result asserted, screens captured and looked at. It
+replaces the design case of the same id, written for an outside supplier API before the 2026-10-15 ruling.
+
+No defects found.
+

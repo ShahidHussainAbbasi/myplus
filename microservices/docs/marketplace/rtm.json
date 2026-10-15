@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 70,
- "cypress": 67,
- "automated": 71,
+ "unit": 71,
+ "cypress": 68,
+ "automated": 72,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -1761,8 +1761,16 @@
    "req": "MKT-R22.5",
    "phase": "4",
    "text": "Every external supplier call has timeout + circuit breaker; every webhook/event retryable and idempotent",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "LiveRoutingTest.deadlineCapsTimeout",
+    "LiveRoutingTest.halfOpen",
+    "LiveRoutingTest.lateHoldReleased"
+   ],
+   "cypress": [
+    "MKT-4c-01",
+    "MKT-4c-02",
+    "MKT-4c-03"
+   ],
    "manual": [
     "M-4-02"
    ]

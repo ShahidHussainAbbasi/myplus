@@ -1574,18 +1574,23 @@
 | 4 | Customer: open the phone again. | Still "Shipped by the supplier", and now "Stock checked …" instead of the supplier-confirms sentence. |
 | C1 | Operator: on Phone Supplier, untick "Supplier: ships its own stock to customers" and press Save. | "Phone Supplier sells its own stock as a seller." The reliable box is cleared and greyed out. |
 
-### M-4-02 A slow supplier API does not hang checkout
+### M-4-02 A slow supplier does not hang checkout; after three misses it is not asked until the operator asks it again
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 4. The supplier endpoint is delayed 5 s.  
+**Who:** MaxTheService operator, then a customer (incognito window)  
+**Before:** A test system (marketplace-service started with MKT_ROUTING_TEST_SWITCH=true). Phone Supplier is marked as a supplier and lists one phone at Rs 46,000 in Karachi. Every seller is being asked.  
 **Covers:** MKT-R22.5  
-**Evidence:** written from the design — not built yet
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4c-01, MKT-4c-02
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Check out the supplier offer. | An answer within the routing deadline; the supplier call is cut at its timeout. |
-| 2 | Repeat 5 times. | The circuit breaker opens; the operator sees it on the integration panel. A retried webhook is processed once. |
-| C1 | Remove the delay. | The breaker closes. |
+| 1 | Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout". Choose "Phone Supplier", delay 3000 → Save. | "Test slowness is on." (Phone Supplier now answers after 3 seconds; each seller is given 800 ms.) |
+| 2 | Customer: open the phone (Karachi) → choose Phone Supplier → "Buy now". Name "Ali", phone 030048528792, address "1 Clifton" → "Place order". | Within about 2 seconds, under the button: "This seller did not answer in time. Please choose another offer." No order number; the button works again. |
+| 3 | Press "Place order" three more times, waiting for each answer. | The same sentence each time; the fourth comes at once, because Phone Supplier is no longer being asked. |
+| 4 | Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout". | "Phone Supplier is not answering: not asked until hh:mm:ss." with a button "Ask it again now". |
+| 5 | The supplier says it is fixed: delay 0 → Save, then "Ask it again now" on Phone Supplier's line. | "Test slowness is off.", then "The seller will be asked again on its next order." and "Every seller is being asked." |
+| 6 | Customer: choose Phone Supplier again → "Buy now" → the same details → "Place order". | "Waiting for Phone Supplier to confirm" with an order number MKT-…: the only phone was given back after the slow calls. |
+| C1 | Phone Supplier rejects the order with the reason "walk cleanup". Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save. | The order reads Cancelled; "Phone Supplier sells its own stock as a seller." |
 
 ### M-4-03 A supplier accepts an order and has a day to send it; the shopper is told when
 
