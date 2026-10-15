@@ -7199,6 +7199,68 @@
    "evidence": "recorded"
   },
   {
+   "id": "M-3-04",
+   "slice": "MKT-3",
+   "title": "A shop sends phones to the MaxTheService warehouse, which buys them",
+   "persona": "owner.business@myplus.com (Shahzad Mobile Shop) → owner.warehouse@myplus.com (the MaxTheService warehouse)",
+   "pre": "The shop and the warehouse both list the same phone, which MaxTheService has matched. The shop holds two of them, bought with their IMEIs. Both businesses track serial numbers, and the warehouse's copy of the phone is serial-tracked.",
+   "reqs": [
+    "MKT-R20.4",
+    "MKT-R4.2"
+   ],
+   "auto": [
+    "MKT-3c-01",
+    "MKT-3c-02",
+    "MKT-3c-03",
+    "MKT-3c-04",
+    "MKT-3c-05",
+    "MKT-3c-06"
+   ],
+   "recordedAt": "2026-10-15T14:39:41.495Z",
+   "startedAt": "2026-10-15T14:38:36.250Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Send stock to MaxTheService\". Choose the phone, Quantity 2, Price a unit 40000, Note \"2 boxed units\", press \"Send to MaxTheService\".",
+     "expect": "\"Sent to MaxTheService as ST-… . It is yours until the warehouse receives it.\" The transfer is listed: 2 units, Rs 80,000, \"Sent, waiting for the warehouse\", with a Cancel button.",
+     "shot": "shots/M-3-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Stock sent to MaxTheService\" → the transfer from Shahzad Mobile Shop. Press \"Receive\" without scanning anything.",
+     "expect": "Refused, nothing written: \"Scan the serial number (IMEI) of each unit received: 2 for …\". The transfer is still waiting.",
+     "shot": "shots/M-3-04/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Scan both phones into \"Scan each serial (IMEI), one a line\" and press \"Receive\".",
+     "expect": "\"Received. It is in your stock, and you owe Shahzad Mobile Shop Rs 80,000.00.\" The transfer reads \"Received\" with the shop's invoice INV-….",
+     "shot": "shots/M-3-04/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Still as the warehouse: Register → Vendors.",
+     "expect": "Shahzad Mobile Shop is a supplier of the warehouse now: the purchase is owed to it, nothing paid.",
+     "shot": "shots/M-3-04/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Send stock to MaxTheService\".",
+     "expect": "The transfer reads \"Received\" with the invoice INV-…: the two phones were sold to MaxTheService, which owes the shop Rs 80,000 (no cash taken).",
+     "shot": "shots/M-3-04/05.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the phones now belong to the warehouse, as a received transfer should leave them.",
+     "expect": "Nothing to undo."
+    }
+   ],
+   "evidence": "recorded"
+  },
+  {
    "id": "M-4-01",
    "slice": "MKT-4",
    "title": "Supplier stock is never \"in stock today\" without a promise",

@@ -58,6 +58,9 @@
 		if (a) mktIncomingLoad();
 		$('#mktTasksBox').toggle(!!a);
 		if (a) mktTasksLoad();
+		// MKT-3c: stock sent to the MaxTheService warehouse (the warehouse receives it here)
+		$('#mktTransferBox').toggle(!!v.canSell);
+		if (v.canSell) mktTransfersLoad();
 		// MKT-1g: the statement — loaded when asked for, it is a page of money, not a glance
 		$('#mktStatementBox').toggle(!!a);
 		// MKT-2e: the shop's own scorecard, the figures MaxTheService sees for it
@@ -550,6 +553,96 @@
 			.always(function () { $b.prop('disabled', false).text(label); });
 	}
 
+	// ── MKT-3c: stock sent to the MaxTheService warehouse, which MaxTheService buys ───────────────────────
+
+	var TR_ST = { OFFERED: ['ui.js.mktTrOffered', 'Sent, waiting for the warehouse'], RECEIVING: ['ui.js.mktTrReceiving', 'Being received'],
+		RECEIVED: ['ui.js.mktTrReceived', 'Received'], REJECTED: ['ui.js.mktTrRejected', 'Not taken'], CANCELLED: ['ui.js.mktTrCancelled', 'Cancelled'] };
+
+	function mktTransfersLoad() {
+		return $.ajax({ url: ctx() + 'mkt/transfers', dataType: 'json' }).done(function (res) {
+			var $tb = $('#mktTransfers tbody').empty();
+			if (!ok(res)) { $('#mktTransferMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			var v = data(res) || {};
+			if (!v.warehouseNamed) { $('#mktTransferBox').hide(); return; }
+			$('#mktTransferTitle').text(v.warehouse ? tr('ui.js.mktTrInTitle', 'Stock sent to MaxTheService') : tr('ui.js.mktTrOutTitle', 'Send stock to MaxTheService'));
+			$('#mktTransferHint').text(v.warehouse
+				? tr('ui.js.mktTrInHint', 'Sellers send stock here and MaxTheService buys it. Receive it when it arrives (scan each serial): it goes into your stock and you owe the seller the total. Or say why it is not taken.')
+				: tr('ui.js.mktTrOutHint', 'MaxTheService buys it: when the warehouse receives it, it is a sale in your books and MaxTheService owes you the total.'));
+			var $sel = $('#mktTrProduct').empty();
+			(v.products || []).forEach(function (p) { $('<option></option>').val(p.mktProductId).text(p.name).appendTo($sel); });
+			$('#mktTransferForm').toggle(!v.warehouse);
+			if (!v.warehouse && !(v.products || []).length)
+				$('#mktTransferMsg').css('color', '').text(tr('ui.js.mktTrNoProducts', 'None of your products is carried by MaxTheService yet.'));
+			var rows = v.transfers || [];
+			if (!rows.length) $tb.append($('<tr><td colspan="7" class="text-muted"></td></tr>').find('td')
+				.text(v.warehouse ? tr('ui.js.mktTrNoneIn', 'Nothing has been sent to you.') : tr('ui.js.mktTrNoneOut', 'You have not sent anything yet.')).end());
+			rows.forEach(function (t) { $tb.append(transferRow(t, v.warehouse)); });
+		});
+	}
+
+	function transferRow(t, warehouse) {
+		var $tr = $('<tr class="mkt-transfer"></tr>').attr('data-transfer-no', t.transferNo);
+		$('<td></td>').text(t.transferNo).appendTo($tr);
+		var $p = $('<td style="white-space:normal"></td>').text(t.productName).appendTo($tr);
+		if (warehouse && t.sellerName) $p.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktTrFrom', 'From') + ' ' + t.sellerName));
+		if (t.note) $p.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.note));
+		$('<td style="font-variant-numeric:tabular-nums"></td>').text(t.quantity).appendTo($tr);
+		$('<td style="font-variant-numeric:tabular-nums"></td>').text(money(t.unitPrice)).appendTo($tr);
+		$('<td style="font-variant-numeric:tabular-nums"></td>').text(money(t.total)).appendTo($tr);
+		var st = TR_ST[t.status] || [null, t.status];
+		var $s = $('<td class="mkt-transfer-status"></td>').text(st[0] ? tr(st[0], st[1]) : st[1]).appendTo($tr);
+		if (t.status === 'REJECTED' && t.rejectReason) $s.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.rejectReason));
+		if (t.status === 'RECEIVED' && t.saleInvoiceNo) $s.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.saleInvoiceNo));
+		var $a = $('<td style="white-space:normal"></td>').appendTo($tr);
+		var open = t.status === 'OFFERED' || (warehouse && t.status === 'RECEIVING');
+		if (!open) return $tr;
+		var body = { transferNo: t.transferNo, version: t.version };
+		if (!warehouse) {
+			$('<button type="button" class="btn btn-xs btn-default mkt-tr-cancel"></button>').text(tr('ui.js.mktTrCancel', 'Cancel'))
+				.on('click', function () { transferPost('mkt/transferCancel', body, $(this)); }).appendTo($a);
+			return $tr;
+		}
+		var $ser = null;
+		if (t.serialRequired) {
+			$ser = $('<textarea class="form-control input-sm mkt-tr-serials" rows="2"></textarea>')
+				.attr('placeholder', tr('ui.js.mktTrSerials', 'Scan each serial (IMEI), one a line') + ' (' + t.quantity + ')')
+				.attr('aria-label', tr('ui.js.mktTrSerials', 'Scan each serial (IMEI), one a line')).appendTo($a);
+		}
+		$('<button type="button" class="btn btn-xs btn-success mkt-tr-receive" style="margin:4px 4px 0 0"></button>').text(tr('ui.js.mktTrReceive', 'Receive'))
+			.on('click', function () {
+				var serials = $ser ? $ser.val().split(/[\s,]+/).filter(Boolean) : [];
+				transferPost('mkt/transferReceive', $.extend({ serials: serials }, body), $(this));
+			}).appendTo($a);
+		if (t.status === 'OFFERED') {
+			var $why = $('<input type="text" maxlength="500" class="form-control input-sm mkt-tr-reason" style="margin-top:4px">')
+				.attr('placeholder', tr('ui.js.mktTrWhy', 'Why it is not taken')).attr('aria-label', tr('ui.js.mktTrWhy', 'Why it is not taken'));
+			$('<button type="button" class="btn btn-xs btn-default mkt-tr-reject" style="margin-top:4px"></button>').text(tr('ui.js.mktTrReject', 'Not taken'))
+				.on('click', function () { transferPost('mkt/transferReject', $.extend({ reason: $why.val() }, body), $(this)); }).appendTo($a);
+			$a.append($why);
+		}
+		return $tr;
+	}
+
+	/** POST, then redraw the list and show the server's sentence. */
+	function transferPost(path, body, $b) {
+		var label = $b.text();
+		$b.prop('disabled', true);
+		var $msg = $('#mktTransferMsg').text('').css('color', '');
+		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var said = message(res, '');
+				mktTransfersLoad().done(function () { $('#mktTransferMsg').css('color', '#1b5e20').text(said); });
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
+	}
+
+	function mktTransferSend() {
+		transferPost('mkt/transferOffer', { mktProductId: Number($('#mktTrProduct').val()) || null, quantity: Number($('#mktTrQty').val()) || null,
+			unitPrice: $('#mktTrPrice').val() || null, note: $('#mktTrNote').val() }, $('#mktTrSend'));
+	}
+
 	function tick() {
 		clearInterval(tickTimer);
 		tickTimer = setInterval(function () {
@@ -745,6 +838,8 @@
 	global.mktOffersLoad = mktOffersLoad;
 	global.mktIncomingLoad = mktIncomingLoad;
 	global.mktTasksLoad = mktTasksLoad;
+	global.mktTransfersLoad = mktTransfersLoad;
+	global.mktTransferSend = mktTransferSend;
 	global.mktStatementLoad = mktStatementLoad;
 	global.mktPerfLoad = mktPerfLoad;
 	global.mktMyReportLoad = mktMyReportLoad;

@@ -250,4 +250,13 @@ public interface TradeClient {
     @PostExchange("/internal/customers/for-party")
     com.myplus.commerce.contracts.dto.PartyCustomerRef customerForParty(
             @RequestBody com.myplus.commerce.contracts.dto.PartyCustomerRef request);
+
+    /**
+     * MKT-3c — record a purchase in the AUTHENTICATED tenant's books: stock in, serials registered, the whole bill owed
+     * to the named supplier. The mirror of {@link #recordSale} for goods one tenant buys from another. Idempotent on
+     * {@link com.myplus.commerce.contracts.dto.PurchaseRecordRequest#getIdempotencyKey()}.
+     */
+    @PostExchange("/internal/purchases")
+    com.myplus.commerce.contracts.dto.PurchaseRecordResult recordPurchase(
+            @RequestBody com.myplus.commerce.contracts.dto.PurchaseRecordRequest request);
 }

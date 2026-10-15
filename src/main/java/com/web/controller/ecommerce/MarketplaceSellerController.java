@@ -412,6 +412,42 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/seller/returns/received", body, "Could not record the returned item.");
     }
 
+    // ── MKT-3c: stock sent to the MaxTheService warehouse (the seller offers; the warehouse receives or rejects) ──
+
+    @RequestMapping(value = "/mkt/transfers", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> transfers(final HttpServletRequest request) {
+        return relayGet("/mkt/seller/transfers", request, "Could not load the stock sent to MaxTheService.");
+    }
+
+    /** Body: {mktProductId, quantity, unitPrice, note}. */
+    @RequestMapping(value = "/mkt/transferOffer", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> transferOffer(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/transfers", body, "Could not send it.");
+    }
+
+    /** Body: {transferNo, version}. */
+    @RequestMapping(value = "/mkt/transferCancel", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> transferCancel(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/transfers/cancel", body, "Could not cancel it.");
+    }
+
+    /** Body: {transferNo, version, reason}. */
+    @RequestMapping(value = "/mkt/transferReject", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> transferReject(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/transfers/reject", body, "Could not record it.");
+    }
+
+    /** Body: {transferNo, version, serials[]}. */
+    @RequestMapping(value = "/mkt/transferReceive", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> transferReceive(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/transfers/receive", body, "Could not receive it.");
+    }
+
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/cases", method = RequestMethod.GET)
     @ResponseBody

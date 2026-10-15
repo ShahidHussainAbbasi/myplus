@@ -4023,4 +4023,82 @@ on('MKT manual walk — recorded', () => {
     })
     cleanup('Nothing to undo: the return is finished and the phone disposed of.', 'Nothing to undo.', () => {}, { screen: false })
   })
+
+  const ST = {}
+  const stImei = (k) => `35${String(run).slice(-9)}${String(k).padStart(4, '0')}`
+  const transferRow = () => `#mktTransfers tr[data-transfer-no="${ST.no}"]`
+  walk({ id: 'M-3-04', slice: 'MKT-3', title: 'A shop sends phones to the MaxTheService warehouse, which buys them',
+    persona: 'owner.business@myplus.com (Shahzad Mobile Shop) → owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R20.4', 'MKT-R4.2'],
+    pre: 'The shop and the warehouse both list the same phone, which MaxTheService has matched. The shop holds two of them, bought with their IMEIs. Both businesses track serial numbers, and the warehouse\'s copy of the phone is serial-tracked.',
+    auto: ['MKT-3c-01', 'MKT-3c-02', 'MKT-3c-03', 'MKT-3c-04', 'MKT-3c-05', 'MKT-3c-06'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition, through each business's own setup (M-3-01 walks naming the warehouse)
+      asOperator()
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      cy.setEntitlement(WAREHOUSE, 'serialTracking', 'ACTIVE', 'walk M-3-04')
+      seedPolicies(`${run}t`).then((p) => {
+        cy.then(() => publishOffer(WAREHOUSE, { run: `${run}t`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { ST.mkt = o.mktProductId; ST.wh = o.sourceProductId })
+        cy.then(() => publishOffer(SELLER_A, { run: `${run}t`, price: 52000, qty: 1, mktProductId: ST.mkt, warrantyPolicyId: p.warranty,
+          returnPolicyId: p.returns })).then((o) => { ST.shop = o.sourceProductId })
+      })
+      as(WAREHOUSE)
+      cy.setCapability('serialTracking', true)
+      as(WAREHOUSE)
+      cy.then(() => cy.request({ method: 'POST', url: '/setProductTracking', form: true, body: { id: ST.wh, requiresSerial: true } }))
+        .then((r) => expect(r.body && r.body.success !== false, JSON.stringify(r.body)).to.eq(true))
+      as(SELLER_A)
+      cy.then(() => cy.request({ method: 'POST', url: '/setProductTracking', form: true, body: { id: ST.shop, requiresSerial: true, noExpiry: true } }))
+        .then((r) => expect(r.body && r.body.success !== false, JSON.stringify(r.body)).to.eq(true))
+      cy.then(() => cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { productId: ST.shop, quantity: 2,
+        purchaseRate: 38000, 'stock.bpurchaseRate': 38000, 'stock.bsellRate': 52000, totalAmount: 76000, netAmount: 76000,
+        paidAmount: 76000, purchaseInvoiceNo: `W3C-${run}`, serials: `${stImei(1)},${stImei(2)}`, conditionGrade: 'NEW' } }))
+        .then((r) => expect(r.body && r.body.status !== 'ERROR' && r.body.success !== false, JSON.stringify(r.body)).to.eq(true))
+    })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". Choose the phone, Quantity 2, Price a unit 40000, Note "2 boxed units", press "Send to MaxTheService".',
+      '"Sent to MaxTheService as ST-… . It is yours until the warehouse receives it." The transfer is listed: 2 units, Rs 80,000, "Sent, waiting for the warehouse", with a Cancel button.', () => {
+        as(SELLER_A); openMarketplace()
+        cy.get('#mktTransferBox').should('be.visible').scrollIntoView({ offset: { top: -120, left: 0 } })
+        cy.then(() => cy.get('#mktTrProduct').select(String(ST.mkt), { force: true }))
+        cy.get('#mktTrQty').clear().type('2')
+        cy.get('#mktTrPrice').clear().type('40000')
+        cy.get('#mktTrNote').clear().type('2 boxed units')
+        cy.get('#mktTrSend').click()
+        cy.get('#mktTransferMsg').should('contain', 'Sent to MaxTheService as ST-').and('contain', 'It is yours until the warehouse receives it.')
+        cy.get('#mktTransferMsg').invoke('text').then((t) => { ST.no = t.match(/ST-\d+/)[0] })
+        cy.then(() => cy.get(transferRow()).should('contain', 'Sent, waiting for the warehouse').and('contain', '80,000')
+          .find('.mkt-tr-cancel').should('be.visible'))
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Stock sent to MaxTheService" → the transfer from Shahzad Mobile Shop. Press "Receive" without scanning anything.',
+      'Refused, nothing written: "Scan the serial number (IMEI) of each unit received: 2 for …". The transfer is still waiting.', () => {
+        as(WAREHOUSE); openMarketplace()
+        cy.then(() => cy.get(transferRow()).should('contain', 'Shahzad Mobile Shop').scrollIntoView({ offset: { top: -160, left: 0 } }))
+        cy.then(() => cy.get(transferRow()).find('.mkt-tr-receive').click())
+        cy.get('#mktTransferMsg').should('contain', 'Scan the serial number (IMEI) of each unit received: 2 for')
+        cy.then(() => cy.get(transferRow()).should('contain', 'Sent, waiting for the warehouse'))
+      })
+    step('Scan both phones into "Scan each serial (IMEI), one a line" and press "Receive".',
+      '"Received. It is in your stock, and you owe Shahzad Mobile Shop Rs 80,000.00." The transfer reads "Received" with the shop\'s invoice INV-….', () => {
+        cy.then(() => cy.get(transferRow()).find('.mkt-tr-serials').type(`${stImei(1)}\n${stImei(2)}`))
+        cy.then(() => cy.get(transferRow()).find('.mkt-tr-receive').click())
+        cy.get('#mktTransferMsg').should('have.text', 'Received. It is in your stock, and you owe Shahzad Mobile Shop Rs 80,000.00.')
+        cy.then(() => cy.get(transferRow()).should('contain', 'Received').and('contain', 'INV-')
+          .scrollIntoView({ offset: { top: -160, left: 0 } }))
+      })
+    step('Still as the warehouse: Register → Vendors.',
+      'Shahzad Mobile Shop is a supplier of the warehouse now: the purchase is owed to it, nothing paid.', () => {
+        cy.visit('/businessDashboard')
+        cy.get('#snavRegister .snav-btn').click()
+        cy.get('#snavRegister a[onclick*="VenderDiv"]').click()
+        cy.get('#VenderDiv').should('be.visible')
+        cy.contains('#VenderDiv tr', 'Shahzad Mobile Shop').should('be.visible')
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Send stock to MaxTheService".',
+      'The transfer reads "Received" with the invoice INV-…: the two phones were sold to MaxTheService, which owes the shop Rs 80,000 (no cash taken).', () => {
+        as(SELLER_A); openMarketplace()
+        cy.then(() => cy.get(transferRow()).should('contain', 'Received').and('contain', 'INV-')
+          .scrollIntoView({ offset: { top: -160, left: 0 } }))
+      })
+    cleanup('Nothing to undo: the phones now belong to the warehouse, as a received transfer should leave them.', 'Nothing to undo.', () => {}, { screen: false })
+  })
 })

@@ -130,7 +130,9 @@
     "PlatformWarehouseServiceTest.name",
     "PlatformWarehouseServiceTest.refused",
     "PlatformWarehouseServiceTest.changeOnlyWhenEmpty",
-    "PlatformWarehouseServiceTest.platformName"
+    "PlatformWarehouseServiceTest.platformName",
+    "StockTransferServiceTest.parties",
+    "StockTransferServiceTest.receive"
    ],
    "cypress": [
     "MKT-3a-01",
@@ -139,11 +141,14 @@
     "MKT-3a-04",
     "MKT-3a-05",
     "MKT-3a-06",
+    "MKT-3c-02",
+    "MKT-3c-06",
     "MKT-3d-01"
    ],
    "manual": [
     "M-3-01",
-    "M-3-03"
+    "M-3-03",
+    "M-3-04"
    ]
   },
   {
@@ -1491,7 +1496,13 @@
     "PhaseGuardTest.platformStock",
     "MarketplaceOrderFlowTest.deliveryProgress",
     "MarketplaceSupportServiceTest.collector",
-    "PlatformWarehouseServiceTest.name"
+    "PlatformWarehouseServiceTest.name",
+    "StockTransferServiceTest.offer",
+    "StockTransferServiceTest.decided",
+    "StockTransferServiceTest.serials",
+    "StockTransferServiceTest.receive",
+    "StockTransferServiceTest.refusedPurchase",
+    "StockTransferServiceTest.refusedSale"
    ],
    "cypress": [
     "MKT-3a-01",
@@ -1499,13 +1510,19 @@
     "MKT-3b-02",
     "MKT-3b-03",
     "MKT-3b-04",
+    "MKT-3c-01",
+    "MKT-3c-03",
+    "MKT-3c-04",
+    "MKT-3c-05",
+    "MKT-3c-06",
     "MKT-3d-01",
     "MKT-3d-02"
    ],
    "manual": [
     "M-3-01",
     "M-3-02",
-    "M-3-03"
+    "M-3-03",
+    "M-3-04"
    ]
   },
   {

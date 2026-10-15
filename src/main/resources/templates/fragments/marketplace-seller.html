@@ -82,6 +82,34 @@
 			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktTasksHint}">Answer MaxTheService support here; it tells the customer. For an approved return, your rider collects the item, then press Item received.</p>
 			<div id="mktTasks" aria-live="polite"></div>
 		</div>
+		<!-- MKT-3c: stock a seller sends to the MaxTheService warehouse, which MaxTheService buys. The warehouse sees what
+		     was sent to it (Receive / Not taken); any other approved seller sends from here. Filled by mktTransfersLoad. -->
+		<div id="mktTransferBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px" id="mktTransferTitle" th:text="#{ui.mktTransferTitle}">Send stock to MaxTheService</h4>
+			<p class="text-muted" style="font-size:13px" id="mktTransferHint" th:text="#{ui.mktTransferHint}">MaxTheService buys it: when the warehouse receives it, it is a sale in your books and MaxTheService owes you the total.</p>
+			<form id="mktTransferForm" class="form-inline" style="display:none;margin-bottom:8px" onsubmit="mktTransferSend();return false;">
+				<select id="mktTrProduct" class="form-control input-sm" style="max-width:320px" th:attr="aria-label=#{ui.mktColProduct}"></select>
+				<input id="mktTrQty" type="number" min="1" step="1" class="form-control input-sm" style="width:90px" th:attr="placeholder=#{ui.mktTrQty},aria-label=#{ui.mktTrQty}">
+				<input id="mktTrPrice" type="number" min="0.01" step="0.01" class="form-control input-sm" style="width:130px" th:attr="placeholder=#{ui.mktTrPrice},aria-label=#{ui.mktTrPrice}">
+				<input id="mktTrNote" type="text" maxlength="500" class="form-control input-sm" style="width:200px" th:attr="placeholder=#{ui.mktTrNote},aria-label=#{ui.mktTrNote}">
+				<button type="submit" id="mktTrSend" class="btn btn-sm btn-primary" th:text="#{ui.mktTrSend}">Send to MaxTheService</button>
+			</form>
+			<div id="mktTransferMsg" role="status" style="font-size:13px;min-height:1.2em"></div>
+			<div class="table-responsive">
+				<table class="table table-condensed" id="mktTransfers">
+					<thead><tr>
+						<th th:text="#{ui.mktTrColNo}">Transfer</th>
+						<th th:text="#{ui.mktColProduct}">Product</th>
+						<th th:text="#{ui.mktTrQty}">Quantity</th>
+						<th th:text="#{ui.mktTrPrice}">Price a unit</th>
+						<th th:text="#{ui.mktTrColTotal}">Total</th>
+						<th th:text="#{ui.mktColStatus}">Status</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
 		<!-- MKT-1e: incoming marketplace orders — first, because each one has a clock running -->
 		<div id="mktIncomingBox" style="display:none;margin-top:18px">
 			<h4 style="font-weight:700;font-size:15px">

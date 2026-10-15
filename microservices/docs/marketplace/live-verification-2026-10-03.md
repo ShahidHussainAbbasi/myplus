@@ -431,3 +431,20 @@ marketplace-service unit tests 443 / 443 (3 of the new ones are the base's). No 
 **Open (3d):** whether a write-off should leave stock at receipt instead of waiting in Quarantine (a ruling); a
 quarantine lot does not show its RT number.
 
+## 19. MKT-3c — a seller sends stock to the MaxTheService warehouse, which buys it (run 2026-10-15)
+
+**Gate `mkt-3c-stock-transfer.cy.js`: 6 / 6.** Re-run on the same build: 1f 12 / 12, 3a 6 / 6, 3b 6 / 6, 3d 4 / 4.
+Migration V37 applied. Unit: marketplace-service 451 / 451, business-service 572 / 572.
+
+**Walk M-3-04: recorded**, 5 steps, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 74 | the gate (the first Receive) | Receive failed with "Column 'contact' cannot be null": the seller's customer record of MaxTheService had no contact | the sale names a fixed contact, so the same customer record is found again on every transfer | gate MKT-3c-06, unit `receive` |
+| 75 | gate MKT-3c-05 (first run) | a rule of the warehouse's purchase path reached the warehouse as "Internal server error" | `/internal/purchases` returns the rule's own sentence (400); the transfer quotes it | gate MKT-3c-05 |
+| 76 | gate MKT-3c-06 | the warehouse's purchase, sent as the system (`AsOrg`, no capability header), read the warehouse's settings from business-service's local store: expiry tracking counted as ON for a warehouse that has it OFF, and an expiry date was demanded | the purchase travels with the warehouse person's own identity and capabilities | gate MKT-3c-05, MKT-3c-06, walk M-3-04 step 3 |
+| 77 | gate MKT-3c-05 (after 76) | receiving phones with IMEIs while serial tracking is off said "This is not switched on for your business.", naming nothing | "Serial / IMEI tracking is not switched on for your business, so units with serial numbers cannot be received." | gate MKT-3c-05 |
+
+**Open (3c):** any `AsOrg` call carries no capabilities (pre-existing, row 76 fixed only the warehouse's purchase);
+the ownership ruling (bought, the default taken, vs consignment) awaits confirmation.
+

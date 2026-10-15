@@ -1538,6 +1538,23 @@
 | 6 | Press "Dispose" on that phone and confirm. | "Lot disposed." and the phone leaves the list. |
 | C1 | Nothing to undo: the return is finished and the phone disposed of. | Nothing to undo. |
 
+### M-3-04 A shop sends phones to the MaxTheService warehouse, which buys them
+
+**Who:** owner.business@myplus.com (Shahzad Mobile Shop) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** The shop and the warehouse both list the same phone, which MaxTheService has matched. The shop holds two of them, bought with their IMEIs. Both businesses track serial numbers, and the warehouse's copy of the phone is serial-tracked.  
+**Covers:** MKT-R20.4, MKT-R4.2  
+**Evidence:** recorded 2026-10-15 14:39 UTC  
+**Automated by:** MKT-3c-01, MKT-3c-02, MKT-3c-03, MKT-3c-04, MKT-3c-05, MKT-3c-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". Choose the phone, Quantity 2, Price a unit 40000, Note "2 boxed units", press "Send to MaxTheService". | "Sent to MaxTheService as ST-… . It is yours until the warehouse receives it." The transfer is listed: 2 units, Rs 80,000, "Sent, waiting for the warehouse", with a Cancel button. |
+| 2 | As owner.warehouse@myplus.com: Sale → Marketplace → "Stock sent to MaxTheService" → the transfer from Shahzad Mobile Shop. Press "Receive" without scanning anything. | Refused, nothing written: "Scan the serial number (IMEI) of each unit received: 2 for …". The transfer is still waiting. |
+| 3 | Scan both phones into "Scan each serial (IMEI), one a line" and press "Receive". | "Received. It is in your stock, and you owe Shahzad Mobile Shop Rs 80,000.00." The transfer reads "Received" with the shop's invoice INV-…. |
+| 4 | Still as the warehouse: Register → Vendors. | Shahzad Mobile Shop is a supplier of the warehouse now: the purchase is owed to it, nothing paid. |
+| 5 | As owner.business@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". | The transfer reads "Received" with the invoice INV-…: the two phones were sold to MaxTheService, which owes the shop Rs 80,000 (no cash taken). |
+| C1 | Nothing to undo: the phones now belong to the warehouse, as a received transfer should leave them. | Nothing to undo. |
+
 
 ## MKT-4
 
