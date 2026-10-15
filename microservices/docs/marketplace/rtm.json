@@ -1255,6 +1255,7 @@
     "OfferEligibilityTest.stale",
     "MarketplaceOrderFlowTest.checkoutHoldsAndOffers",
     "MarketplaceOrderFlowTest.holdOutage",
+    "MarketplaceOrderFlowTest.deliveryProgress",
     "MarketplaceOrderFlowTest.slowSellerRefusedInTime",
     "MarketplaceOrderFlowTest.slowSellerInBasketNamed",
     "OfferProjectionServiceTest.noAnswerStaysUnconfirmed",
@@ -1266,7 +1267,12 @@
     "MKT-1e-05",
     "MKT-2c-01",
     "MKT-2c-03",
-    "MKT-2c-05"
+    "MKT-2c-05",
+    "MKT-3b-01",
+    "MKT-3b-02",
+    "MKT-3b-04",
+    "MKT-3b-05",
+    "MKT-3b-06"
    ],
    "manual": [
     "M-1d-05",
@@ -1274,7 +1280,8 @@
     "M-1e-04",
     "M-2c-02",
     "M-2c-03",
-    "M-2c-04"
+    "M-2c-04",
+    "M-3-02"
    ]
   },
   {
@@ -1476,14 +1483,19 @@
    "text": "Phase 3 platform stock: warehouse, central stock, pick/pack, transfer, platform delivery, central returns",
    "unit": [
     "PhaseGuardTest.platformStock",
+    "MarketplaceOrderFlowTest.deliveryProgress",
     "PlatformWarehouseServiceTest.name"
    ],
    "cypress": [
     "MKT-3a-01",
-    "MKT-3a-05"
+    "MKT-3a-05",
+    "MKT-3b-02",
+    "MKT-3b-03",
+    "MKT-3b-04"
    ],
    "manual": [
-    "M-3-01"
+    "M-3-01",
+    "M-3-02"
    ]
   },
   {

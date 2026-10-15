@@ -397,3 +397,20 @@ paths, 1c 11 / 11, 1g 6 / 6, 2f 8 / 8, 2-06 7 / 7.
   0% commission).
 - The public offer's `availableQty` is the last stock sync and does not drop when a hold is taken (every seller,
   pre-existing). The walk does not claim it does.
+
+## 17. MKT-3b — the shopper sees packed, sent and delivered (run 2026-10-15)
+
+**Gate `mkt-3b-delivery-progress.cy.js`: 6 / 6** on the build merged with the base (about 20 commits: SRA, SKU-AUTO,
+HMS, RW-4b and others; the 6 message bundles conflicted append-only and were resolved as the union of both sides, key
+sets checked). Re-run on the same build: 3a 6 / 6, 1e 10 / 10, 1e2 9 / 9, 1f 12 / 12, 2a 8 / 8, 2b 8 / 8.
+marketplace-service unit tests 443 / 443 (3 of the new ones are the base's). No migration.
+
+**Walk M-3-02: recorded**, 9 steps, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 67 | walk M-3-02 (first run) | a marketplace seller without the storefront module (the warehouse, every retail shop) had no menu path to Orders, where Packed, the parcel and Delivered are recorded: the gates had done it through the API | Sale → Orders for marketplace sellers | walk M-3-02 steps 4, 6, 8 |
+| 68 | walk M-3-02 (screen review) | once delivered, the page still said "MaxTheService will deliver and collect Rs. 52,000 in cash." | nothing is promised once it is delivered | gate MKT-3b-05, walk M-3-02 step 9 |
+| 69 | the trace, before any test | the single-seller page said "Confirmed by …" until after delivery (pre-existing): it never read the store order | the part carries its store order's status and parcels | gate MKT-3b-02..06 |
+
+**Open (3b):** O5d (pick list, scan-to-pack) waits on its design approval; the decision card on including it is open.

@@ -1499,6 +1499,27 @@
 | 6 | As owner.business@myplus.com, in the browser's developer tools: save one of its own offers as MaxTheService stock (stockSourceType PLATFORM). | Refused in words: "Only the MaxTheService warehouse sells MaxTheService's own stock." The offer stays the shop's own stock. |
 | C1 | As owner.warehouse@: Incoming → Reject the order with the reason "walk cleanup". | The row reads "Rejected"; the held unit is released. |
 
+### M-3-02 The shopper follows a MaxTheService order to the door
+
+**Who:** a customer (incognito), then owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** Central Warehouse is the MaxTheService warehouse and lists a phone at Rs 52,000, delivering to Karachi (M-3-01).  
+**Covers:** MKT-R20.4, MKT-R18.5  
+**Evidence:** recorded 2026-10-15 09:21 UTC  
+**Automated by:** MKT-3b-02, MKT-3b-03, MKT-3b-04, MKT-3b-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer (incognito): open the phone's product page (Karachi), choose MaxTheService, "Buy", Quantity 1, name "Ali W57630t", phone 030045763081, address "1 Clifton". Press "Place order". | "MaxTheService is packing your order" and "In stock at MaxTheService and set aside for you. Packed within 23:5x:xx." |
+| 2 | As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order (the pick). | The row reads "Accepted" with an invoice number: the sale is in the warehouse's books. |
+| 3 | Customer: open the order page again. | "MaxTheService is packing your order" and "Picked and set aside for you. Packing is next. Pay Rs. 52,000 in cash when it arrives." |
+| 4 | As owner.warehouse@: Sale → Orders. Search "Ali W57630t". Press "Mark PACKED" on the order. | The order's status reads PACKED. |
+| 5 | Customer: open the order page again. | "Packed by MaxTheService" and "It leaves soon. Pay Rs. 52,000 in cash when it arrives." |
+| 6 | As owner.warehouse@: Sale → Orders → open the order → "Ship". Carrier "TCS", tracking number "TCS-W57630". Press "Record shipment". | "Shipment recorded: SHP-…"; the order lists the parcel with TCS. |
+| 7 | Customer: open the order page again. | "Shipped by MaxTheService" and "TCS · tracking TCS-W57630. Pay Rs. 52,000 in cash when it arrives." (never the invoice or the packer's note). |
+| 8 | As owner.warehouse@: Sale → Orders. Press "Mark DELIVERED" on the order. | The order's status reads DELIVERED. |
+| 9 | Customer: open the order page again. | "Delivered", and nothing more is promised (no "will deliver and collect"). |
+| C1 | Nothing to undo: the order is delivered, and MaxTheService's own sale is never settled. | Nothing to undo. |
+
 
 ## MKT-4
 

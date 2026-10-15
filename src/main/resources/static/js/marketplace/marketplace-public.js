@@ -634,7 +634,8 @@
 			var pg = progress(o, parts[0] || {}, seller);
 			st.className = 'state ok';
 			st.textContent = pg.state || tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
-			detail.textContent = pg.detail || tr('ui.js.mktConfirmedCod', '{0} will deliver and collect {1} in cash.', seller, money(o.total));
+			detail.textContent = pg.state ? pg.detail   // MKT-3b: once delivered, nothing is still to come
+				: tr('ui.js.mktConfirmedCod', '{0} will deliver and collect {1} in cash.', seller, money(o.total));
 			if (!pg.done) pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 30000);   // MKT-3b: packed, sent, delivered
 		} else if (o.status === 'PAYMENT_PENDING') {
 			st.className = 'state wait';

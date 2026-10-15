@@ -141,6 +141,7 @@ gate('3b')('MKT-3b — the shopper sees packed, sent and delivered', () => {
     })
     cy.then(() => page(W.o))
     cy.get(UI.checkoutStatus).should('have.text', 'Delivered')
+    cy.get('#mktOrderDetail').should('have.text', '')        // never "will deliver and collect" once it is delivered
   })
 
   it('MKT-3b-06 [MKT-R18.5] a shop\'s order: "Confirmed by" as before, then "On its way from" the shop with its carrier (real UI)', () => {

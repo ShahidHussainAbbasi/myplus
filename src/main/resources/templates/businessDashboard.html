@@ -236,6 +236,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- MKT-0a: selling on the MaxTheService marketplace is a sales CHANNEL, so it lives under Sale —
 								     for any kind of shop, not only the storefront vertical (#snavStore). Opt-in module. -->
 								<li th:if="${@perm.menu('sale.marketplace')}" data-capability="marketplaceSelling"><a id="navMarketplaceSeller" onclick="showMarketplaceSeller();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-globe"></span> <span th:text="#{ui.mktSellMenu}">Marketplace</span></a></li>
+								<!-- MKT-3b: a marketplace seller packs, ships and delivers in its store orders; without the storefront vertical
+								     (#snavStore) this is its only way there. -->
+								<li th:if="${@perm.menu('sale.marketplace')}" data-capability="marketplaceSelling"><a id="navMarketplaceOrders" onclick="showOrders();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.orders}">Orders</span></a></li>
 							</ul>
 						</div>
 						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
