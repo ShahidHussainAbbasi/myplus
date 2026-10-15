@@ -1520,6 +1520,24 @@
 | 9 | Customer: open the order page again. | "Delivered", and nothing more is promised (no "will deliver and collect"). |
 | C1 | Nothing to undo: the order is delivered, and MaxTheService's own sale is never settled. | Nothing to undo. |
 
+### M-3-03 A faulty MaxTheService phone comes back to the warehouse
+
+**Who:** Customer → MaxTheService operator → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** A cash-on-delivery order for a phone sold and shipped by MaxTheService (Central Warehouse) was delivered to the customer, inside its 7-day return window.  
+**Covers:** MKT-R20.4, MKT-R4.2, MKT-R13.2, MKT-R22.1  
+**Evidence:** recorded 2026-10-15 09:48 UTC  
+**Automated by:** MKT-3d-01, MKT-3d-02, MKT-3d-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: My orders → Get help → "Return this item" → "Faulty or damaged" → note "screen flickers" → Send. | Under the order: "Help request SC-…", "RT-… · Return requested · Rs. 52,000" (a fault costs the customer nothing). |
+| 2 | Operator: Support cases. More than 100 are waiting on this stack, so press "Next ›" until the last page (urgent first, then the longest waiting: the newest is last) → the case → Approve. | The list says "101–… of …"; the case is on the last page. The return reads APPROVED. |
+| 3 | Customer: My orders → the help request. | "Your return RT-… is approved. MaxTheService will collect it from your address. The rider hands you Rs 52,000 in cash when collecting it." Never "the seller's rider": the phone was MaxTheService's own. |
+| 4 | As owner.warehouse@myplus.com: Sale → Marketplace → "Tasks from MaxTheService" → the return. Choose "Write off: unusable (goes to Quarantine, where you dispose of it)", tick "Cash handed back (Rs 52,000)", press "Item received". | "Received. The customer's refund is done." and the return leaves the list ("Nothing from MaxTheService right now"). |
+| 5 | Still as the warehouse: Register → Quarantine. | The written-off phone is listed with a Dispose button. (This screen was hidden from shops that track neither batches nor expiry.) |
+| 6 | Press "Dispose" on that phone and confirm. | "Lot disposed." and the phone leaves the list. |
+| C1 | Nothing to undo: the return is finished and the phone disposed of. | Nothing to undo. |
+
 
 ## MKT-4
 

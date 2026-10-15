@@ -414,3 +414,20 @@ marketplace-service unit tests 443 / 443 (3 of the new ones are the base's). No 
 | 69 | the trace, before any test | the single-seller page said "Confirmed by …" until after delivery (pre-existing): it never read the store order | the part carries its store order's status and parcels | gate MKT-3b-02..06 |
 
 **Open (3b):** O5d (pick list, scan-to-pack) waits on its design approval; the decision card on including it is open.
+
+## 18. MKT-3d — returns of MaxTheService's own stock (run 2026-10-15)
+
+**Gate `mkt-3d-central-returns.cy.js`: 4 / 4.** Re-run on the same build: 1f 12 / 12, 3b 6 / 6, 3a 6 / 6. No migration.
+
+**Walk M-3-03: recorded**, 6 steps, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 70 | the trace, before any test | an approved return of MaxTheService's own phone told the customer "The seller's rider will collect it" | the message names MaxTheService for PLATFORM stock | unit `collector`, gate MKT-3d-01, walk M-3-03 step 3 |
+| 71 | the trace (`received()`) | "Write off: unusable" sends the item to quarantine, exactly like Quarantine, and nothing said so | the label says "(goes to Quarantine, where you dispose of it)" | gate MKT-3d-02, walk M-3-03 step 4 |
+| 72 | gate MKT-3d-02 (first run) | a marketplace seller tracking neither batches nor expiry (the warehouse, most phone shops) had no Quarantine screen: a written-off return could never be disposed of | Register → Quarantine shown to marketplace sellers | gate MKT-3d-02, walk M-3-03 steps 5, 6 |
+| 73 | walk M-3-03 (first run) | the operator's support cases showed the first 100 only; with 152 waiting, the newest case could not be opened | a pager ("101–152 of 152", Previous, Next) | gate MKT-3d-04, walk M-3-03 step 2 |
+
+**Open (3d):** whether a write-off should leave stock at receipt instead of waiting in Quarantine (a ruling); a
+quarantine lot does not show its RT number.
+

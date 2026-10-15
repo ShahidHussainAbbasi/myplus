@@ -7132,6 +7132,73 @@
    "evidence": "recorded"
   },
   {
+   "id": "M-3-03",
+   "slice": "MKT-3",
+   "title": "A faulty MaxTheService phone comes back to the warehouse",
+   "persona": "Customer → MaxTheService operator → owner.warehouse@myplus.com (the MaxTheService warehouse)",
+   "pre": "A cash-on-delivery order for a phone sold and shipped by MaxTheService (Central Warehouse) was delivered to the customer, inside its 7-day return window.",
+   "reqs": [
+    "MKT-R20.4",
+    "MKT-R4.2",
+    "MKT-R13.2",
+    "MKT-R22.1"
+   ],
+   "auto": [
+    "MKT-3d-01",
+    "MKT-3d-02",
+    "MKT-3d-04"
+   ],
+   "recordedAt": "2026-10-15T09:48:22.341Z",
+   "startedAt": "2026-10-15T09:47:44.314Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: My orders → Get help → \"Return this item\" → \"Faulty or damaged\" → note \"screen flickers\" → Send.",
+     "expect": "Under the order: \"Help request SC-…\", \"RT-… · Return requested · Rs. 52,000\" (a fault costs the customer nothing).",
+     "shot": "shots/M-3-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Operator: Support cases. More than 100 are waiting on this stack, so press \"Next ›\" until the last page (urgent first, then the longest waiting: the newest is last) → the case → Approve.",
+     "expect": "The list says \"101–… of …\"; the case is on the last page. The return reads APPROVED.",
+     "shot": "shots/M-3-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer: My orders → the help request.",
+     "expect": "\"Your return RT-… is approved. MaxTheService will collect it from your address. The rider hands you Rs 52,000 in cash when collecting it.\" Never \"the seller's rider\": the phone was MaxTheService's own.",
+     "shot": "shots/M-3-03/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Tasks from MaxTheService\" → the return. Choose \"Write off: unusable (goes to Quarantine, where you dispose of it)\", tick \"Cash handed back (Rs 52,000)\", press \"Item received\".",
+     "expect": "\"Received. The customer's refund is done.\" and the return leaves the list (\"Nothing from MaxTheService right now\").",
+     "shot": "shots/M-3-03/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Still as the warehouse: Register → Quarantine.",
+     "expect": "The written-off phone is listed with a Dispose button. (This screen was hidden from shops that track neither batches nor expiry.)",
+     "shot": "shots/M-3-03/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "Press \"Dispose\" on that phone and confirm.",
+     "expect": "\"Lot disposed.\" and the phone leaves the list.",
+     "shot": "shots/M-3-03/06.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the return is finished and the phone disposed of.",
+     "expect": "Nothing to undo."
+    }
+   ],
+   "evidence": "recorded"
+  },
+  {
    "id": "M-4-01",
    "slice": "MKT-4",
    "title": "Supplier stock is never \"in stock today\" without a promise",

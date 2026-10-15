@@ -193,7 +193,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li th:if="${@perm.menu('register.stockCount')}"><a onclick="showStockCount();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.stockCount}">Stock count</span></a></li>
 								<li th:if="${@perm.menu('register.labels')}"><a onclick="showLabels();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.labels}">Labels</span></a></li>
 								<!-- M4e.b (slice 102): legacy Item form retired — use the Product (catalog) master form -->
-								<li th:if="${@perm.menu('register.quarantine')}" data-capability="batchTracking,expiryTracking"><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
+								<!-- MKT-3d: a marketplace return the seller marks Quarantine or Write off lands here, whatever the shop tracks -->
+								<li th:if="${@perm.menu('register.quarantine')}" data-capability="batchTracking,expiryTracking,marketplaceSelling"><a id="navQuarantine" onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
 							</ul>
 						</div>
 						<div th:if="${@perm.menu('purchase')}" class="snav-dd" id="snavPurchase">
@@ -4175,7 +4176,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
-			<div id="QuarantineDiv" data-capability="batchTracking,expiryTracking" class="formDiv" style="display:none">
+			<div id="QuarantineDiv" data-capability="batchTracking,expiryTracking,marketplaceSelling" class="formDiv" style="display:none">
 				<!-- <h4>Quarantine Register</h4> -->
 				<p class="text-muted" th:text="#{ui.returnedNonSellableLotsEG}">Returned, non-sellable lots (e.g. pharmacy returns). Dispose removes the lot (destroyed / returned to supplier). Quarantined stock is never re-sold (excluded from FEFO).</p>
 				<table id="tableQuarantine" class="table table-bordered table-striped">
