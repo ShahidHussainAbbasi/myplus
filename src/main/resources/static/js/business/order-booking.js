@@ -31,10 +31,6 @@
         return (v && v !== key) ? v : fallback;
     }
 
-    function money(v) {
-        var n = Number(v || 0);
-        return isNaN(n) ? '0.00' : n.toFixed(2);
-    }
 
     global.showOrderBooking = function () {
         $('.formDiv').hide();
@@ -125,12 +121,15 @@
         if (chosen && switchedShop) {
             $('#bkContact').val(chosen.contact || '');
             $('#bkAddress').val(chosen.address || '');
+            // SRA-3: a different shop starts from ITS usual rep (sent to rep managers only; null for everyone else).
+            if (global.SalesReps) global.SalesReps.setSaleRep(chosen.defaultRepId || null, '#bkRepId');
         }
 
         if (!id) {
             // Cleared the shop: clear what was filled FROM a shop, so the next selection starts honestly.
             $('#bkContact').val('');
             $('#bkAddress').val('');
+            if (global.SalesReps) global.SalesReps.setSaleRep(null, '#bkRepId');   // SRA-3: and the shop's rep
             return;
         }
         $.get(serverContext + 'creditStanding?customerId=' + encodeURIComponent(id), function (resp) {
@@ -335,6 +334,9 @@
                 customerContact: $.trim($('#bkContact').val() || ''),
                 shippingAddress: $.trim($('#bkAddress').val() || ''),
                 idempotencyKey: bookingKey(),
+                // SRA-3: the rep whose order this is, when the office keys it (the picker is there only for rep
+                // managers). Absent = the booker; a booker who IS a rep is credited themselves whatever is sent.
+                repId: $('#bkRepId').length ? Number($('#bkRepId').val() || 0) : null,
                 items: state.lines
             }),
             success: function (resp) {

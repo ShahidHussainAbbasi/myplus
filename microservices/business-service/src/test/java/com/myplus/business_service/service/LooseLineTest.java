@@ -38,7 +38,7 @@ class LooseLineTest {
     private static SellDTO asks(double pieces) {
         SellDTO s = new SellDTO();
         s.setSoldUnit("LOOSE");
-        s.setSoldQuantity((float) pieces);
+        s.setSoldQuantity(BigDecimal.valueOf(pieces));   // NUM-1: a double literal's exact decimal
         return s;
     }
 

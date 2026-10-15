@@ -16,8 +16,6 @@
  * Requires education-service + gateway up. Run headed.
  */
 const parse = (b) => (typeof b === 'string' ? JSON.parse(b) : b)
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const analytics = () =>
   cy.request('/getDashboardAnalytics').then((r) => {
@@ -106,13 +104,13 @@ describe('Education — analytics aggregates (finding D)', () => {
     // The check moved from Java equalsIgnoreCase() to a SQL `=` that relies on the column collation
     // (design D4). If the collation were ever case-SENSITIVE this test is what would catch it.
     const name = 'Dup Check ' + Date.now()
-    post('/addSubject', { name }).then((r) => {
+    cy.postForm('/addSubject', { name }).then((r) => {
       expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS')
     })
-    post('/addSubject', { name }).then((r) => {
+    cy.postForm('/addSubject', { name }).then((r) => {
       expect(parse(r.body).status, 'the exact duplicate is refused').to.eq('FOUND')
     })
-    post('/addSubject', { name: name.toUpperCase() }).then((r) => {
+    cy.postForm('/addSubject', { name: name.toUpperCase() }).then((r) => {
       expect(parse(r.body).status, 'a case-only difference is STILL a duplicate — collation dependency')
         .to.eq('FOUND')
     })

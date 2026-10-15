@@ -111,6 +111,31 @@ public class ExpenseTagService {
         throw new ValidationException("That " + t.toLowerCase(Locale.ROOT) + " was not found, or is not one of yours.");
     }
 
+    /**
+     * EX-8e — the names of the branches this caller may see: a school's branches from education (SCHOOL rows), a shop's
+     * stores from business-service (STORE rows), each module answering with the caller's own scoping. Best effort: a
+     * module that cannot be reached names nothing, and the report shows that branch by its number. One tenant is one
+     * vertical, so a school id and a store id never meet in one report.
+     */
+    public Map<Long, String> branchNames() {
+        Map<Long, String> out = new java.util.HashMap<>();
+        collect(out, bySource.get("education"), "SCHOOL");
+        collect(out, business, "STORE");
+        return out;
+    }
+
+    private static void collect(Map<Long, String> out, ExpenseTagClient c, String type) {
+        if (c == null) return;
+        try {
+            List<ExpenseTagView> list = c.tags();
+            if (list == null) return;
+            for (ExpenseTagView v : list)
+                if (v != null && type.equals(v.getType()) && v.getId() != null && v.getLabel() != null) out.putIfAbsent(v.getId(), v.getLabel());
+        } catch (Exception e) {
+            LOG.warn("branch names unavailable ({}); the report shows numbers", type, e);
+        }
+    }
+
     /** Normalised type for storage (upper case), or null for an untagged line. */
     public static String normaliseType(String type) {
         return type == null || type.isBlank() ? null : type.trim().toUpperCase(Locale.ROOT);

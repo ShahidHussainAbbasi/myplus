@@ -95,7 +95,7 @@ public class CodStandingService {
         for (MarketplaceSettlementEntry e : newestFirst) {
             boolean newStep = last == null || !last.equals(e.getOrderLineId());
             if (newStep && running.signum() >= 0) return new Walk(since, running, true, last);
-            if (e.getEffectiveAt() != null) since = e.getEffectiveAt().toLocalDate();
+            if (e.getEffectiveAt() != null) since = com.myplus.common.security.time.BusinessDay.of(e.getEffectiveAt());
             running = running.subtract(Money.nz(e.getCreditAmount())).add(Money.nz(e.getDebitAmount()));
             last = e.getOrderLineId();
         }

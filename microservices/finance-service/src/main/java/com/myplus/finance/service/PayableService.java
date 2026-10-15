@@ -194,6 +194,7 @@ public class PayableService {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("subledgerOpen", open);
         out.put("purchaseNet", repo.sumNet(CurrentUser.organizationId(), "PURCHASE"));   // what business's purchases mirror
+        out.put("expenseBillNet", repo.sumNet(CurrentUser.organizationId(), "EXPENSE_BILL"));   // E11 — what expense's bills mirror
         out.put("glAccountsPayable", ap);
         out.put("difference", ap.subtract(open));
         return out;

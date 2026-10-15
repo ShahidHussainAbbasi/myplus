@@ -90,4 +90,11 @@ public class CustomerHistoryDTO {
      * silently dropped in transit — the sale succeeds, the invoice is right, and the plan never exists.
      */
     private InstallmentPlanDTO installmentPlan;
+
+    /**
+     * SRA-3 — the sales rep chosen on the sale screen (0 = none). Twin of business-service's field, for the same
+     * re-serialisation reason as every field above: without it the office keys a rep's paper order and the invoice
+     * credits nobody. business-service decides the final credit (SalesRepAttribution).
+     */
+    private Long repId;
 }

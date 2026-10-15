@@ -138,7 +138,7 @@ describe('End-to-end — a complete sale with no mouse', () => {
         cy.window().its('data.0.quantity').should('eq', 1)
         scan('3*' + sku + '{enter}')
         cy.window().its('data.0.quantity').should('eq', 4)
-        cy.get('#sellTotal').should('contain', '100')
+        cy.cartTotal().should('contain', '100')
 
         // Bridge to checkout.
         scan('{enter}')

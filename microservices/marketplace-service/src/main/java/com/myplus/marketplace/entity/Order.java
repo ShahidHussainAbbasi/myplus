@@ -98,6 +98,14 @@ public class Order {
     private String bookedByName;
 
     /**
+     * SRA-3 (V36) — the sales rep the OFFICE chose when keying a rep's hand-written order. Null when a rep booked it
+     * signed in (business-service credits the rep linked to {@link #bookedByUserId}) or when there is no rep. Checked
+     * against the business's own rep list when the order is invoiced; the invoice stamps the rep's name then.
+     */
+    @Column(name = "rep_id")
+    private Long repId;
+
+    /**
      * OMS O7 D1 — why the warehouse admin refused this order (V18).
      *
      * <p>A rejection with no reason is unusable: the booker can neither fix the order nor explain it to the

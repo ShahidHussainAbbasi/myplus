@@ -110,7 +110,7 @@
      * three defects already had.
      * ══════════════════════════════════════════════════════════════════════════════════════════ */
 
-    var CHAIN = ['sellCustomerDD', 'sellCN', 'sellCC',
+    var CHAIN = ['sellCustomerDD', 'sellCN', 'sellCC', 'sellRepId',
                  'sellItemDD', 'sellSerials', 'sellQuantity', 'sellBonus', 'sellSellRate',
                  'sellDiscountTypeDD', 'sellDiscount'];
     /*
@@ -126,7 +126,11 @@
 
     /** Every dropdown the chain walks. These are bootstrap-select widgets, so they need the
      *  selection hook below rather than a keystroke handler — see D-23 in the P5 design. */
-    var PICKERS = ['sellItemDD', 'sellDiscountTypeDD', 'sellCustomerDD', 'sellPayMethod'];
+    /*
+     * sellRepId (SRA-3): the sales rep, after the customer — on screen it follows the customer row. Hidden for a business
+     * with no reps (RULE 2 walks past it), defaulted from the customer's usual rep, so for most sales Enter just passes.
+     */
+    var PICKERS = ['sellItemDD', 'sellDiscountTypeDD', 'sellCustomerDD', 'sellRepId', 'sellPayMethod'];
 
     /**
      * A sale has TWO phases, and until now only the first had a keyboard.

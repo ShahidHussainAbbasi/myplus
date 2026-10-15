@@ -123,6 +123,7 @@ class ModuleRouterTest {
                 "WELFARE,     /welfareDashboard",
                 "AGRICULTURE, /agricultureDashboard",
                 "APPOINTMENT, /appointmentDashboard",
+                "CLINIC,      /clinicHome",
         })
         @DisplayName("every module lands on its dashboard")
         void everyModuleMaps(String module, String expected) {
@@ -166,7 +167,7 @@ class ModuleRouterTest {
              * while the tenant sat on the commerce dashboard — the drift this case exists to prevent.
              */
             for (String type : new String[]{"BUSINESS", "PHARMA", "MARKETPLACE", "EDUCATION", "WELFARE",
-                    "AGRICULTURE", "APPOINTMENT", "ADMIN"}) {
+                    "AGRICULTURE", "APPOINTMENT", "ADMIN", "CLINIC"}) {
                 boolean routesToCommerce =
                         ModuleRouter.COMMERCE_DASHBOARD.equals(ModuleRouter.dashboardForModule(type));
                 assertEquals(routesToCommerce, ModuleRouter.isCommerce(type),
@@ -184,6 +185,17 @@ class ModuleRouterTest {
                     "an unknown type still reaches a working dashboard");
             assertFalse(ModuleRouter.isCommerce("RESTAURANT"),
                     "but it is not yet a registered commerce vertical — registering it is the deliberate act");
+        }
+
+        @Test
+        @DisplayName("HC-1a: a Hospital / Clinic lands on its own home — not the shop, and it is not commerce")
+        void clinicHasItsOwnHome() {
+            assertEquals(ModuleRouter.CLINIC_HOME, ModuleRouter.dashboardFor(user("CLINIC", "CLINIC")));
+            assertEquals(ModuleRouter.CLINIC_HOME, ModuleRouter.dashboardFor(user("BUSINESS", "clinic")),
+                    "the active org decides, in any case");
+            assertFalse(ModuleRouter.isCommerce("CLINIC"));
+            // POSITIVE CONTROL: the pharmacy, its separate linked tenant, still opens the shop dashboard.
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, ModuleRouter.dashboardFor(user("PHARMA", "PHARMA")));
         }
 
         @Test

@@ -26,7 +26,8 @@
 const GW = 'http://localhost:8765'
 const OPERATOR = 'admin@myplus.com'
 const OPERATOR_PW = Cypress.env('adminPassword') || 'Admin@2025!'
-const OWNER = 'owner.business@myplus.com'
+const OWNER = 'owner.business@myplus.com'
+
 /** One fresh owner sign-in per run of THIS spec — see loginAsOwner's cacheKeyExtra (refresh-token cap). */
 const OWNER_SESSION = `onboarding-profile-${Date.now()}`
 const DEMO_PW = 'Demo@2025!'
@@ -255,8 +256,10 @@ describe('ONB-1 — the business type at onboarding', () => {
     // which is how C6 shipped a policy with no control anywhere.
     cy.visit('/platformDashboard')
     cy.get('#platProvisionBtn', { timeout: 15000 }).click()
-    cy.get('#provShape').should('be.visible')
-    cy.get('#provShape option').should('have.length.greaterThan', 3)
+    // HC-1a — product line → business type (V35 rows). Business still offers its four shop types.
+    cy.get('#provProductLine').should('be.visible').select('Business')
+    cy.get('#provBusinessType').should('be.visible').and('not.be.disabled')
+    cy.get('#provBusinessType option').should('have.length.greaterThan', 3)
   })
 
   // ── the tenant's own door ───────────────────────────────────────────────────────────────────────

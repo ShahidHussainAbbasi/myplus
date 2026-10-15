@@ -40,6 +40,11 @@ public class LandService implements ILandService {
     }
 
     @Override
+    public Optional<Land> findScopedById(Long id, Long orgId, Long userId) {
+        return id == null ? Optional.empty() : landRepo.findScopedById(id, orgId, userId);
+    }
+
+    @Override
     public Optional<Land> findById(Long id) {
         return landRepo.findById(id);
     }

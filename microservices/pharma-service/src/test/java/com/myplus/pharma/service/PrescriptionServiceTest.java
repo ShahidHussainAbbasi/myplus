@@ -74,6 +74,45 @@ class PrescriptionServiceTest {
     }
 
     @Test
+    void a_doctors_submit_is_marked_and_a_retry_returns_the_same_prescription() {
+        // HMS S3b-1: the clinic sends "enc-<id>"; a second Submit (retry, double click) must not make a second script.
+        PrescriptionDTO d = sample("Bilal");
+        d.setExternalRef("enc-77");
+        d.setTokenLabel("A-040");
+        d.setEncounterId(77L);
+        d.setPartyId(9001L);
+        PrescriptionDTO first = service.create(d, ORG, USER);
+        PrescriptionDTO again = service.create(d, ORG, USER);
+
+        assertThat(again.getId()).isEqualTo(first.getId());
+        assertThat(prescriptionRepo.count()).isEqualTo(1);
+        assertThat(first.getSource()).isEqualTo("DOCTOR");
+        assertThat(first.getTokenLabel()).isEqualTo("A-040");
+        assertThat(first.getPartyId()).as("set at once, so the token search finds it").isEqualTo(9001L);
+    }
+
+    @Test
+    void a_counter_prescription_cannot_claim_to_be_the_doctors() {
+        // The source is derived, never read from the form; a counter form's party id is not trusted either.
+        PrescriptionDTO d = sample("Carol");
+        d.setSource("DOCTOR");
+        d.setTokenLabel("A-001");
+        d.setPartyId(42L);
+        PrescriptionDTO out = service.create(d, ORG, USER);
+        assertThat(out.getSource()).isEqualTo("COUNTER");
+        assertThat(out.getTokenLabel()).isNull();
+    }
+
+    @Test
+    void the_same_reference_in_another_organisation_is_a_different_prescription() {
+        PrescriptionDTO d = sample("Dana");
+        d.setExternalRef("enc-5");
+        Long a = service.create(d, ORG, USER).getId();
+        Long b = service.create(d, 2L, 2L).getId();
+        assertThat(b).isNotEqualTo(a);
+    }
+
+    @Test
     void create_persists_header_and_items_then_get_returns_them() {
         PrescriptionDTO out = service.create(sample("Alice"), ORG, USER);
         assertThat(out.getId()).isNotNull();

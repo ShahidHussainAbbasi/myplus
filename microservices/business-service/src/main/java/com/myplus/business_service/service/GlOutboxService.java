@@ -130,7 +130,7 @@ public class GlOutboxService {
                 // by when the relay woke up. created_at is the fallback for rows queued before that column
                 // existed — still the transaction's own day, unlike now().
                 .date(o.getEventDate() != null ? o.getEventDate()
-                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : TenantClock.today()))
+                        : (o.getCreatedAt() != null ? com.myplus.common.security.time.BusinessDay.of(o.getCreatedAt()) : TenantClock.today()))
                 .ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).subTotal(o.getSubTotal()).taxTotal(o.getTaxTotal())
                 .cost(o.getCost()).paidAmount(o.getPaidAmount()).method(o.getMethod())

@@ -26,20 +26,30 @@ public final class ExpenseDtos {
         }
     }
 
-    public record LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId) { }
+    public record LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId,
+                              BigDecimal taxAmount) {
+        /** Before EX-8d: no recoverable tax. */
+        public LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId) {
+            this(categoryId, amount, description, tagType, tagId, null);
+        }
+    }
 
     /** FP-3 — {@code supplierId} and {@code dueDate} belong to a bill (paidFrom = AP) and are refused on anything else. */
     public record VoucherRequest(LocalDate voucherDate, String paidFrom, Long storeId, String payeeName, String note,
-                                 List<LineRequest> lines, Long supplierId, LocalDate dueDate) { }
+                                 List<LineRequest> lines, Long supplierId, LocalDate dueDate,
+                                 List<Long> receiptIds) { }      // EX-5: receipts uploaded for this expense
 
     /** FP-3 — pay (part of) a bill. method CASH | BANK; paidOn defaults to today. */
     public record PayRequest(BigDecimal amount, String method, LocalDate paidOn) { }
 
     public record BillPaymentView(Long id, Long voucherId, BigDecimal amount, String method, LocalDate paidOn,
-                                  String status, String receiptNo, String lastError, LocalDateTime createdAt) {
+                                  String status, String receiptNo, String lastError, LocalDateTime createdAt,
+                                  String reference, boolean reversible, String reversalReceiptNo, String reversalReason,
+                                  LocalDateTime reversedAt) {
         public static BillPaymentView of(com.myplus.expense.entity.ExpenseBillPayment p) {
             return new BillPaymentView(p.getId(), p.getVoucherId(), p.getAmount(), p.getMethod(), p.getPaidOn(),
-                    p.getStatus(), p.getReceiptNo(), p.getLastError(), p.getCreatedAt());
+                    p.getStatus(), p.getReceiptNo(), p.getLastError(), p.getCreatedAt(),
+                    p.getReference(), p.reversible(), p.getReversalReceiptNo(), p.getReversalReason(), p.getReversedAt());
         }
     }
 
@@ -52,10 +62,10 @@ public final class ExpenseDtos {
     public record VoucherTotals(long count, BigDecimal total) { }
 
     public record LineView(int lineNo, Long categoryId, String categoryName, String accountCode, String description,
-                           BigDecimal amount, String tagType, Long tagId, String tagLabel) {
+                           BigDecimal amount, String tagType, Long tagId, String tagLabel, BigDecimal taxAmount) {
         public static LineView of(ExpenseVoucherLine l) {
             return new LineView(l.getLineNo(), l.getCategoryId(), l.getCategoryName(), l.getAccountCode(),
-                    l.getDescription(), l.getAmount(), l.getTagType(), l.getTagId(), l.getTagLabel());
+                    l.getDescription(), l.getAmount(), l.getTagType(), l.getTagId(), l.getTagLabel(), l.getTaxAmount());
         }
     }
 
@@ -64,13 +74,22 @@ public final class ExpenseDtos {
                               String postingError, String voidReason, LocalDateTime voidedAt, Long userId,
                               Integer version, List<LineView> lines, String source, String sourceRef,
                               Long supplierId, String supplierName, LocalDate dueDate, BigDecimal paidAmount,
-                              BigDecimal openAmount) {
+                              BigDecimal openAmount, int receipts,
+                              String claimStatus, String claimantName, String decisionNote, LocalDateTime decidedAt) {
         public static VoucherView of(ExpenseVoucher v) {
             return new VoucherView(v.getId(), v.getVoucherNo(), v.getVoucherDate(), v.getPaidFrom(), v.getStoreId(),
                     v.getPayeeName(), v.getNote(), v.getTotal(), v.getStatus(), v.getPostingStatus(),
                     v.getPostingError(), v.getVoidReason(), v.getVoidedAt(), v.getUserId(), v.getVersion(),
                     v.getLines().stream().map(LineView::of).toList(), v.getSource(), v.getSourceRef(),
-                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount());
+                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount(), 0,
+                    v.getClaimStatus(), v.getClaimantName(), v.getDecisionNote(), v.getDecidedAt());
+        }
+
+        /** EX-5 — the same view with how many receipts the expense has. */
+        public VoucherView withReceipts(int n) {
+            return new VoucherView(id, voucherNo, voucherDate, paidFrom, storeId, payeeName, note, total, status, postingStatus,
+                    postingError, voidReason, voidedAt, userId, version, lines, source, sourceRef, supplierId, supplierName,
+                    dueDate, paidAmount, openAmount, n, claimStatus, claimantName, decisionNote, decidedAt);
         }
     }
 }

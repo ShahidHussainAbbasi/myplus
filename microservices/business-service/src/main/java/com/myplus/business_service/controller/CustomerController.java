@@ -75,6 +75,12 @@ public class CustomerController {
 	@Autowired
 	ICustomerService customerService;
 
+	@Autowired
+	private com.myplus.business_service.service.AddressService addressService;   // SRA-1: area ids resolved per business
+
+	@Autowired
+	private com.myplus.business_service.service.SalesRepService salesRepService; // SRA-2: reps resolved per business
+
 	/**
 	 * C3d — what this tenant is allowed to do. Guards the territory assignment below.
 	 *
@@ -263,8 +269,16 @@ public class CustomerController {
 			obj = customerMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
-				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
-				if(existing != null) {
+				/*
+				 * ⚠ SRA-1 (owner-approved fix) — CROSS-BUSINESS WRITE. This was a plain findById: an edit carrying
+				 * ANOTHER business's customer id found that row, and the save below stamped the caller's business on
+				 * it — the customer moved into the caller's business (the EDU-IDOR-2 shape). Resolved inside the
+				 * caller's business now; a foreign or unknown id is "not found" and nothing is written. Same rule as
+				 * findByIdScoped's other callers ("not yours" answers exactly like "not there").
+				 */
+				Customer existing = customerService.findByIdScoped(dto.getCustomerId(), orgId(), userId()).orElse(null);
+				if (existing == null) return new GenericResponse("NOT_FOUND", "Customer not found.");
+				{
 					/*
 					 * ⭐ V62 — THE VERSION THE CLIENT SAW decides whether this edit is still valid.
 					 *
@@ -295,9 +309,59 @@ public class CustomerController {
 					// B2B-P0: an edit that does not carry the channel must not silently demote a trade account
 					// back to walk-in. Only a value the caller actually sent may change it.
 					if (dto.getCustomerType() == null) obj.setCustomerType(existing.getCustomerType());
+					/*
+					 * ⚠ SRA-1 (owner-approved fix) — TWO STAMPED COLUMNS THE EDIT FORM NEVER CARRIES.
+					 *
+					 * toEntity() builds a FRESH row and the mapper ignores both, so every profile edit wrote them as
+					 * NULL. creditAccountCustomerId = NULL was then re-stamped to the customer ITSELF by
+					 * stampSelfAsCreditAccount below — a branch grouped under a company (B2B-P4a) silently fell back
+					 * onto its own credit limit. assignedRepUserId = NULL unassigned the outlet from its rep on any
+					 * edit. Both are owned by their own screens (account grouping, outlet assignment); a profile edit
+					 * must leave them exactly as they were.
+					 */
+					obj.setCreditAccountCustomerId(existing.getCreditAccountCustomerId());
+					obj.setAssignedRepUserId(existing.getAssignedRepUserId());
+					// SRA-1: an edit that does not carry the area (an older cached form, an integration) keeps it.
+					if (dto.getAreaId() == null) obj.setAreaId(existing.getAreaId());
+					// SRA-2: the same for the usual rep — and the picker is only on the form for rep.manage holders.
+					obj.setDefaultRepId(existing.getDefaultRepId());
 				}
 			}else {
 				obj.setDated(dated);
+				// SRA-2: toEntity copied the REQUEST's rep in; a new customer starts with none, so the check below
+				// sees a requested rep as a change and applies the permission and the business check to it.
+				obj.setDefaultRepId(null);
+			}
+			/*
+			 * SRA-1 — the AREA, resolved inside the caller's business (anti-IDOR: another business's area id reads as
+			 * not found, exactly like one that does not exist). 0 clears it. A picked area also WRITES the free-text
+			 * city from its city, so the printed invoice — which reads customer.city — always agrees with the area.
+			 */
+			if (dto.getAreaId() != null) {
+				if (dto.getAreaId() == 0L) {
+					obj.setAreaId(null);
+				} else {
+					com.myplus.business_service.dto.AddressOptionDTO area =
+							addressService.areaInOrg(dto.getAreaId(), orgId()).orElse(null);
+					if (area == null) return new GenericResponse("FAILED", "That area was not found. Choose it again.");
+					obj.setAreaId(area.getId());
+					if (area.getCityName() != null) obj.setCity(area.getCityName());
+				}
+			}
+			/*
+			 * SRA-2 — the USUAL REP. Who covers an outlet decides who sees it and (SRA-3) who is credited by default, so
+			 * only a holder of rep.manage may CHANGE it (the D6a rule: a rep must not hand themselves outlets). Sent
+			 * unchanged — or not sent — is never a change. 0 clears it; any other id must be a rep of this business.
+			 */
+			if (dto.getDefaultRepId() != null) {
+				Long wanted = dto.getDefaultRepId() == 0L ? null : dto.getDefaultRepId();
+				if (!java.util.Objects.equals(wanted, obj.getDefaultRepId())) {
+					if (!requestUtil.holds("rep.manage"))
+						return new GenericResponse("FORBIDDEN", "You are not allowed to change who covers a customer.");
+					if (wanted != null && salesRepService.inOrg(wanted, orgId()).isEmpty())
+						return new GenericResponse("FAILED", "That rep was not found. Choose it again.");
+					obj.setDefaultRepId(wanted);
+				}
 			}
 			obj.setUpdated(dated);
 			obj.setUserId(user.getUserId());                  // audit: who created it
@@ -428,6 +492,33 @@ public class CustomerController {
 		}
 	}
 
+	/**
+	 * HMS S4-lite — the pharmacy customer for a person (party): what Dispense puts on the sale, so the patient registered
+	 * at reception is the customer the pharmacist sells to — never a second record typed at the counter.
+	 *
+	 * <p>Organisation-wide on purpose, NOT the caller's own customers: reception registers the patient and the
+	 * pharmacist sells; a user-scoped read would miss them and the sale would create a duplicate. Another tenant's
+	 * party resolves to nothing (findByPartyIdsScoped is org-scoped). Oldest customer of the party wins, like the
+	 * reception link (/internal/customers/for-party).
+	 */
+	@RequestMapping(value = "/customerForParty", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse customerForParty(@RequestParam("partyId") Long partyId) {
+		try {
+			java.util.Optional<Customer> c = customerRepo.findByPartyIdsScoped(java.util.List.of(partyId), orgId(), userId())
+					.stream().min(java.util.Comparator.comparing(Customer::getCustomerId));
+			if (c.isEmpty()) return new GenericResponse("NOT_FOUND", "No customer for this person yet.");
+			java.util.Map<String, Object> v = new java.util.LinkedHashMap<>();
+			v.put("customerId", c.get().getCustomerId());
+			v.put("name", c.get().getName());
+			v.put("contact", c.get().getContact());
+			return new GenericResponse("SUCCESS", "Customer for the person", (Object) v);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > customerForParty " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not look up the customer.");
+		}
+	}
+
 	/** SF-5 Model B: the customer's redeemable store-credit balance (for the checkout "apply store credit" UI). */
 	@RequestMapping(value = "/customerCredit", method = RequestMethod.GET)
 	@ResponseBody
@@ -471,13 +562,25 @@ public class CustomerController {
 	public GenericResponse outlets(final HttpServletRequest request) {
 		try {
 			Long org = orgId(), me = userId();
-			List<Customer> rows = seesAllOrg()
+			/*
+			 * SRA-2 — the territory rule, on REPS:
+			 *   a manager of reps (rep.manage; the owner and admins hold it)  → every outlet
+			 *   a rep (this login is linked to a rep)                          → their outlets + every unassigned one
+			 *   anyone else                                                    → every outlet (day one: nothing narrows)
+			 * ⚠ It used to ask seesAllOrg() — the set's "Sees: All" ROW scope — which is not the question: a member
+			 * whose set had scope ALL was never narrowed and could assign territories (the D6a red gate).
+			 */
+			boolean manager = requestUtil.holds("rep.manage");
+			com.myplus.business_service.entity.SalesRep rep = manager ? null
+					: salesRepService.repForUser(org, me).orElse(null);
+			List<Customer> rows = (rep == null)
 					? customerService.findOutletsForOrg(org)
-					: customerService.findOutletsForRep(org, me);
+					: customerService.findOutletsForRep(org, rep.getId());
 			List<OutletDTO> out = new ArrayList<>();
 			for (Customer c : rows) {
 				out.add(new OutletDTO(c.getCustomerId(), c.getName(), c.getContact(), c.getAddress(),
-						me != null && me.equals(c.getAssignedRepUserId())));
+						rep != null && rep.getId().equals(c.getDefaultRepId()),
+						manager ? c.getDefaultRepId() : null));   // SRA-3: the usual rep, for a manager's Rep picker only
 			}
 			return new GenericResponse("SUCCESS", "Outlets", null, out);
 		} catch (Exception e) {
@@ -505,12 +608,12 @@ public class CustomerController {
 	@ResponseBody
 	public GenericResponse outletAssignments(final HttpServletRequest request) {
 		try {
-			if (!seesAllOrg())
-				return new GenericResponse("ERROR", "Only an owner or admin can view territory assignments.");
+			if (!requestUtil.holds("rep.manage"))   // SRA-2: the permission, not the row scope (see /outlets)
+				return new GenericResponse("FORBIDDEN", "You are not allowed to view territory assignments.");
 			List<OutletAssignmentDTO> out = new ArrayList<>();
 			for (Customer c : customerService.findOutletsForOrg(orgId()))
 				out.add(new OutletAssignmentDTO(c.getCustomerId(), c.getName(), c.getContact(),
-						c.getAssignedRepUserId()));
+						c.getDefaultRepId()));
 			return new GenericResponse("SUCCESS", "Outlet assignments", null, out);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > outletAssignments " + e.getMessage(), e);
@@ -535,17 +638,17 @@ public class CustomerController {
 	 * updated. Reporting the rows ACTUALLY changed — rather than echoing back how many ids were sent — is what
 	 * makes a partially-ignored request visible instead of silently successful.
 	 *
-	 * @param repUserId the rep to assign to; <b>omit or send blank to UNASSIGN</b>, returning the outlets to
+	 * @param repId the SALES REP to assign to (SRA-2; was a login id); <b>omit or send blank to UNASSIGN</b>, returning the outlets to
 	 *                  the shared pool rather than hiding them from everybody
 	 */
 	@RequestMapping(value = "/assignOutlets", method = RequestMethod.POST)
 	@ResponseBody
-	public GenericResponse assignOutlets(@RequestParam(value = "repUserId", required = false) Long repUserId,
+	public GenericResponse assignOutlets(@RequestParam(value = "repId", required = false) Long repId,   // SRA-2: a sales rep
 	                                     @RequestParam("customerIds") List<Long> customerIds,
 	                                     final HttpServletRequest request) {
 		try {
-			if (!seesAllOrg())
-				return new GenericResponse("ERROR", "Only an owner or admin can assign territories.");
+			if (!requestUtil.holds("rep.manage"))   // SRA-2: the permission, not the row scope (see /outlets)
+				return new GenericResponse("FORBIDDEN", "You are not allowed to assign territories.");
 			/*
 			 * C3d — a territory is field sales, so the tenant must actually have it.
 			 *
@@ -568,14 +671,21 @@ public class CustomerController {
 			if (customerIds == null || customerIds.isEmpty())
 				return new GenericResponse("ERROR", "Choose at least one outlet.");
 
-			int changed = customerService.assignOutlets(customerIds, repUserId, orgId(), userId());
+			// SRA-2: the rep must be one of THIS business's (anti-IDOR), and an inactive rep is not given new outlets.
+			if (repId != null) {
+				com.myplus.business_service.entity.SalesRep target = salesRepService.inOrg(repId, orgId()).orElse(null);
+				if (target == null) return new GenericResponse("FAILED", "That rep was not found.");
+				if (!com.myplus.business_service.service.SalesRepService.ACTIVE.equalsIgnoreCase(target.getStatus()))
+					return new GenericResponse("FAILED", target.getName() + " is no longer active.");
+			}
+			int changed = customerService.assignOutlets(customerIds, repId, orgId(), userId());
 			java.util.Map<String, Object> body = new java.util.HashMap<>();
 			body.put("assigned", changed);
 			body.put("requested", customerIds.size());
 			// Says so out loud when they differ. A bulk write that reports success for input it quietly
 			// skipped is how a territory ends up half applied with nobody the wiser.
 			String msg = (changed == customerIds.size())
-					? (repUserId == null ? "Outlets unassigned." : "Outlets assigned.")
+					? (repId == null ? "Outlets unassigned." : "Outlets assigned.")
 					: ("Assigned " + changed + " of " + customerIds.size() + " outlets.");
 			// 3-arg: the counts are an OBJECT, not a collection — GenericResponse puts lists in `collection`
 			// and single payloads in `object`, and the client reads them from different fields.

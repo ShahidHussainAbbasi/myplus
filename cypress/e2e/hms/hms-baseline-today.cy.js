@@ -31,8 +31,6 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
   const stamp = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
   const toCancel = []            // prescription ids to withdraw in after()
 
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   const postForm = (url, body) =>
     cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
@@ -57,7 +55,10 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
       countryCode: 'PK', state: 'Sindh', geoId: 'Karachi', hours: '24',
     }).then((r) => {
       expect(r.status).to.eq(200)
-      expect(r.body.error, 'hospital registered').to.not.eq('RegisterFailed')
+      // /registerHospital and /registerDoctor answer a GenericResponse whose SUCCESS sentence sits in `status` and whose
+      // failure puts "RegisterFailed" in `message` — `error` is ALWAYS null, so `error !== 'RegisterFailed'` passed for
+      // every outcome (found by HMS S2-11, 2026-10-10). Assert the success sentence itself.
+      expect(r.body.status, 'hospital registered: ' + JSON.stringify(r.body)).to.match(/Hospital registered successfully/)
     })
     return cy.request('/appointment').then((page) => {
       const hospitalId = idFromOptions(page.body, hospitalName)
@@ -69,7 +70,7 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
         appointmentOfferType: 'count', appointmentOfferValue: String(cap),
       }).then((r) => {
         expect(r.status).to.eq(200)
-        expect(r.body.error, 'doctor registered').to.not.eq('RegisterFailed')
+        expect(r.body.status, 'doctor registered: ' + JSON.stringify(r.body)).to.match(/Doctor registered successfully/)
       })
       return cy.request(`/loadDoctorsByHospital?hospitalId=${hospitalId}`).then((d) => {
         const doctorId = idFromOptions(d.body, doctorName)
@@ -89,7 +90,7 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
   after(() => {
     // CLEANUP — withdraw every prescription this file left live, so the pharmacist's list is not polluted.
     cy.loginAsPharma()
-    toCancel.forEach((id) => post('/cancelPrescription', { prescriptionId: id }))
+    toCancel.forEach((id) => cy.postJson('/cancelPrescription', { prescriptionId: id }))
   })
 
   // ── B-01 — the real screen first: it answers "can a person do this at all" ────────────────────────────
@@ -152,7 +153,7 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
       const med = 'HmsAmox_' + stamp()
       cy.seedProduct({ name: med, unit: 'capsule', stock: 40, sellingPrice: 25 }).then(({ productId }) => {
         stockOf(productId).then((before) => {
-          post('/addPrescription', {
+          cy.postJson('/addPrescription', {
             patientName: 'HmsPatient_' + stamp(), patientPhone: '03004445566', doctorName: 'Dr Ahmed',
             doctorLicense: 'PMDC-12345', diagnosis: 'Tonsillitis',
             items: [{ productId, medicineName: med, quantity: 6, dosage: '1 cap', frequency: 'BD', duration: '3d' }],
@@ -170,16 +171,16 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
               tenders: [{ method: 'CASH', amount: 150, reference: '' }],
               idempotencyKey: key, prescriptionId: rxId,
             }
-            post('/addSell', sale).then((s) => {
+            cy.postJson('/addSell', sale).then((s) => {
               expect(s.body.status, JSON.stringify(s.body)).to.eq('SUCCESS')
               const invoiceNo = s.body.object
               expect(invoiceNo, 'an invoice number').to.be.a('string').and.not.be.empty
 
               // A double-clicked / retried submit with the SAME key must not sell twice.
-              post('/addSell', sale)
+              cy.postJson('/addSell', sale)
               stockOf(productId).should('eq', before - 6)
 
-              post('/dispensePrescription', { prescriptionId: rxId, invoiceNo, items: [{ productId, quantity: 6 }] })
+              cy.postJson('/dispensePrescription', { prescriptionId: rxId, invoiceNo, items: [{ productId, quantity: 6 }] })
                 .then((d) => {
                   expect(d.body.success, JSON.stringify(d.body)).to.eq(true)
                   expect(d.body.data.status).to.eq('FULLY_DISPENSED')
@@ -195,17 +196,17 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
     it('B-05 a cancelled prescription is refused at dispense', () => {
       const med = 'HmsCetirizine_' + stamp()
       cy.seedProduct({ name: med, unit: 'tablet', stock: 20, sellingPrice: 5 }).then(({ productId }) => {
-        post('/addPrescription', {
+        cy.postJson('/addPrescription', {
           patientName: 'HmsPatient_' + stamp(), doctorName: 'Dr Ahmed',
           items: [{ productId, medicineName: med, quantity: 5 }],
         }).then((rx) => {
           const rxId = rx.body.data.id
-          post('/cancelPrescription', { prescriptionId: rxId }).then((c) => {
+          cy.postJson('/cancelPrescription', { prescriptionId: rxId }).then((c) => {
             expect(c.body.success, JSON.stringify(c.body)).to.eq(true)
           })
           cy.request(`/getPrescription?id=${rxId}`).its('body.data.status').should('eq', 'CANCELLED')
           // Refusals arrive as 200 + success:false — assert the envelope, not the status code.
-          post('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'NONE', items: [{ productId, quantity: 5 }] })
+          cy.postJson('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'NONE', items: [{ productId, quantity: 5 }] })
             .then((d) => expect(d.body.success, JSON.stringify(d.body)).to.not.eq(true))
         })
       })
@@ -246,9 +247,9 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
 
     it('B-03 a doctor full for the day refuses the next booking with a reason', () => {
       clinicWithDoctor(2).then(({ hospitalId, doctorId }) => {
-        book(hospitalId, doctorId, 'Cap One ' + stamp(), '03001000001').its('body.status').should('eq', 'SUCCESS')
-        book(hospitalId, doctorId, 'Cap Two ' + stamp(), '03001000002').its('body.status').should('eq', 'SUCCESS')
-        book(hospitalId, doctorId, 'Cap Three ' + stamp(), '03001000003').then((third) => {
+        book(hospitalId, doctorId, 'Cap One ' + stamp(), uniquePhone()).its('body.status').should('eq', 'SUCCESS')
+        book(hospitalId, doctorId, 'Cap Two ' + stamp(), uniquePhone()).its('body.status').should('eq', 'SUCCESS')
+        book(hospitalId, doctorId, 'Cap Three ' + stamp(), uniquePhone()).then((third) => {
           expect(third.body.status, JSON.stringify(third.body)).to.eq('FAILURE')
           expect(third.body.error, 'the refusal says why').to.be.a('string').and.not.be.empty
         })
@@ -261,7 +262,7 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
     const patient = 'HmsPrivate_' + stamp()
     cy.loginAsPharma()
     cy.seedProduct({ name: 'HmsIso_' + stamp(), unit: 'tablet' }).then(({ productId }) => {
-      post('/addPrescription', { patientName: patient, items: [{ productId, medicineName: 'iso', quantity: 1 }] })
+      cy.postJson('/addPrescription', { patientName: patient, items: [{ productId, medicineName: 'iso', quantity: 1 }] })
         .then((rx) => {
           const rxId = rx.body.data.id
           toCancel.push(rxId)
@@ -278,9 +279,13 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
   // ── B-07 — ⚠ KNOWN DEFECT, found by this file on 2026-10-08 ─────────────────────────────────────────────
   // appointment-service resolves the patient by PHONE ALONE (findFirstByPhoneAndOrganizationId) and ignores
   // the name typed. Two people on one family phone become ONE patient under the first name — a wrong-patient
-  // record the moment a clinical history hangs off it. Red today; opt in with --env hmsDefects=1. It turns
-  // green when Phase 1's patient registry (CNIC / name + DOB matching, never phone alone) replaces Attendee.
-  ;(Cypress.env('hmsDefects') ? it : it.skip)('B-07 ⚠ two people sharing one phone stay two patients', () => {
+  // record the moment a clinical history hangs off it. Was red until S1; now a regression guard.
+  //
+  // EXPECTED (client decision 2026-10-09, design §1): ONE patient per phone. A different name on a known phone
+  // is REFUSED and the refusal names the patient already on that number — never silently filed under them.
+  // (With the clinic setting "family on one phone" ON, reception adds the son deliberately instead — S1.)
+  // FIXED 2026-10-09 by HMS S1 (AppointmentService.differentName) — runs by default now, as a regression guard.
+  it('B-07 a different name on a known phone is refused, never merged', () => {
     cy.task('clearDemoCaps')
     cy.loginAsAppointmentOwner()
     const phone = uniquePhone()
@@ -288,11 +293,13 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
     const son = 'Usman Rashid ' + stamp()
     clinicWithDoctor(20).then(({ hospitalId, doctorId }) => {
       book(hospitalId, doctorId, father, phone).its('body.status').should('eq', 'SUCCESS')
-      book(hospitalId, doctorId, son, phone).its('body.status').should('eq', 'SUCCESS')
+      book(hospitalId, doctorId, son, phone).then((r) => {
+        expect(r.body.status, 'refused, not merged: ' + JSON.stringify(r.body)).to.eq('FAILURE')
+        expect(r.body.error, 'names who is on that number').to.contain(father)
+      })
       cy.request('/loadAppointments').then((list) => {
         const mine = list.body.filter((a) => a.patientPhone === phone)
-        expect(mine.map((a) => a.patientName), 'each booking keeps the name that was typed')
-          .to.include.members([father, son])
+        expect(mine, 'only the father\'s booking exists').to.have.length(1)
       })
     })
   })

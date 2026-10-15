@@ -23,6 +23,14 @@ public class PrescriptionController {
 
     private final PrescriptionService prescriptionService;
     private final DispenseService dispenseService;
+    private final com.myplus.pharma.service.PrescriptionAmendService amendService;
+
+    /**
+     * H3b (client ruling L-3) — dispensing, changing and cancelling are the pharmacist's: {@code rx.dispense} (auth V21:
+     * in the built-in Standard and Administrator sets and held by the owner; NOT in Clinic reception or Doctor).
+     */
+    static final String PHARMACIST = "hasAuthority('WRITE_PRIVILEGE') and hasAuthority('rx.dispense')";
+    private final com.myplus.pharma.service.PrescribedProductCheck prescribedProducts;
 
     /**
      * C3b — whether this tenant dispenses on prescription at all.
@@ -47,7 +55,19 @@ public class PrescriptionController {
     @PostMapping
     public ApiResponse<PrescriptionDTO> create(@RequestBody PrescriptionDTO dto) {
         capabilityService.assertEnabled(com.myplus.common.settings.Capability.RX_REQUIRED);
+        PrescriptionService.assertMayClaimVisit(dto, CurrentUser.get().map(u -> u.getAuthorities() != null
+                && u.getAuthorities().stream().anyMatch(a -> PrescriptionService.CLINIC_CONSULT.equals(a.getAuthority())))
+                .orElse(false));
+        // H1 (L-1): a doctor's Submit names only medicines this pharmacy has (live catalogue read, before anything is
+        // written). Counter prescriptions keep today's behaviour: their screen picks from the same list.
+        if (dto.getExternalRef() != null && !dto.getExternalRef().isBlank()) prescribedProducts.assertInCatalogue(dto);
         return ApiResponse.success(prescriptionService.create(dto, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription recorded");
+    }
+
+    /** RW-4b — the overview's "prescriptions waiting" card: pending + partly dispensed, the caller's own scope. */
+    @GetMapping("/waiting-count")
+    public ApiResponse<Long> waitingCount() {
+        return ApiResponse.success(prescriptionService.countWaiting(CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     @GetMapping
@@ -55,21 +75,51 @@ public class PrescriptionController {
         return ApiResponse.success(prescriptionService.list(CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
+    /** HMS S4-lite — paged search: {@code ?partyId=} one person, else {@code ?q=} text, else the newest. */
+    @GetMapping("/search")
+    public ApiResponse<java.util.Map<String, Object>> search(@org.springframework.web.bind.annotation.RequestParam(required = false) String q,
+                                                             @org.springframework.web.bind.annotation.RequestParam(required = false) Long partyId,
+                                                             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+                                                             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "25") int size) {
+        return ApiResponse.success(prescriptionService.search(CurrentUser.organizationId(), CurrentUser.userId(), q, partyId, page, size));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<PrescriptionDTO> get(@PathVariable Long id) {
         return ApiResponse.success(prescriptionService.get(id, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
-    /** Withdraw a prescription so it can no longer be dispensed. Anything already dispensed stays recorded. */
-    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
+    /**
+     * Withdraw a prescription so it can no longer be dispensed. Anything already dispensed stays recorded.
+     * H3b (ruling L-3): the PHARMACIST's ({@code rx.dispense}); a doctor's prescription needs a reason, which the
+     * doctor sees.
+     */
+    @PreAuthorize(PHARMACIST)
     @PostMapping("/{id}/cancel")
-    public ApiResponse<PrescriptionDTO> cancel(@PathVariable Long id) {
+    public ApiResponse<PrescriptionDTO> cancel(@PathVariable Long id,
+                                               @RequestBody(required = false) java.util.Map<String, Object> body) {
+        String reason = body == null || body.get("reason") == null ? null : String.valueOf(body.get("reason"));
         return ApiResponse.success(
-                prescriptionService.cancel(id, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription cancelled");
+                amendService.cancel(id, reason, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription cancelled");
+    }
+
+    /** H3b — the pharmacist changes the prescription itself; the change is kept with who, when and why. */
+    @PreAuthorize(PHARMACIST)
+    @PutMapping("/{id}/items")
+    public ApiResponse<PrescriptionDTO> amend(@PathVariable Long id, @RequestBody com.myplus.pharma.dto.AmendRequest req) {
+        capabilityService.assertEnabled(com.myplus.common.settings.Capability.RX_REQUIRED);
+        return ApiResponse.success(
+                amendService.amend(id, req, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription changed");
+    }
+
+    /** H3b — every change the pharmacy made, oldest first (the pharmacy screen and the doctor's visit read it). */
+    @GetMapping("/{id}/amendments")
+    public ApiResponse<java.util.List<com.myplus.pharma.dto.AmendmentView>> amendments(@PathVariable Long id) {
+        return ApiResponse.success(amendService.history(id, CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     /** P6 (slice 43): record a dispense against this prescription, fulfilled by a trade sale (invoiceNo). */
-    @PreAuthorize("hasAuthority('WRITE_PRIVILEGE')")
+    @PreAuthorize(PHARMACIST)
     @PostMapping("/{id}/dispense")
     public ApiResponse<PrescriptionDTO> dispense(@PathVariable Long id, @RequestBody DispenseRequest req) {
         // Guarded as well as create(): a prescription recorded while the capability was on must not remain

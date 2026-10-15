@@ -675,6 +675,10 @@ public class SellController {
 			// TRADE-DISC-1: the edit screen must show the invoice's own trade discount. Without it the box kept
 			// the previous sale's value, and saving the edit sent THAT over this invoice's discount.
 			out.setTradeDiscount(ch.getTradeDiscount());
+			// SRA-3: the edit screen shows who is credited; saving sends it back unchanged unless a rep.manage holder changed it.
+			out.setRepId(ch.getRepId());
+			out.setRepName(ch.getRepName());
+			out.setSaleSource(ch.getSaleSource());
 			if (ch.getCustomer() != null) {
 				out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 			}
@@ -780,6 +784,9 @@ public class SellController {
 			out.setTradeDiscount(ch.getTradeDiscount());     // B2B-P3g (V35): invoice-level concession
 			out.setShippingFee(ch.getShippingFee());         // V39: delivery, added after tax — must print
 			out.setBookedByName(ch.getBookedByName());       // stamped at write, never resolved at print
+			out.setRepId(ch.getRepId());                     // SRA-3: the rep credited (stamped) and how the sale came in
+			out.setRepName(ch.getRepName());
+			out.setSaleSource(ch.getSaleSource());
 			// B2B-P4b: the buyer's PO, carried from the quote. It must reach the PRINTED invoice — that is the
 			// number their accounts-payable clerk matches against their own purchase order.
 			out.setCustomerPoNumber(ch.getCustomerPoNumber());
@@ -824,7 +831,7 @@ public class SellController {
 			if (settingsService.getBool("pos.document.qrEnabled")) {
 				java.util.Map<String, String> qrValues = new java.util.HashMap<>();
 				qrValues.put("invoiceNo", nzs(ch.getInvoiceNo()));
-				qrValues.put("date", ch.getDated() != null ? ch.getDated().toLocalDate().toString() : "");
+				qrValues.put("date", ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()).toString() : "");
 				qrValues.put("time", ch.getDated() != null ? ch.getDated().toLocalTime().withNano(0).toString() : "");
 				qrValues.put("total", ch.getGrandTotal() != null ? ch.getGrandTotal().toPlainString() : "");
 				qrValues.put("tax", ch.getTaxTotal() != null ? ch.getTaxTotal().toPlainString() : "");
@@ -935,15 +942,16 @@ public class SellController {
 
 	        if(period != com.myplus.business_service.dto.SaleReportPeriod.CUSTOM) {
 	        	java.time.LocalDateTime[] range = period.range(TenantClock.today());
-	        	objs = sellService.findSellByDates(range[0], range[1], user.getOrganizationId(), user.getUserId());
+	        	// H6 C3: the period is the BUSINESS's days; the data is UTC
+	        	objs = sellService.findSellByDates(com.myplus.common.security.time.BusinessDay.fromBusinessTime(range[0]), com.myplus.common.security.time.BusinessDay.fromBusinessTime(range[1]), user.getOrganizationId(), user.getUserId());
 	        }else if(hasSd && hasEd) {
 	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
 	        	// for both ends returned nothing at all.
-	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
+	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.getEndOfDayUtc(dto.getEd()), user.getOrganizationId(), user.getUserId());
 	        }else if(hasSd) {
 	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getOrganizationId(), user.getUserId());
 	        }else if(hasEd) {
-	        	objs = sellService.findSellByEndDate(appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
+	        	objs = sellService.findSellByEndDate(appUtil.getEndOfDayUtc(dto.getEd()), user.getOrganizationId(), user.getUserId());
 	        }
 
 	        if(objs == null) {
@@ -951,7 +959,7 @@ public class SellController {
 	            // reporting an empty shop — the same period an operator gets when they ask for nothing.
 	            java.time.LocalDateTime[] fallback =
 	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(TenantClock.today());
-	            objs = sellService.findSellByDates(fallback[0], fallback[1],
+	            objs = sellService.findSellByDates(com.myplus.common.security.time.BusinessDay.fromBusinessTime(fallback[0]), com.myplus.common.security.time.BusinessDay.fromBusinessTime(fallback[1]),   // H6 C3
 	                    user.getOrganizationId(), user.getUserId());
 	        }
 	        
@@ -1065,7 +1073,7 @@ public class SellController {
 						if (!(o instanceof com.myplus.business_service.dto.SaleReportGroup)) continue;
 						com.myplus.business_service.dto.SaleReportGroup g =
 								(com.myplus.business_service.dto.SaleReportGroup) o;
-						grouped.add(java.util.Arrays.asList(g.getLabel(), g.getInvoices(), g.getQuantity(),
+						grouped.add(java.util.Arrays.asList(g.getLabel(), g.getInvoices(), com.myplus.business_service.util.Quantities.plain(g.getQuantity()),   // NUM-1: 2, not 2.0000
 								g.getTotal(), g.getTax(), g.getGross()));
 					}
 				}
@@ -1087,7 +1095,7 @@ public class SellController {
 					rows.add(java.util.Arrays.asList(
 							r.getDated(), r.getInvoiceNo(), r.getCn(), r.getCustomerType(),
 							r.getItemCode(), r.getItemName(), r.getCategory(),
-							r.getQuantity(), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount()));
+							com.myplus.business_service.util.Quantities.plain(r.getQuantity()), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount()));   // NUM-1: Qty reads 2, money keeps 2 places
 				}
 			}
 			String csv = com.myplus.common.imports.CsvWriter.write(
@@ -1436,7 +1444,7 @@ public class SellController {
 					.anyMatch(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT))
 				return new GenericResponse("FAILED", "This sale was paid with store credit — void it and re-enter to change it.");
 			// Period close: an edit rewrites the ORIGINAL invoice in place, so it must fall in an open period.
-			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
+			periodLockGuard.assertOpen(ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : TenantClock.today());
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
@@ -1500,8 +1508,8 @@ public class SellController {
 				for (SellDTO line : dto.getSales()) {
 					if (line == null || line.getProductId() == null) continue;
 					if (!"LOOSE".equalsIgnoreCase(String.valueOf(line.getSoldUnit()))) continue;
-					Float pieces = line.getSoldQuantity();
-					if (pieces == null || pieces <= 0f) continue;   // buildLines refuses these, with a reason
+					java.math.BigDecimal pieces = line.getSoldQuantity();   // NUM-1: exact
+					if (pieces == null || pieces.signum() <= 0) continue;   // buildLines refuses these, with a reason
 
 					Integer packSize = null;
 					for (Sell prior : oldLines) {
@@ -1522,28 +1530,31 @@ public class SellController {
 						}
 					}
 					if (packSize != null && packSize > 1) {
-						line.setQuantity(pieces / (float) packSize);
+						// NUM-1: the SAME rule the sale stores (SagaSellService.looseLine: pieces ÷ pack at 4 places,
+						// HALF_UP) — anything else shows a phantom stock delta on an edit that changed nothing.
+						line.setQuantity(pieces.divide(java.math.BigDecimal.valueOf(packSize), 4, java.math.RoundingMode.HALF_UP));
 					}
 				}
 			}
 			// M3c.3b (slice 80): net per-PRODUCT delta = old sold qty − new sold qty. Adjust INVENTORY (not local
 			// Stock): a positive delta returns the excess (importStock); a negative delta takes more via one
 			// reservation+confirm (reject the edit if out of stock). Edits become inventory-correct and Stock-free.
-			java.util.Map<Long, Float> delta = new java.util.HashMap<>();
+			java.util.Map<Long, java.math.BigDecimal> delta = new java.util.HashMap<>();   // NUM-1: exact
 			for (Sell o : oldLines) {
 				Long pid = o.getProductId();   // M3c.4a: productId-only (backfill complete)
-				if (pid != null && o.getQuantity() != null) delta.merge(pid, o.getQuantity(), Float::sum);
+				if (pid != null && o.getQuantity() != null) delta.merge(pid, o.getQuantity(), java.math.BigDecimal::add);
 			}
 			for (SellDTO s : dto.getSales()) {
 				Long pid = productIdOfLine(s);
-				if (pid != null && s.getQuantity() != null) delta.merge(pid, -s.getQuantity(), Float::sum);
+				if (pid != null && s.getQuantity() != null) delta.merge(pid, s.getQuantity().negate(), java.math.BigDecimal::add);
 			}
 			java.util.List<com.myplus.commerce.contracts.dto.StockReservationLine> takeLines = new java.util.ArrayList<>();
 			java.util.List<com.myplus.commerce.contracts.dto.StockImportLine> returnLines = new java.util.ArrayList<>();
-			for (java.util.Map.Entry<Long, Float> e : delta.entrySet()) {
-				float d = e.getValue();
-				if (d < 0f) takeLines.add(new com.myplus.commerce.contracts.dto.StockReservationLine(e.getKey(), java.math.BigDecimal.valueOf(-d)));
-				else if (d > 0f) returnLines.add(com.myplus.commerce.contracts.dto.StockImportLine.builder().productId(e.getKey()).quantity(d).build());
+			for (java.util.Map.Entry<Long, java.math.BigDecimal> e : delta.entrySet()) {
+				java.math.BigDecimal d = e.getValue();
+				if (d.signum() < 0) takeLines.add(new com.myplus.commerce.contracts.dto.StockReservationLine(e.getKey(), d.negate()));
+				else if (d.signum() > 0) returnLines.add(com.myplus.commerce.contracts.dto.StockImportLine.builder().productId(e.getKey()).quantity(d)
+						.movementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_EDIT).build());   // SSR-0a - an edit reduced the line
 			}
 			/*
 			 * U10 ⭐ — RETURN TO THE BATCH THE SALE TOOK FROM.
@@ -1570,15 +1581,17 @@ public class SellController {
 				java.util.List<com.myplus.commerce.contracts.dto.StockReturnLine> byBatch =
 						new java.util.ArrayList<>();
 				for (com.myplus.commerce.contracts.dto.StockImportLine l : returnLines) {
-					// StockReturnLine.qty is Float (the contract inconsistency U0 2.3 recorded and left alone).
+					// StockReturnLine.qty is BigDecimal since NUM-1 (it was the Float inconsistency U0 2.3 recorded).
 					byBatch.add(new com.myplus.commerce.contracts.dto.StockReturnLine(
 							l.getProductId(), l.getQuantity()));
 				}
 				try {
 					// The 1-arg form is a plain restock (quarantine=false) — an edit that reduces a line is a
 					// customer changing their mind, not a clinical return, so the goods go back on the shelf.
-					inventoryClient.returnStock(ch.getReservationId(),
-							new com.myplus.commerce.contracts.dto.StockReturnRequest(byBatch));
+					com.myplus.commerce.contracts.dto.StockReturnRequest editReturn =
+							new com.myplus.commerce.contracts.dto.StockReturnRequest(byBatch);
+					editReturn.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_EDIT);   // SSR-0a
+					inventoryClient.returnStock(ch.getReservationId(), editReturn);
 					returnLines.clear();   // handled by the reservation; do not import a second, batchless copy
 				} catch (Exception batchReturnFailed) {
 					// Fall through to the flat import below rather than lose the stock. A returned unit in the
@@ -1634,7 +1647,7 @@ public class SellController {
 			java.math.BigDecimal oldDiscount = nzbd(ch.getTradeDiscount()), oldShipping = nzbd(ch.getShippingFee());
 			java.math.BigDecimal oldCost = java.math.BigDecimal.ZERO;
 			for (Sell o : oldLines)
-				oldCost = oldCost.add(nzbd(o.getCostPrice()).multiply(java.math.BigDecimal.valueOf(o.getQuantity() != null ? o.getQuantity() : 0f)));
+				oldCost = oldCost.add(nzbd(o.getCostPrice()).multiply(com.myplus.business_service.util.Quantities.nz(o.getQuantity())));
 
 			java.util.List<com.myplus.business_service.service.SagaLine> lines =
 					sagaSellService.buildLines(dto, new java.util.HashMap<>());
@@ -1743,10 +1756,11 @@ public class SellController {
 	 *
 	 * <p>Package-private and static so the arithmetic is tested on its own, with no database and no HTTP.
 	 */
-	static float packsForLooseReturn(float storedPacks, float soldPieces, float returnedPieces) {
-		if (soldPieces <= 0f) return 0f;
-		if (returnedPieces >= soldPieces) return storedPacks;   // all of it: the stored figure, to the last decimal
-		return storedPacks * (returnedPieces / soldPieces);
+	static java.math.BigDecimal packsForLooseReturn(java.math.BigDecimal storedPacks, java.math.BigDecimal soldPieces, java.math.BigDecimal returnedPieces) {
+		if (soldPieces == null || soldPieces.signum() <= 0 || storedPacks == null || returnedPieces == null) return java.math.BigDecimal.ZERO;
+		if (returnedPieces.compareTo(soldPieces) >= 0) return storedPacks;   // all of it: the stored figure, to the last decimal
+		// NUM-1: multiply first, divide once, round once to the stored scale (was float: 0.25f × 3/10 = 0.07500000298)
+		return storedPacks.multiply(returnedPieces).divide(soldPieces, com.myplus.business_service.util.Quantities.SCALE, java.math.RoundingMode.HALF_UP);
 	}
 
 	/**
@@ -1763,17 +1777,22 @@ public class SellController {
 	 * <p>Package-private and static for the same reason as its twin — the arithmetic is tested with no database
 	 * and no HTTP.
 	 */
-	static float piecesReturned(boolean looseRequest, float retPieces, float soldPieces,
-			float returnedPacks, float storedPacks) {
-		if (looseRequest) return Math.round(retPieces);
-		if (storedPacks <= 0f || soldPieces <= 0f) return 0f;
-		if (returnedPacks >= storedPacks) return Math.round(soldPieces);   // the whole line came back
-		return Math.round(soldPieces * returnedPacks / storedPacks);
+	static java.math.BigDecimal piecesReturned(boolean looseRequest, java.math.BigDecimal retPieces, java.math.BigDecimal soldPieces,
+			java.math.BigDecimal returnedPacks, java.math.BigDecimal storedPacks) {
+		// NUM-1: exact; "rounded" = HALF_UP to a whole piece, which is what Math.round(float) did for these positives
+		if (looseRequest) return wholePieces(retPieces);
+		if (storedPacks == null || storedPacks.signum() <= 0 || soldPieces == null || soldPieces.signum() <= 0) return java.math.BigDecimal.ZERO;
+		if (returnedPacks != null && returnedPacks.compareTo(storedPacks) >= 0) return wholePieces(soldPieces);   // the whole line came back
+		return soldPieces.multiply(com.myplus.business_service.util.Quantities.nz(returnedPacks)).divide(storedPacks, 0, java.math.RoundingMode.HALF_UP);
+	}
+
+	private static java.math.BigDecimal wholePieces(java.math.BigDecimal q) {
+		return q == null ? java.math.BigDecimal.ZERO : q.setScale(0, java.math.RoundingMode.HALF_UP);
 	}
 
 	/** "10" rather than "10.0" — the message is read by whoever is standing at the counter. */
-	static String fmtPieces(float pieces) {
-		return pieces == Math.rint(pieces) ? String.valueOf((long) pieces) : String.valueOf(pieces);
+	static String fmtPieces(java.math.BigDecimal pieces) {
+		return com.myplus.business_service.util.Quantities.plain(pieces);   // NUM-1: one helper for every quantity a person reads
 	}
 
 	@Transactional
@@ -1796,8 +1815,8 @@ public class SellController {
 
 			// G2 (slice 34) input validation: return qty must be > 0 and not exceed what was sold on this line —
 			// otherwise the fallback restock would inflate StockLevel beyond what left. (Bean-Validation standard, slice 26.)
-			float soldQty = existingSell.getQuantity() != null ? existingSell.getQuantity() : 0f;
-			float retQty = dto.getQuantity() != null ? dto.getQuantity() : 0f;
+			java.math.BigDecimal soldQty = com.myplus.business_service.util.Quantities.nz(existingSell.getQuantity());   // NUM-1: exact (shelf units)
+			java.math.BigDecimal retQty = com.myplus.business_service.util.Quantities.nz(dto.getQuantity());
 
 			/*
 			 * U13 — RETURN WHAT THE CUSTOMER BOUGHT: "10 tablets", not "0.25 of a box".
@@ -1817,29 +1836,28 @@ public class SellController {
 			 */
 			String returnUnit = request.getParameter("returnUnit");
 			boolean looseRequest = "LOOSE".equalsIgnoreCase(returnUnit);
-			Float soldPiecesBoxed = existingSell.getSoldQuantity();
-			float soldPieces = soldPiecesBoxed != null ? soldPiecesBoxed : 0f;
-			boolean looseLine = "LOOSE".equalsIgnoreCase(existingSell.getSoldUnit()) && soldPieces > 0f;
-			float retPieces = 0f;
+			java.math.BigDecimal soldPieces = com.myplus.business_service.util.Quantities.nz(existingSell.getSoldQuantity());
+			boolean looseLine = "LOOSE".equalsIgnoreCase(existingSell.getSoldUnit()) && soldPieces.signum() > 0;
+			java.math.BigDecimal retPieces = java.math.BigDecimal.ZERO;
 			if (looseRequest) {
 				// Refused rather than reinterpreted: silently treating "10" as ten BOXES of a sealed product would
 				// restock forty times what left the shelf and refund forty times the money.
 				if (!looseLine)
 					return new GenericResponse("FAILED", "This line was not sold in loose units.");
 				retPieces = retQty;
-				if (retPieces <= 0f)
+				if (retPieces.signum() <= 0)
 					return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
-				if (retPieces > soldPieces)
+				if (retPieces.compareTo(soldPieces) > 0)
 					return new GenericResponse("FAILED",
 							"Cannot return more than the sold quantity (" + fmtPieces(soldPieces) + ").");
 				retQty = packsForLooseReturn(soldQty, soldPieces, retPieces);
 				dto.setQuantity(retQty);   // everything downstream keeps working in shelf units
 			}
 
-			if(retQty <= 0f)
+			if(retQty.signum() <= 0)
 				return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
-			if(retQty > soldQty)
-				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + soldQty + ").");
+			if(retQty.compareTo(soldQty) > 0)
+				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + com.myplus.business_service.util.Quantities.plain(soldQty) + ").");
 
 			// Period close: a return posts a new credit dated today, so the CURRENT period must be open.
 			periodLockGuard.assertOpen(TenantClock.today());
@@ -1875,30 +1893,33 @@ public class SellController {
 								java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
 										existingSell.getProductId(), dto.getQuantity())));
 				returnReq.setQuarantine(quarantine);
+				returnReq.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_RETURN);   // SSR-0a
 				inventoryClient.returnStock(reservationId, returnReq);
 			} else if (existingSell.getProductId() != null) {
 				// M3c.3 (slice 79): a non-saga sell has a productId (backfill complete) but no reservation — restock
 				// INVENTORY by product (a fresh entry) so inventory stays authoritative; no local Stock write.
 				inventoryClient.importStock(java.util.List.of(
 						com.myplus.commerce.contracts.dto.StockImportLine.builder()
-								.productId(existingSell.getProductId()).quantity(dto.getQuantity()).build()));
+								.productId(existingSell.getProductId()).quantity(dto.getQuantity())
+								.movementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_RETURN).build()));   // SSR-0a
 			}
 
 			// SF-5: the money owed back to the customer is settled in the header re-settle below, from the actual
 			// OVERPAYMENT the return creates (paidAmount − new grandTotal) — NOT the raw line value. This way a
 			// paid sale refunds only what was overpaid, and an unpaid credit-sale return refunds nothing (the
 			// return just reduces what the customer owes). See the re-settle block for the REFUND tender.
-			boolean partial = retQty > 0f && retQty < soldQty;
+			boolean partial = retQty.signum() > 0 && retQty.compareTo(soldQty) < 0;
 			java.math.BigDecimal refundedAmount = java.math.BigDecimal.ZERO;   // SF-11: recorded on the return audit
 			java.math.BigDecimal storeCreditIssued = java.math.BigDecimal.ZERO;   // SF-5 Model B: overpayment issued as credit
 			// GL SALE_RETURN: capture the returned line's ex-tax net, tax and COGS BEFORE the line is adjusted/deleted.
 			// Ex-tax net must be the DISCOUNTED net the sale actually posted = netAmount − taxAmount (netAmount is the
 			// discounted, tax-inclusive line total). Using totalAmount (qty×rate, PRE-discount) over-reverses Sales+AR
 			// by the discount — the same drift fixed in voidSell.
-			float retFrac = soldQty > 0f ? (retQty / soldQty) : 1f;
+			// NUM-1: the refund fraction is MONEY-bearing — it was a float (3/10 = 0.30000001), now exact at scale 6.
+			java.math.BigDecimal retFrac = soldQty.signum() > 0 ? retQty.divide(soldQty, com.myplus.business_service.util.Quantities.DIV_SCALE, java.math.RoundingMode.HALF_UP) : java.math.BigDecimal.ONE;
 			java.math.BigDecimal retSub = nzbd(existingSell.getNetAmount()).subtract(nzbd(existingSell.getTaxAmount()))
-					.multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
-			java.math.BigDecimal retTax = nzbd(existingSell.getTaxAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
+					.multiply(retFrac).setScale(2, java.math.RoundingMode.HALF_UP);
+			java.math.BigDecimal retTax = nzbd(existingSell.getTaxAmount()).multiply(retFrac).setScale(2, java.math.RoundingMode.HALF_UP);
 			/*
 			 * #17 P3 — the returned goods are credited at what they COST WHEN THEY LEFT, allocated from the
 			 * batch cost recorded on the sale, not recomputed from a current rate. Returning three of eleven
@@ -1908,8 +1929,7 @@ public class SellController {
 			 * Falls back to the line snapshot (the pre-P3 formula) when the sale recorded no batch costs.
 			 */
 			java.math.BigDecimal retCost = saleCosting.cogsForPortionOfSell(
-					existingSell.getSellId(), java.math.BigDecimal.valueOf(retQty),
-					java.math.BigDecimal.valueOf(soldQty), nzbd(existingSell.getCostPrice()));
+					existingSell.getSellId(), retQty, soldQty, nzbd(existingSell.getCostPrice()));
 			String retInvoiceNo = ch != null ? ch.getInvoiceNo() : null;
 			// B2B-P3c (#1): allocate the CREDIT NOTE number here, before either use, so the document row and the
 			// GL line carry the SAME number. MAX+1 per org inside this transaction; the ledger line then names
@@ -1924,9 +1944,8 @@ public class SellController {
 			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money
 			// pro-rata so the invoice keeps the portion the customer is keeping.
 			if (partial) {
-				java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - retQty)
-						.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
-				existingSell.setQuantity(soldQty - retQty);
+				java.math.BigDecimal keepFrac = soldQty.subtract(retQty).divide(soldQty, 6, java.math.RoundingMode.HALF_UP);
+				existingSell.setQuantity(soldQty.subtract(retQty));
 				/*
 				 * U13 — the CUSTOMER's view of the line must shrink with the shelf's view.
 				 *
@@ -1940,9 +1959,9 @@ public class SellController {
 				 * that applied AT THE SALE do not change because some of the goods came back.
 				 */
 				if (looseLine) {
-					float keptPieces = looseRequest ? (soldPieces - retPieces)
-							: soldPieces * (soldQty - retQty) / soldQty;
-					existingSell.setSoldQuantity((float) Math.round(keptPieces));
+					java.math.BigDecimal keptPieces = looseRequest ? soldPieces.subtract(retPieces)
+							: soldPieces.multiply(soldQty.subtract(retQty)).divide(soldQty, 0, java.math.RoundingMode.HALF_UP);
+					existingSell.setSoldQuantity(keptPieces.setScale(0, java.math.RoundingMode.HALF_UP));   // whole pieces, as Math.round did
 				}
 				existingSell.setTotalAmount(nzbd(existingSell.getTotalAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
 				existingSell.setNetAmount(nzbd(existingSell.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
@@ -2267,8 +2286,9 @@ public class SellController {
 			 */
 			java.time.LocalDate fromD = appUtil.toLocalDateOrNull(fromStr);
 			java.time.LocalDate toD = appUtil.toLocalDateOrNull(toStr);
-			java.time.LocalDateTime from = fromD == null ? null : fromD.atStartOfDay();
-			java.time.LocalDateTime to = toD == null ? null : appUtil.endOfDay(toD.atStartOfDay());
+			// H6 C3: the BUSINESS's days as UTC bounds (end of day taken in the business zone, then converted)
+			java.time.LocalDateTime from = com.myplus.common.security.time.BusinessDay.start(fromD);
+			java.time.LocalDateTime to = com.myplus.common.security.time.BusinessDay.end(toD);
 
 			java.util.List<com.myplus.business_service.entity.SaleReturn> rows =
 					saleReturnRepo.findScopedFiltered(orgId(), userId(), fProduct, from, to);
@@ -2373,7 +2393,7 @@ public class SellController {
 				.documentType("CREDIT_NOTE")
 				.documentNo(r.getCreditNoteNo())
 				.referenceNo(r.getInvoiceNo())
-				.dated(r.getDated() != null ? r.getDated().toLocalDate().toString() : null)
+				.dated(r.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(r.getDated()).toString() : null)
 				.partyName(customerName)
 				.reason(r.getReason())
 				.totalAmount(r.getCreditAmount())
@@ -2383,7 +2403,7 @@ public class SellController {
 						.productId(r.getProductId())
 						.productName(p != null ? p.getName() : null)
 						.sku(p != null ? p.getSku() : null)
-						.quantity(r.getQuantity() != null ? java.math.BigDecimal.valueOf(r.getQuantity()) : null)
+						.quantity(r.getQuantity())
 						/*
 						 * CN-1 — the SNAPSHOT wins, and the passed-in rate is the fallback.
 						 *

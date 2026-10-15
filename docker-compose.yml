@@ -1,5 +1,10 @@
 version: '3.9'
 
+# Legacy standalone-monolith compose. Its own project name keeps it apart from the live stack in
+# microservices/docker-compose.yml (`name: myplus`): sharing the default name made `docker compose up`
+# there report this file's containers (myplus, mysqlservice) as orphans.
+name: myplus-legacy
+
 services:
   mysqlservice:
     image: mysql:latest

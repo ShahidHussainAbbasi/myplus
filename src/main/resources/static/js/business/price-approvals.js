@@ -19,10 +19,10 @@
         if (args) for (var i = 0; i < args.length; i++) s = s.replace('{' + i + '}', args[i]);
         return s;
     }
-    function money(v) { return v == null || v === '' ? '—' : (Math.round(Number(v) * 100) / 100).toFixed(2); }
     function when(iso) {
         if (!iso) return '';
-        var d = new Date(iso);   // sent with its offset, so this is the viewer's own time
+        var d = serverInstant(iso);   // H6: zone-less = server UTC (proposedAt is a LocalDateTime, no offset)
+        if (!d) return String(iso);
         return isNaN(d.getTime()) ? iso : d.toLocaleString();
     }
     function post(path, data) {
@@ -149,7 +149,12 @@
             if (yes !== true) return;
             $btn.prop('disabled', true);
             post('approvePriceChange', { id: $tr.attr('data-id'), expectedCurrent: now })
-                .done(function (resp) { decided($btn, resp, t('ui.js.paApprovedMsg', 'Price approved.')); })
+                .done(function (resp) {
+                    // TP-1: an approved price moves the price every product picker carries; global:false means the
+                    // picker's own ajaxComplete hook never sees this post, so the cache is dropped here.
+                    if (resp && resp.success !== false && global.ProductPicker) global.ProductPicker.invalidate();
+                    decided($btn, resp, t('ui.js.paApprovedMsg', 'Price approved.'));
+                })
                 .fail(function () { decided($btn, null); });
         });
     });

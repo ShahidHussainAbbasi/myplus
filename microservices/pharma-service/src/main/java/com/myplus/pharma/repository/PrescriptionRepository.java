@@ -21,8 +21,38 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
 
     /** Newest-first page. BOUNDED on purpose — the unpaged version returned every prescription the org had ever
      *  taken, and the list screen only ever shows the recent ones. */
-    @Query("SELECT p FROM Prescription p WHERE " + SCOPE + " ORDER BY p.createdAt DESC")
-    List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
+    /** H4: the caller's branches (StoreScope) — a row with no branch is everyone's. */
+    String BRANCH = " AND (:allStores = true OR p.storeId IS NULL OR p.storeId IN :stores)";
+
+    /** RW-4b — how many prescriptions are WAITING for the pharmacy, with exactly the list's scope (tenant + branches). */
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE " + SCOPE + BRANCH + " AND p.status IN :statuses")
+    long countScopedByStatus(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                             @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
+                             @Param("statuses") java.util.Collection<Prescription.Status> statuses);
+
+    @Query("SELECT p FROM Prescription p WHERE " + SCOPE + BRANCH + " ORDER BY p.createdAt DESC")
+    List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                  @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
+                                  Pageable pageable);
+
+    /** HMS S4-lite — the pharmacist's search box, by text: patient name, phone or doctor. Newest first, paged. */
+    @Query("SELECT p FROM Prescription p WHERE " + SCOPE + BRANCH + " AND ("
+            + " LOWER(p.patientName) LIKE LOWER(CONCAT('%', :q, '%'))"
+            + " OR p.patientPhone LIKE CONCAT('%', :q, '%')"
+            + " OR LOWER(p.doctorName) LIKE LOWER(CONCAT('%', :q, '%'))) ORDER BY p.createdAt DESC")
+    List<Prescription> searchScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                    @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
+                                    @Param("q") String q,
+                                    Pageable pageable);
+
+    /** HMS S4-lite — one person's prescriptions (a clinic token / MRN / phone resolved to its party). V8 indexes it. */
+    @Query("SELECT p FROM Prescription p WHERE " + SCOPE + BRANCH + " AND p.partyId = :partyId ORDER BY p.createdAt DESC")
+    List<Prescription> findByPartyScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                         @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
+                                         @Param("partyId") Long partyId, Pageable pageable);
+
+    /** HMS S3b-1 — the prescription a doctor's Submit already made (uq_rx_external_ref). */
+    java.util.Optional<Prescription> findByOrganizationIdAndExternalRef(Long organizationId, String externalRef);
 
     /** Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns). */
     @org.springframework.data.jpa.repository.Modifying

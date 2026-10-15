@@ -33,9 +33,6 @@
             ? global.t(key) : fallback;
     }
 
-    function money(v) {
-        return v == null ? '' : Number(v).toFixed(2);
-    }
 
     /** The picker's wire format → ISO. Owned by /js/common/date-picker.js, which owns the format itself. */
     function toIso(v) { return global.dpToIso ? global.dpToIso(v) : ''; }

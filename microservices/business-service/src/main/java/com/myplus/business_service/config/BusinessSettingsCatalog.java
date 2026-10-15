@@ -364,6 +364,20 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "On (default). The cart below already totals the sale, so shops that find it "
                                 + "redundant can turn it off.",
                         true, "Sale entry"),
+                // ─── Stock alerts (STK-ALERT) — the header badge owners and admins see ──────────────────────────
+                // 0 = off by default: no business is shown a badge it never asked for. A product's own minimum level
+                // (Register → Products) always applies and overrides this cap.
+                SettingEntry.intOf("pos.stock.lowStockAt",
+                        "Low stock at or below",
+                        "0 = off (default). A product counts as low when its stock is at or below this number — "
+                                + "unless the product has its own minimum level, which wins. Shown to owners and admins "
+                                + "in the header.",
+                        0, "Stock alerts"),
+                SettingEntry.intOf("pos.stock.nearExpiryDays",
+                        "Warn about batches expiring within (days)",
+                        "30 (default); 0 = off. Batches already expired are always shown. Only for a business that "
+                                + "tracks expiry.",
+                        30, "Stock alerts"),
                 SettingEntry.intOf("pos.entry.defaultQty",
                         "Default quantity on a new line",
                         "1 (default) suits a retail counter. A wholesaler selling by the carton may "

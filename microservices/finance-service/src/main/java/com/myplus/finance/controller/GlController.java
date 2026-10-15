@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
@@ -95,6 +96,18 @@ public class GlController {
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return glService.profitAndLoss(from, to);
+    }
+
+    /**
+     * AN-1 — the P&L month by month ({@code from}/{@code to} as yyyy-MM; default the last 12 months). Read by
+     * analytics-service as the caller, so the same statements rule applies.
+     */
+    @PreAuthorize(STATEMENTS)
+    @GetMapping("/pnl/monthly")
+    public List<Map<String, Object>> pnlMonthly(
+            @RequestParam(value = "from", required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth from,
+            @RequestParam(value = "to", required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth to) {
+        return glService.monthlyProfitAndLoss(from, to);
     }
 
     /** F3c — Balance Sheet as-of a date (default today). */

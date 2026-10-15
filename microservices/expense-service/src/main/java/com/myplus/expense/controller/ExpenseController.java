@@ -35,6 +35,11 @@ public class ExpenseController {
     private final ExpenseVoucherService vouchers;
     private final com.myplus.expense.service.ExpenseTagService tagService;
     private final com.myplus.expense.service.ExpenseBillService bills;
+    private final com.myplus.expense.service.ExpenseClaimService claims;
+    private final com.myplus.expense.service.ExpenseAdvanceService advances;   // EX-7b
+    private final com.myplus.expense.service.ExpenseReportService reports;     // EX-8a
+    private final com.myplus.expense.service.ExpenseSettings expenseSettings; // EX-6b — the limit, to say it
+    private final com.myplus.expense.service.ExpenseHistoryService history;   // EX-9a
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -82,6 +87,14 @@ public class ExpenseController {
         return ApiResponse.success(bills.pay(id, r, k), "Payment recorded");
     }
 
+    /** FP-3b — reverse one payment of a bill (owner/admin); the bill owes it again. Body: {"reason": "..."}. */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/vouchers/{id}/payments/{paymentId}/reverse")
+    public ApiResponse<com.myplus.expense.dto.ExpenseDtos.BillPaymentView> reversePayment(@PathVariable Long id,
+            @PathVariable Long paymentId, @RequestBody(required = false) VoidRequest r) {
+        return ApiResponse.success(bills.reversePayment(id, paymentId, r == null ? null : r.reason()), "Payment reversed");
+    }
+
     @GetMapping("/vouchers/{id}/payments")
     public ApiResponse<List<com.myplus.expense.dto.ExpenseDtos.BillPaymentView>> payments(@PathVariable Long id) {
         return ApiResponse.success(bills.list(id));
@@ -92,9 +105,10 @@ public class ExpenseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String claim,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ApiResponse.success(vouchers.list(from, to, status, page, size));
+        return ApiResponse.success(vouchers.list(from, to, status, claim, page, size));
     }
 
     /** EX-2d — what the list's date filter adds up to (posted only), for the footer. */
@@ -118,7 +132,136 @@ public class ExpenseController {
         // The header is the standard; the parameter exists because the monolith's GatewayClient forwards a body
         // and a query but no custom headers. Either way the same UNIQUE index carries the guarantee.
         String k = key != null && !key.isBlank() ? key : keyParam;
-        return ApiResponse.success(vouchers.record(r, post, k), post ? "Expense saved — posting to the books" : "Draft saved");
+        VoucherView v = vouchers.record(r, post, k);
+        if (post && "DRAFT".equals(v.status())) {
+            // EX-6b — kept back: above what a member may post (the screen shows this sentence as it is)
+            java.math.BigDecimal limit = expenseSettings.userPostLimit();
+            return ApiResponse.success(v, "Saved. It is above the " + (limit == null ? "amount" : limit.toPlainString())
+                    + " a member may post, so it waits for an owner or admin to post it.");
+        }
+        return ApiResponse.success(v, post ? "Expense saved — posting to the books" : "Draft saved");
+    }
+
+    /** EX-8b — the same payee, date and amount already recorded (numbers only): the screen asks before saving. */
+    @GetMapping("/vouchers/duplicates")
+    public ApiResponse<List<String>> possibleDuplicates(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false) java.math.BigDecimal amount, @RequestParam(required = false) String payee) {
+        return ApiResponse.success(vouchers.possibleDuplicates(date, amount, payee));
+    }
+
+    // ── EX-8a — the expense report (reconciles with the P&L) and its CSV ───────────────────────────────────────
+
+    /** EX-9a — past till pay-outs not yet in the books (owner/admin), each with the expenses it may duplicate. */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @GetMapping("/history/till")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseHistoryService.TillRow>> tillHistory() {
+        return ApiResponse.success(history.tillPreview());
+    }
+
+    public record TillImportRequest(Long categoryId, List<Long> refs) { }
+
+    /** EX-9a — bring the ticked pay-outs into the books, once each (R-4: with the owner's consent). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/history/till/import")
+    public ApiResponse<com.myplus.expense.service.ExpenseHistoryService.ImportResult> importTill(@RequestBody TillImportRequest r) {
+        var res = history.importTill(r == null ? null : r.categoryId(), r == null ? null : r.refs());
+        return ApiResponse.success(res, res.imported() + " imported" + (res.skipped() > 0 ? ", " + res.skipped() + " already in the books or not found" : ""));
+    }
+
+    /** EX-9b — the farm's old expense rows not yet in the books (owner/admin). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @GetMapping("/history/farm")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseHistoryService.FarmRow>> farmHistory() {
+        return ApiResponse.success(history.farmPreview());
+    }
+
+    /** EX-9b — bring the ticked farm rows into the books, once each (R-4). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/history/farm/import")
+    public ApiResponse<com.myplus.expense.service.ExpenseHistoryService.ImportResult> importFarm(@RequestBody TillImportRequest r) {
+        var res = history.importFarm(r == null ? null : r.categoryId(), r == null ? null : r.refs());
+        return ApiResponse.success(res, res.imported() + " imported" + (res.skipped() > 0 ? ", " + res.skipped() + " already in the books or not found" : ""));
+    }
+
+    @GetMapping("/reports/summary")
+    public ApiResponse<com.myplus.expense.service.ExpenseReportService.Summary> reportSummary(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+            @RequestParam(required = false) String by) {
+        return ApiResponse.success(reports.summary(from, to, by));
+    }
+
+    @GetMapping(value = "/reports/expenses.csv", produces = "text/csv")
+    public org.springframework.http.ResponseEntity<byte[]> reportCsv(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) {
+        byte[] body = reports.csv(from, to).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"expenses.csv\"")
+                .header("Cache-Control", "private, no-store")
+                .body(body);
+    }
+
+    // ── EX-7b — advances to staff (owner/admin give and take back; a member sees their own balance) ─────────────
+
+    @GetMapping("/advances")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseAdvanceService.BalanceView>> advanceBalances() {
+        return ApiResponse.success(advances.balances());
+    }
+
+    @GetMapping("/advances/staff")
+    public ApiResponse<List<com.myplus.expense.service.StaffDirectory.Member>> advanceStaff() {
+        return ApiResponse.success(advances.staff());
+    }
+
+    @GetMapping("/advances/{userId}/movements")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseAdvanceService.MovementView>> advanceMovements(@PathVariable Long userId) {
+        return ApiResponse.success(advances.movements(userId));
+    }
+
+    @PostMapping("/advances/give")
+    public ApiResponse<com.myplus.expense.service.ExpenseAdvanceService.MovementView> giveAdvance(
+            @RequestBody com.myplus.expense.service.ExpenseAdvanceService.AdvanceRequest r,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        return ApiResponse.success(advances.give(r, key != null && !key.isBlank() ? key : keyParam), "Advance given");
+    }
+
+    @PostMapping("/advances/take-back")
+    public ApiResponse<com.myplus.expense.service.ExpenseAdvanceService.MovementView> takeBackAdvance(
+            @RequestBody com.myplus.expense.service.ExpenseAdvanceService.AdvanceRequest r,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        return ApiResponse.success(advances.takeBack(r, key != null && !key.isBlank() ? key : keyParam), "Advance taken back");
+    }
+
+    // ── EX-6 — claims ────────────────────────────────────────────────────────────────────────────────
+
+    @PostMapping("/claims")
+    public ApiResponse<VoucherView> submitClaim(@RequestBody VoucherRequest r,
+                                                @RequestHeader(value = "Idempotency-Key", required = false) String key,
+                                                @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        String k = key != null && !key.isBlank() ? key : keyParam;
+        return ApiResponse.success(claims.submit(r, k), "Claim sent for approval");
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/claims/{id}/approve")
+    public ApiResponse<VoucherView> approveClaim(@PathVariable Long id) {
+        return ApiResponse.success(claims.approve(id), "Claim approved — posting to the books");
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/claims/{id}/reject")
+    public ApiResponse<VoucherView> rejectClaim(@PathVariable Long id, @RequestBody(required = false) VoidRequest r) {
+        return ApiResponse.success(claims.reject(id, r == null ? null : r.reason()), "Claim rejected");
+    }
+
+    @PostMapping("/claims/{id}/withdraw")
+    public ApiResponse<VoucherView> withdrawClaim(@PathVariable Long id) {
+        return ApiResponse.success(claims.withdraw(id), "Claim withdrawn");
     }
 
     @PostMapping("/vouchers/{id}/post")

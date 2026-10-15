@@ -39,7 +39,7 @@ const makeProduct = (price) =>
     body: { name: `CG2 ${uniq()}`, sku: `CG2${uniq()}`, sellingPrice: price, taxRate: 0, unit: 'pcs' },
   }).then((r) => {
     expect(r.body.success, `addProduct: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq(true)
-    return cy.wrap(r.body.data.id)
+    return cy.markNoExpiry(r.body.data.id).then(() => r.body.data.id)   // EXP-REQ (4818b0bd): a fixture product has no expiry, or demo.business refuses its purchase
   })
 
 /** Stock it in at a KNOWN cost — this is what makes COGS predictable rather than inherited. */

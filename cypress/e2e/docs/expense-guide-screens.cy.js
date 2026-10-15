@@ -84,7 +84,11 @@ const showTrialBalance = () => {
 const vendorRow = (id) => cy.request('/getUserVender').then((r) => list(r.body).find((v) => v.id === id))
 const categoryByName = (name) => cy.request('/expense/categories').then((r) => {
   const cats = (r.body && r.body.data) || []
-  return cats.find((c) => c.name === name && c.active !== false) || cats.find((c) => c.active !== false)
+  // strict: a name this business does not have FAILS here. Falling back to "the first category" once recorded a
+  // Utilities case as Rent without anyone noticing (EX-8a, 9-1).
+  const hit = cats.find((c) => c.name === name && c.active !== false)
+  expect(hit, `category "${name}" in this business (has: ${cats.filter((c) => c.active !== false).map((c) => c.name).join(', ')})`).to.exist
+  return hit
 })
 
 /** A supplier of the lifecycle business, created through the Vender / Supplier form's own request. */
@@ -796,6 +800,838 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     resetBoth()
   })
 
+  // ═══ EX-5 · Receipts ════════════════════════════════════════════════════════════════════════════════════
+  // Each case leaves nothing behind: its expenses are voided at its end (and by SAFETY if it stops half-way), so a
+  // later case's duplicate warning is about that case only. Fixtures: receipt-photo.jpg (2400×1800 JPEG, 126 KB),
+  // receipt-invoice.pdf, not-a-receipt.jpg (an HTML page named .jpg).
+  const RCPT_RULE = 'expense.receipt.requiredAbove'
+  const voidQuietly = (id) => cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })
+  const resetReceiptRule = () => token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=${RCPT_RULE}`,
+    headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+  /** Save the form; if the server names a duplicate, answer the warning as asked (true = Confirm). */
+  const saveWithReceipt = (confirmDuplicate = true) => {
+    cy.intercept('POST', '**/expense/receipts').as('rcptUp')
+    cy.get('[data-cy=save-expense]').click()
+    cy.wait('@rcptUp').its('response.body.data.alsoOn').then((also) => {
+      if (also && also.length) cy.get(confirmDuplicate ? '[data-ui-confirm="ok"]' : '.uiC-cancel').click()
+    })
+  }
+  const rowId = (payee, ids) => expenseRow(payee).invoke('attr', 'data-id').then((id) => { ids.push(id); return id })
+  const fresh5 = (ids) => {
+    asLifecycle(true)
+    SAFETY.push(() => { asLifecycle(); ids.forEach(voidQuietly) })
+    openDashboard(); openExpenses()
+  }
+
+  caseIt('5-1', 'Keep a photo of the receipt with the expense', () => {
+    testCase('5-1', 'ex5', 'Keep a photo of the receipt with the expense', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business'] })
+    setup('Expense management switched on (case 0a-3). A photo of a bill on this computer (the recording uses a 2400×1800, 126 KB test photo).')
+    const ids = [], payee = 'XG5 photo ' + run
+    fresh5(ids)
+    const a1 = act(`<b>Till → Expenses</b>: Category <b>Rent</b>, Amount <b>12</b>, Paid from <b>Cash</b>, Payee <b>${payee}</b>; in <b>Receipt</b> choose the photo. Press <b>Save and post</b>.`,
+      ['“Expense saved”. The row reaches <b>In the books</b> and shows a <b>Receipts (1)</b> button.'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-photo.jpg', { force: true })
+    saveWithReceipt()
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Receipts (1)')
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'saved')
+    const a2 = act('Press <b>Receipts (1)</b>.', ['Under the row: the file’s name with a picture icon and its size in KB — <b>smaller than the 126 KB original</b> (the photo was shrunk on this computer to 1600 px before it was sent).'])
+    expenseRow(payee).find('[data-cy=expense-receipts]').click()
+    cy.get('[data-cy=receipt-row]').should('have.length', 1)
+    cy.then(() => cy.request(`/expense/vouchers/${ids[0]}/receipts`).its('body.data.0.size').should('be.lessThan', 126185))
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'listed')
+    const a3 = act('Click the file’s name.', ['The photo opens in a new tab — it is kept on the server, not on this computer, so it can be seen from any device.',
+      'Behind it (checked by the recording): served as a JPEG, not cached, “nosniff”.'], { via: 'run' })
+    cy.get('[data-cy=receipt-view]').invoke('attr', 'href').then((href) => cy.request({ url: href, encoding: 'binary' }).then((r) => {
+      expect(r.headers['content-type']).to.contain('image/jpeg')
+      expect(r.headers['x-content-type-options']).to.eq('nosniff')
+      expect(r.headers['cache-control']).to.contain('no-store')
+    }))
+    act(`Void <b>${payee}</b> (reason “Test Book”). The receipt stays with the voided expense.`, [], { cleanup: true })
+    cy.then(() => voidQuietly(ids[0]))
+  })
+
+  caseIt('5-2', 'The same receipt twice is warned about before saving', () => {
+    testCase('5-2', 'ex5', 'The same receipt twice is warned about before saving', { who: ['owner.lifecycle (recorded)'] })
+    setup('A PDF invoice on this computer (the recording uses receipt-invoice.pdf).')
+    const ids = [], first = 'XG5 pdf ' + run, second = 'XG5 pdf again ' + run
+    fresh5(ids)
+    const a1 = act(`Record <b>Rent 120</b> in cash, Payee <b>${first}</b>, Receipt: the PDF. Save.`, ['The row shows <b>Receipts (1)</b>.'])
+    fillExpense({ category: 'Rent', amount: 120, paidFrom: 'CASH', payee: first })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-invoice.pdf', { force: true })
+    saveWithReceipt()
+    expenseRow(first).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Receipts (1)')
+    rowId(first, ids)
+    snap(a1, 'first')
+    const a2 = act(`Record another (Rent 120, Payee <b>${second}</b>) with the <b>same PDF</b>. Save.`,
+      ['Before anything is saved: <b>This receipt is already on another expense</b> — “The same receipt is on EXP-…. Save this expense anyway?”, naming the first expense.'])
+    fillExpense({ category: 'Rent', amount: 120, paidFrom: 'CASH', payee: second })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-invoice.pdf', { force: true })
+    cy.get('[data-cy=save-expense]').click()
+    cy.then(() => cy.request(`/expense/vouchers/${ids[0]}`).its('body.data.voucherNo').then((no) => cy.get('.uiC-card', { timeout: 20000 }).should('contain', no)))
+    snap(a2, 'warning')
+    const a3 = act('Press <b>Cancel</b>.', ['Nothing is saved: there is no row for the second expense. The form keeps what was typed.'])
+    cy.get('.uiC-cancel').click()
+    cy.wait(1000)
+    cy.contains('#tableExpense tbody tr.expense-row', second).should('not.exist')
+    snap(a3, 'cancelled', '#ExpenseForm')
+    const a4 = act('Press <b>Save and post</b> again, and this time <b>Confirm</b>. Then press its <b>Receipts (1)</b>.',
+      ['The warning comes again (it asks every time), then the expense is saved.', 'Its receipt reads <b>Also on EXP-…</b> — the same bill on two expenses is visible to whoever checks them.'])
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('.uiC-card', { timeout: 20000 }).should('contain', 'already on another expense')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(second).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Receipts (1)').click()
+    cy.get('[data-cy=receipt-also-on]').should('contain', 'EXP-')
+    rowId(second, ids)
+    expenseRow(second).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a4, 'also-on')
+    act('Void both test expenses (reason “Test Book”).', [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
+  caseIt('5-3', 'The owner can require a receipt above an amount', () => {
+    testCase('5-3', 'ex5', 'The owner can require a receipt above an amount', { who: ['owner.lifecycle (recorded)', 'admin.business'] })
+    const ids = [], payee = 'XG5 required ' + run
+    fresh5(ids)
+    resetReceiptRule()
+    SAFETY.push(() => { asLifecycle(); resetReceiptRule() })
+    const a1 = act('<b>Till → Expenses → Settings</b>: <b>Receipt required above</b> <b>10</b>, press its <b>Save</b>.',
+      ['“Setting saved”. Under the form’s Receipt field the hint now reads <b>Required for an expense above 10.00</b>.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-receipt-above]').clear().type('10')
+    cy.get('[data-cy=set-receipt-above-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    cy.get('#expReceiptHint').should('contain', 'Required for an expense above')
+    cy.get('#expSetPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'rule')
+    const a2 = act(`Record <b>Rent 15</b> in cash, Payee <b>${payee}</b>, <b>no receipt</b>. Save.`,
+      ['Refused, in words: “<b>A receipt is required for an expense above 10. Attach a photo or PDF of the receipt.</b>” Nothing is saved.'])
+    fillExpense({ category: 'Rent', amount: 15, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg').should('contain', 'A receipt is required for an expense above 10')
+    cy.contains('#tableExpense tbody tr.expense-row', payee).should('not.exist')
+    snap(a2, 'refused', '#ExpenseForm')
+    const a3 = act('Choose the receipt photo in <b>Receipt</b> and save again.', ['Saved, with <b>Receipts (1)</b>.'])
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-photo.jpg', { force: true })
+    saveWithReceipt()
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Receipts (1)')
+    rowId(payee, ids)
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'saved')
+    act('Settings → Receipt required above → <b>0</b> (never) and Save; void the test expense.', [], { cleanup: true })
+    resetReceiptRule()
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
+  caseIt('5-4', 'A file that is not a receipt is refused', () => {
+    testCase('5-4', 'ex5', 'A file that is not a receipt is refused', { who: ['owner.lifecycle (recorded)'] })
+    setup('A file that is not a photo or PDF but is NAMED like one (the recording uses not-a-receipt.jpg — a web page renamed .jpg).')
+    const ids = []
+    fresh5(ids)
+    const a1 = act('Record Rent 9 with that file as the Receipt. Save.', ['Refused on this computer, before anything is sent: “<b>A receipt must be a photo (JPEG, PNG or WEBP) or a PDF.</b>”'])
+    fillExpense({ category: 'Rent', amount: 9, paidFrom: 'CASH', payee: 'XG5 fake ' + run })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/not-a-receipt.jpg', { force: true })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg').should('contain', 'A receipt must be a photo')
+    snap(a1, 'refused', '#ExpenseForm')
+    const a2 = act('Send the same file straight to the server, bypassing the screen.', ['Refused by the server too: it reads the file’s first bytes and ignores the name and the type the browser claims.'], { via: 'run' })
+    cy.fixture('not-a-receipt.jpg', 'binary').then((txt) => {
+      const fd = new FormData()
+      fd.append('file', new Blob([txt], { type: 'image/jpeg' }), 'fake.jpg')
+      token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/receipts`, headers: { Authorization: `Bearer ${t}` }, body: fd, failOnStatusCode: false })
+        .then((r) => expect(JSON.parse(new TextDecoder().decode(r.body)).message).to.contain('photo (JPEG, PNG or WEBP) or a PDF')))
+    })
+    cy.get('#expReceipt').then(($i) => { $i.val('') })
+    act('Nothing to undo — nothing was saved.', [], { cleanup: true })
+  })
+
+  caseIt('5-5', 'Add the receipt to an expense already saved', () => {
+    testCase('5-5', 'ex5', 'Add the receipt to an expense already saved', { who: ['owner.lifecycle (recorded)', 'user.business (their own)'] })
+    const ids = [], payee = 'XG5 later ' + run
+    fresh5(ids)
+    const a1 = act(`Record <b>Rent 7</b> in cash, Payee <b>${payee}</b>, no receipt.`, ['The row offers <b>Add a receipt</b>.'])
+    fillExpense({ category: 'Rent', amount: 7, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Add a receipt')
+    rowId(payee, ids)
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'no-receipt')
+    const a2 = act('Press <b>Add a receipt</b>, then <b>Add a receipt</b> in the panel, and choose the PDF invoice.', ['The row now reads <b>Receipts (1)</b>; the panel lists the PDF.'])
+    expenseRow(payee).find('[data-cy=expense-receipts]').click()
+    cy.get('[data-cy=receipt-add]').selectFile('cypress/fixtures/receipt-invoice.pdf', { force: true })
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 20000 }).should('contain', 'Receipts (1)')
+    cy.get('[data-cy=receipt-row]').should('have.length', 1)
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'added')
+    act(`Void <b>${payee}</b> (reason “Test Book”).`, [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
+  caseIt('5-6', 'Only those who can see the expense can see its receipt; removing is for owners', () => {
+    testCase('5-6', 'ex5', 'Only those who can see the expense can see its receipt; removing is for owners', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    const ids = [], payee = 'XG5 private ' + run
+    let rid = null
+    fresh5(ids)
+    setup(`An expense with a receipt: the recording records Rent 6, Payee <b>${payee}</b>, with the PDF.`)
+    fillExpense({ category: 'Rent', amount: 6, paidFrom: 'CASH', payee })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-invoice.pdf', { force: true })
+    saveWithReceipt()
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Receipts (1)')
+    rowId(payee, ids).then((id) => cy.request(`/expense/vouchers/${id}/receipts`).its('body.data.0.id').then((r) => { rid = r }))
+    const a1 = act('As <b>another business’s owner</b> (owner.business), ask for this receipt by its address.',
+      ['<b>Not found</b> — a receipt is read only through its own expense.',
+       'A cashier asking for a colleague’s receipt in the same business gets <b>not found</b>, and a cashier asking to remove one is refused (403) — both checked in the automated gate, ex-5 case 6.'], { via: 'run' })
+    cy.then(() => {
+      cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: 'owner.business@myplus.com', password: PW } }).its('body.data.accessToken')
+        .then((o) => cy.request({ url: `${GW}/api/expense/receipts/${rid}/content`, headers: { Authorization: `Bearer ${o}` }, failOnStatusCode: false })
+          .its('status').should('be.oneOf', [400, 404]))
+    })
+    const a2 = act('As the owner: open its <b>Receipts (1)</b>, press <b>Remove</b>, and confirm.',
+      ['The confirmation says the file is kept for the audit trail.', 'The row goes back to <b>Add a receipt</b>; the receipt no longer opens.'])
+    asLifecycle(true)
+    openDashboard(); openExpenses()
+    expenseRow(payee).find('[data-cy=expense-receipts]').click()
+    cy.get('[data-cy=receipt-remove]').click()
+    cy.get('.uiC-card').should('contain', 'audit trail')
+    snap(a2, 'confirm-remove')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 20000 }).should('contain', 'Add a receipt')
+    cy.then(() => cy.request({ url: `/expense/receipts/${rid}/content`, failOnStatusCode: false }).its('status').should('eq', 404))
+    act(`Void <b>${payee}</b> (reason “Test Book”).`, [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
+  // ═══ EX-6 · Expense claims ═══════════════════════════════════════════════════════════════════════════════
+  // Two people are needed (one claims, another decides), so these cases use the SCHOOL business: owner, admin and user.
+  // Expense claims is not in the FREE plan: the recording lifts the plan to PRO if it is FREE and puts it back (SAFETY).
+  const SCHOOL = { owner: 'owner.education@myplus.com', admin: 'admin.education@myplus.com', user: 'user.education@myplus.com' }
+  const CLAIMS_KEY = 'org.cap.expenseClaims', MGMT_KEY = 'org.cap.expenseManagement'
+  const asSchool = (who) => cy.loginAs(SCHOOL[who], PW, '/getDashboardData', 'xg6-' + who + Date.now())
+  const schoolExpenses = () => {
+    cy.visit('/educationDashboard'); cy.waitForAppReady()
+    openMenu('snavFee'); cy.get('#navExpenses').should('be.visible').click()
+    cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+  }
+  const schoolToken = (who) => cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: SCHOOL[who], password: PW } }).its('body.data.accessToken')
+  const fillClaim = (amount, payee) => {
+    cy.get('#expCategory option').contains('Rent').then(($o) => cy.get('#expCategory').select($o.val(), { force: true }))
+    cy.get('#expAmount').clear().type(String(amount))
+    cy.get('#expPaidFrom').select('EMPLOYEE', { force: true })
+    cy.get('#expPayee').clear().type(payee)
+  }
+  let claimsReady = false
+  /** Plan (if FREE) + both switches on, once for the EX-6 cases; every change undone by SAFETY. */
+  const claimsOn = () => {
+    if (claimsReady) return
+    claimsReady = true
+    cy.loginAsOperator()
+    // through auth's API with the owner's token: a teardown must not depend on a browser sign-in (ex-7a slice doc §5)
+    SAFETY.push(() => schoolToken('owner').then((t) => [CLAIMS_KEY, MGMT_KEY].forEach((k) => cy.request({ method: 'POST',
+      url: `${GW}/api/auth/settings/reset?key=${k}`, headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))))
+    // pushed AFTER the switches so it runs BEFORE them (SAFETY runs in reverse): it needs only the operator
+    cy.planOf(SCHOOL.owner).then((p) => {
+      if (p.plan !== 'FREE') return
+      cy.setPlan(p.id, 'PRO')
+      SAFETY.push(() => { cy.loginAsOperator(); cy.setPlan(p.id, 'FREE') })
+    })
+    asSchool('owner')
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: MGMT_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+  }
+  const claimSwitchOn = () => cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: CLAIMS_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+
+  caseIt('6-1', 'Switch expense claims on', () => {
+    testCase('6-1', 'ex6', 'Switch expense claims on', { who: ['owner.education (recorded)', 'admin.education'] })
+    setup('Expense management is on (case 2a-1). Expense claims is part of the paid plans, not FREE: the recording lifts this school to PRO for the run and puts it back.')
+    claimsOn()
+    asSchool('owner')
+    cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: CLAIMS_KEY }, failOnStatusCode: false })
+    cy.visit('/educationDashboard'); cy.waitForAppReady()
+    const a1 = act('As the owner: <b>Fee → Configuration</b>, in the <b>Modules</b> card tick <b>Expense claims</b>.',
+      ['The card lists <b>Expense claims</b> (“Staff record what they paid from their own pocket…”), unticked until now; ticking shows <b>Saved</b>.'])
+    openMenu('snavFee'); cy.contains('#snavFee a', 'Configuration').click()
+    cy.get(`#moduleSwitches [data-key="${CLAIMS_KEY}"]`, { timeout: 20000 }).should('not.be.checked').check()
+    cy.get('#moduleSwitchesMsg').should('contain', 'Saved')
+    snap(a1, 'switched-on', '#moduleSwitches')
+    const a2 = act('Sign out and in again, open <b>Expenses</b>, and open <b>Paid from</b>.', ['It now offers <b>Me — claim it back</b> as well as Cash and Bank.'])
+    asSchool('owner'); schoolExpenses()
+    cy.get('#expPaidFrom option[value="EMPLOYEE"]').should('contain', 'Me — claim it back')
+    act('Kept on for cases 6-2 to 6-5; switched off (and the plan put back) at the end of the recording.', [], { cleanup: true })
+  })
+
+  caseIt('6-2', 'A member claims back what they paid themselves', () => {
+    testCase('6-2', 'ex6', 'A member claims back what they paid themselves', { who: ['user.education (recorded)', 'any member'] })
+    setup('Expense claims switched on (case 6-1).')
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG6 fuel ' + run
+    asSchool('user'); schoolExpenses()
+    const a1 = act(`As <b>user.education</b>: <b>Expenses</b> → Category <b>Rent</b>, Amount <b>35</b>, Paid from <b>Me — claim it back</b>, Payee <b>${payee}</b>.`,
+      ['The button now reads <b>Send for approval</b>, and under it: “You paid this yourself. An owner or admin approves it; then the business owes it back to you.”'])
+    fillClaim(35, payee)
+    cy.get('[data-cy=save-expense]').should('contain', 'Send for approval')
+    cy.get('[data-cy=claim-hint]').should('be.visible')
+    snap(a1, 'form', '#ExpenseForm')
+    const a2 = act('Press <b>Send for approval</b>.', ['“Claim sent for approval…”. The row reads <b>Claim · user.education@…</b> and <b>Waiting for approval</b>, with no expense number yet, and a <b>Withdraw</b> button.',
+      'It is not money spent yet: the period’s <b>Total spent</b> does not change.'])
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg').should('contain', 'Claim sent for approval')
+    expenseRow(payee).find('[data-cy=claim-waiting]').should('contain', 'Waiting for approval')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'waiting')
+    act('Nothing to undo yet — case 6-3 approves this claim.', [], { cleanup: true })
+  })
+
+  caseIt('6-3', 'The owner approves a claim; the business now owes it', () => {
+    testCase('6-3', 'ex6', 'The owner approves a claim; the business now owes it', { who: ['owner.education (recorded)', 'admin.education'] })
+    setup('A claim waiting for approval (case 6-2: XG6 fuel, 35).')
+    claimsOn()
+    const payee = 'XG6 fuel ' + run
+    let tb = null
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } })
+      .its('body.rows').then((rows) => { tb = Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)])) }))
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('As the owner: open <b>Expenses</b>.', ['Above the list: “<b>1 claim is waiting for approval.</b>” with <b>Show them</b>.'])
+    cy.get('[data-cy=claims-waiting]').should('be.visible').and('contain', 'waiting for approval')
+    snap(a1, 'waiting-notice', '#ExpenseDiv [data-cy=claims-waiting]')
+    const a2 = act('Press <b>Show them</b>.', ['Only the claims waiting for a decision are listed, each with <b>Approve</b> and <b>Reject</b>. The button now reads <b>Show every expense</b>.'])
+    cy.get('[data-cy=claims-show]').click()
+    expenseRow(payee).find('[data-cy=claim-approve]').should('exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'queue')
+    const a3 = act(`Press <b>Approve</b> on <b>${payee}</b>, then <b>Show every expense</b>.`,
+      ['“Claim approved — posting to the books”. The row gets its <b>EXP-</b> number and reaches <b>In the books</b>.'])
+    expenseRow(payee).find('[data-cy=claim-approve]').click()
+    cy.get('#expMsg').should('contain', 'Claim approved')
+    cy.get('[data-cy=claims-show]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'approved')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>2300 Employee Reimbursements Payable</b> is 35 more in credit (owed to the member) and <b>6000 Rent</b> 35 more in debit. Cash and bank have not moved — the member is paid back in EX-7.'], { via: 'run' })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } }).its('body.rows').then((rows) => {
+      const a = Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)]))
+      const d = (c) => Math.round(((a[c] || 0) - (tb[c] || 0)) * 100) / 100
+      expect(d('2300')).to.eq(-35); expect(d('6000')).to.eq(35); expect(d('1000')).to.eq(0); expect(d('1010')).to.eq(0)
+    }))
+    act(`Void <b>${payee}</b> (reason “Test Book”); the reversal clears the 35 from 2300.`, [], { cleanup: true })
+    cy.request('/expense/vouchers?size=50').its('body.data.content').then((l) => {
+      const v = l.find((x) => x.payeeName === payee)
+      cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })
+    })
+  })
+
+  caseIt('6-4', 'The owner rejects a claim, and says why', () => {
+    testCase('6-4', 'ex6', 'The owner rejects a claim, and says why', { who: ['owner.education (recorded)', 'user.education (recorded)'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG6 taxi ' + run
+    setup(`A claim waiting for approval: the recording has user.education claim Rent 18, Payee <b>${payee}</b> (as in case 6-2).`)
+    asSchool('user'); schoolExpenses(); fillClaim(18, payee)
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('[data-cy=claim-waiting]').should('exist')
+    asSchool('owner'); schoolExpenses()
+    const a1 = act(`As the owner: press <b>Reject</b> on <b>${payee}</b>.`, ['“Reject this claim?” asks <b>why</b> — the person who made the claim will see it.'])
+    expenseRow(payee).find('[data-cy=claim-reject]').click()
+    cy.get('.uiC-card').should('contain', 'Reject this claim?')
+    cy.get('.uiC-input').type('No receipt for the taxi')
+    snap(a1, 'why')
+    const a2 = act('Type <b>No receipt for the taxi</b> and confirm.', ['The row reads <b>Rejected</b> with the reason under it. Nothing reaches the books.'])
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('[data-cy=claim-rejected]').should('contain', 'Rejected')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'rejected')
+    const a3 = act('As <b>user.education</b>: open Expenses.', ['Their claim reads <b>Rejected</b> — “No receipt for the taxi”. It can no longer be withdrawn or decided; they submit a new claim if they have the receipt.'])
+    asSchool('user'); schoolExpenses()
+    expenseRow(payee).find('[data-cy=claim-reason]').should('contain', 'No receipt for the taxi')
+    expenseRow(payee).find('[data-cy=claim-withdraw]').should('not.exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'claimant-sees')
+    act('Nothing to undo — a rejected claim never reached the books, and it is kept for the trail.', [], { cleanup: true })
+  })
+
+  caseIt('6-5', 'Nobody approves their own claim; a waiting claim can be withdrawn', () => {
+    testCase('6-5', 'ex6', 'Nobody approves their own claim; a waiting claim can be withdrawn', { who: ['admin.education (recorded)', 'owner.education', 'user.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG6 own ' + run
+    const a1 = act(`As <b>admin.education</b>: claim Rent <b>12</b> paid yourself (Payee <b>${payee}</b>), then press <b>Approve</b> on it.`,
+      ['Refused, in words: “<b>You cannot approve your own claim. Another owner or admin must approve it.</b>” It is still waiting.'])
+    asSchool('admin'); schoolExpenses(); fillClaim(12, payee)
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('[data-cy=claim-approve]').click()
+    cy.get('#expMsg').should('contain', 'cannot approve your own claim')
+    expenseRow(payee).find('[data-cy=claim-waiting]').should('exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -260, left: 0 } }); snap(a1, 'own-refused')
+    act('A user pressing Approve or Reject on anyone’s claim is refused too (they have no such buttons; the server refuses the request).', ['Refused — 403.'], { via: 'run' })
+    cy.request('/expense/vouchers?claim=SUBMITTED&size=50').its('body.data.content').then((l) => {
+      const id = l.find((v) => v.payeeName === payee).id
+      schoolToken('user').then((u) => cy.request({ method: 'POST', url: `${GW}/api/expense/claims/${id}/approve`, headers: { Authorization: `Bearer ${u}` }, failOnStatusCode: false })
+        .its('status').should('be.oneOf', [403, 404]))
+    })
+    const a2 = act('As admin.education again: press <b>Withdraw</b> on the claim.', ['“Claim withdrawn”; the row reads <b>Withdrawn</b>. Nothing reached the books, and the claim is kept for the trail (never deleted).'])
+    expenseRow(payee).find('[data-cy=claim-withdraw]').click()
+    expenseRow(payee).find('[data-cy=claim-withdrawn]').should('contain', 'Withdrawn')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'withdrawn')
+    act('Nothing to undo.', [], { cleanup: true })
+  })
+
+  caseIt('6-6', 'A limit on what a member posts directly', () => {
+    testCase('6-6', 'ex6', 'A limit on what a member posts directly', { who: ['owner.education (recorded)', 'user.education (recorded)', 'admin.education (recorded)'] })
+    setup('No limit by default: a member posts any amount, as before. The owner sets one in Expenses → Settings.')
+    const LIMIT = 'expense.voucher.userPostLimit', payee = 'XG6 big ' + run
+    const resetLimit = () => schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=${LIMIT}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+    asSchool('owner')
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: MGMT_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    resetLimit()
+    SAFETY.push(() => { resetLimit(); schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/auth/settings/reset?key=${MGMT_KEY}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })) })
+    schoolExpenses()
+    const a1 = act('As the owner: <b>Expenses → Settings</b>, <b>A member may post up to</b> = <b>50</b>, Save.', ['“Setting saved”. Blank means no limit; 0 means every member expense waits.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-post-limit]').clear().type('50')
+    cy.get('[data-cy=set-post-limit-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    cy.get('#expSetPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'limit', '#expSetPanel')
+    const a2 = act(`As <b>user.education</b>: record <b>Rent 80</b> in cash, Payee <b>${payee}</b>.`,
+      ['“Saved. It is above the 50 a member may post, so it waits for an owner or admin to post it.” The row shows <b>Waiting to be posted</b>, with no number and a <b>Discard</b> button; it is not in the books, the report or Total spent.'])
+    asSchool('user')
+    schoolExpenses()
+    cy.get('#expCategory option').contains('Rent').then(($o) => cy.get('#expCategory').select($o.val(), { force: true }))
+    cy.get('#expAmount').clear().type('80')
+    cy.get('#expPaidFrom').select('CASH', { force: true })
+    cy.get('#expPayee').clear().type(payee)
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg', { timeout: 20000 }).should('contain', 'waits for an owner or admin')
+    cy.contains('#tableExpense tbody tr.expense-row', payee, { timeout: 25000 }).find('[data-cy=expense-waiting]').should('be.visible')
+    snap(a2, 'waiting')
+    act('As user.education, try to post it anyway (only possible outside the screen).', ['Refused: “This expense is above the 50 a member may post. An owner or admin posts it.” An expense of 50 or less posts as before.'], { via: 'run' })
+    const a4 = act('As <b>admin.education</b>: open Expenses and press <b>Post</b> on that row.', ['It gets its EXP- number and reaches <b>In the books</b>, dated as the member dated it.'])
+    asSchool('admin')
+    schoolExpenses()
+    cy.contains('#tableExpense tbody tr.expense-row', payee, { timeout: 25000 }).find('[data-cy=post-draft]').click()
+    cy.contains('#tableExpense tbody tr.expense-row', payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a4, 'posted')
+    act(`Void <b>${payee}</b> (reason “Test Book”) and clear the limit (blank, Save).`, [], { cleanup: true })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/vouchers?size=100`, headers: { Authorization: `Bearer ${t}` } }).its('body.data.content')
+      .then((l) => l.filter((v) => v.payeeName === payee && v.status === 'POSTED').forEach((v) => cy.request({ method: 'POST',
+        url: `${GW}/api/expense/vouchers/${v.id}/void`, headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' }, failOnStatusCode: false }))))
+    resetLimit()
+  })
+
+  // ═══ EX-7a · Paying a claim back ═════════════════════════════════════════════════════════════════════════
+  /** A claim by `who`, approved by the owner and in the books — the screen's own requests (cases 6-2, 6-3). */
+  const approvedSchoolClaim = (who, amount, payee) => schoolToken(who).then((c) =>
+    cy.request({ url: `${GW}/api/expense/categories`, headers: { Authorization: `Bearer ${c}` } }).its('body.data').then((cats) =>
+      cy.request({ method: 'POST', url: `${GW}/api/expense/claims`, headers: { Authorization: `Bearer ${c}`, 'Idempotency-Key': 'xg7-' + Date.now() + Math.random() },
+        body: { voucherDate: isoToday(), paidFrom: 'EMPLOYEE', payeeName: payee, lines: [{ categoryId: cats.find((x) => x.accountCode === '6000' && x.active).id, amount }] } })
+        .its('body.data.id')).then((id) => schoolToken('owner').then((o) => {
+      cy.request({ method: 'POST', url: `${GW}/api/expense/claims/${id}/approve`, headers: { Authorization: `Bearer ${o}` }, body: {} })
+      const settle = (n) => cy.request({ url: `${GW}/api/expense/vouchers/${id}`, headers: { Authorization: `Bearer ${o}` } }).its('body.data.postingStatus')
+        .then((ps) => { if (ps !== 'POSTED_GL' && n > 0) { cy.wait(1000); settle(n - 1) } })
+      settle(20)
+      return cy.wrap(id)
+    })))
+  const isoToday = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') }
+  const schoolTb = () => schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } })
+    .its('body.rows').then((rows) => Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)]))))
+  const tbDelta = (b, a, c) => Math.round(((a[c] || 0) - (b[c] || 0)) * 100) / 100
+
+  caseIt('7-1', 'Pay a member back for an approved claim', () => {
+    testCase('7-1', 'ex7', 'Pay a member back for an approved claim', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG7 fuel ' + run
+    let before = null, id = null
+    setup(`An approved claim in the books: the recording has user.education claim Rent <b>40</b> (Payee <b>${payee}</b>) and the owner approve it (cases 6-2, 6-3).`)
+    approvedSchoolClaim('user', 40, payee).then((x) => { id = x })
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('As the owner: open <b>Expenses</b> and find the claim.', ['It reads <b>In the books</b> and <b>Owed to the member 40.00</b>, with a <b>Pay back</b> button.'])
+    expenseRow(payee).find('[data-cy=expense-bill-owes]').should('contain', 'Owed to the member').and('contain', '40.00')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'owed')
+    const a2 = act('Press <b>Pay back</b>, change the amount to <b>15</b>, Paid from <b>Cash</b>, press <b>Pay</b>.',
+      ['The panel reads “Pay back claim EXP-… — Owed to the member 40.00”.', '“Payment recorded — PV-…”. The row now reads <b>Owed to the member 25.00</b>; <b>Void</b> is gone while anything is paid.'])
+    expenseRow(payee).find('[data-cy=pay-claim]').click()
+    cy.get('#expPayTitle').should('contain', 'Pay back claim')
+    cy.get('#expPayAmount').clear().type('15')
+    cy.get('#expPayMethod').select('CASH', { force: true })
+    cy.get('#expPayPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'panel')
+    cy.get('[data-cy=expense-pay-go]').click()
+    cy.get('#expMsg').should('contain', 'PV-')
+    expenseRow(payee).find('[data-cy=expense-bill-owes]').should('contain', '25.00')
+    const a3 = act('Pay the remaining <b>25</b> by <b>Bank</b>.', ['The row reads <b>Paid back</b>, with a <b>Payments</b> button listing both PV- payments.'])
+    expenseRow(payee).find('[data-cy=pay-claim]').click()
+    cy.get('#expPayMethod').select('BANK', { force: true })
+    cy.get('[data-cy=expense-pay-go]').click()
+    expenseRow(payee).find('[data-cy=expense-bill-paid]').should('contain', 'Paid back')
+    expenseRow(payee).find('[data-cy=bill-payments]').click()
+    cy.get('#tableExpense tr.exp-pay-detail').should('contain', 'PV-')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'paid-back')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>2300 Employee Reimbursements Payable</b> is back down by 40 (nothing owed for this claim); <b>1000 Cash</b> is 15 lower and <b>1010 Bank</b> 25 lower. <b>2000 Accounts Payable has not moved</b> — a member is not a supplier.'], { via: 'run' })
+    schoolTb().then((a) => {
+      expect(tbDelta(before, a, '2300')).to.eq(40); expect(tbDelta(before, a, '1000')).to.eq(-15)
+      expect(tbDelta(before, a, '1010')).to.eq(-25); expect(tbDelta(before, a, '2000')).to.eq(0)
+    })
+    act('Nothing to undo: the claim was a real expense, paid back. To take it out entirely, follow case 7-2.', [], { cleanup: true })
+  })
+
+  caseIt('7-2', 'A paid-back claim is voided only after its payment is reversed', () => {
+    testCase('7-2', 'ex7', 'A paid-back claim is voided only after its payment is reversed', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG7 wrong ' + run
+    setup(`An approved claim of <b>10</b> (Payee <b>${payee}</b>) paid back in cash — the recording makes it as in case 7-1.`)
+    approvedSchoolClaim('user', 10, payee).then((id) => schoolToken('owner').then((o) =>
+      cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/pay`, headers: { Authorization: `Bearer ${o}`, 'Idempotency-Key': 'xg7p-' + Date.now() },
+        body: { amount: 10, method: 'CASH' } }).its('body.success').should('eq', true)))
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('Find the claim.', ['It reads <b>Paid back</b>, and there is <b>no Void</b> button: money went out against it. (Asked directly, the server refuses: “This claim has been paid back. Reverse the payment first, then void the claim.”)'])
+    expenseRow(payee).find('[data-cy=expense-bill-paid]').should('contain', 'Paid back')
+    expenseRow(payee).find('[data-cy=void-expense]').should('not.exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'no-void')
+    const a2 = act('Press <b>Payments</b>, then <b>Reverse</b> on the payment, give the reason <b>Paid to the wrong person</b>, confirm.',
+      ['The payment reads <b>Reversed</b>; the claim is <b>Owed to the member 10.00</b> again and <b>Void</b> is back.'])
+    expenseRow(payee).find('[data-cy=bill-payments]').click()
+    cy.get('[data-cy=reverse-payment]').first().click()
+    cy.get('.uiC-input').type('Paid to the wrong person')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('[data-cy=expense-bill-owes]', { timeout: 20000 }).should('contain', '10.00')
+    expenseRow(payee).find('[data-cy=void-expense]').should('exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'reversed')
+    const a3 = act('Press <b>Void</b> with the reason <b>Test Book</b>.', ['The claim reads <b>Void</b>. In the books the claim, its payment and their reversals cancel out: 2300, Rent, Cash and Bank are where they were before the claim.'])
+    expenseRow(payee).find('[data-cy=void-expense]').click()
+    cy.get('.uiC-input').type('Test Book')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'voided')
+    act('Nothing more to undo — the void was the clean-up.', [], { cleanup: true })
+  })
+
+  caseIt('7-3', 'Only an owner or admin pays back, never their own claim', () => {
+    testCase('7-3', 'ex7', 'Only an owner or admin pays back, never their own claim', { who: ['admin.education (recorded)', 'user.education (recorded)', 'owner.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const own = 'XG7 own ' + run, mine = 'XG7 mine ' + run
+    setup(`Two approved claims: admin.education’s own (12, <b>${own}</b>) and user.education’s (6, <b>${mine}</b>) — the recording makes both.`)
+    approvedSchoolClaim('admin', 12, own)
+    approvedSchoolClaim('user', 6, mine)
+    asSchool('admin'); schoolExpenses()
+    const a1 = act(`As <b>admin.education</b>: press <b>Pay back</b> on your own claim <b>${own}</b>, then <b>Pay</b>.`,
+      ['Refused in the panel: “<b>You cannot pay your own claim back. Another owner or admin pays it.</b>” Nothing is paid.'])
+    expenseRow(own).find('[data-cy=pay-claim]').click()
+    cy.get('[data-cy=expense-pay-go]').click()
+    cy.get('#expPayMsg').should('contain', 'cannot pay your own claim back')
+    cy.get('#expPayPanel').scrollIntoView({ offset: { top: -160, left: 0 } }); snap(a1, 'own-refused')
+    cy.get('#expPayPanel button[onclick="expensePayClose()"]').click()
+    const a2 = act('As <b>user.education</b>: open Expenses.', ['Their claim reads <b>Owed to the member 6.00</b> — they can see what the business owes them — with <b>no Pay back</b> button. (Asked directly, the server refuses them.)'])
+    asSchool('user'); schoolExpenses()
+    expenseRow(mine).find('[data-cy=expense-bill-owes]').should('contain', '6.00')
+    expenseRow(mine).find('[data-cy=pay-claim]').should('not.exist')
+    expenseRow(mine).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'member-sees')
+    act('As the owner: pay both claims back (12 and 6, cash) so nothing is left owed.', [], { cleanup: true })
+    schoolToken('owner').then((o) =>
+      cy.request({ url: `${GW}/api/expense/vouchers?size=100`, headers: { Authorization: `Bearer ${o}` } }).its('body.data.content').then((l) =>
+        [own, mine].forEach((p) => {
+          const v = l.find((x) => x.payeeName === p)
+          if (v) cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${v.id}/pay`, headers: { Authorization: `Bearer ${o}`, 'Idempotency-Key': 'xg7c-' + v.id + '-' + run },
+            body: { amount: Number(v.openAmount), method: 'CASH' }, failOnStatusCode: false })
+        })))
+  })
+
+  // ═══ EX-7b · Advances to staff ═══════════════════════════════════════════════════════════════════════════
+  const schoolUserId = (who) => schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/auth/org/users`, headers: { Authorization: `Bearer ${t}` } })
+    .its('body.data').then((l) => l.find((m) => m.email === SCHOOL[who]).userId))
+  const schoolHolds = (uid) => schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/advances`, headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })
+    .then((r) => { const b = ((r.body && r.body.data) || []).find((x) => x.userId === uid); return b ? Number(b.balance) : 0 }))
+  /** Whatever user.education holds is taken back in cash, so the cases start (and end) with nothing held. */
+  const sweepAdvance = () => schoolUserId('user').then((uid) => schoolHolds(uid).then((h) => {
+    if (h > 0) schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/advances/take-back`,
+      headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': 'xg8s-' + Date.now() }, body: { userId: uid, amount: h, method: 'CASH' }, failOnStatusCode: false }))
+  }))
+
+  caseIt('8-1', 'Give a member an advance', () => {
+    testCase('8-1', 'ex8', 'Give a member an advance', { who: ['owner.education (recorded)', 'user.education (recorded)', 'admin.education'] })
+    setup('Expense claims switched on (case 6-1): advances are part of it. Nobody holds an advance yet (the recording takes back anything left from an earlier run).')
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    sweepAdvance()
+    SAFETY.push(() => sweepAdvance())
+    let before = null
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('As the owner: press <b>Advances</b>.', ['A panel: who holds an advance (nobody yet), and <b>Give an advance to</b> with the business’s <b>staff</b> only — the school’s guardian and student are not offered.'])
+    cy.get('[data-cy=expense-advances-open]').should('be.visible').click()
+    cy.get('[data-cy=adv-member] option').should('contain', SCHOOL.user).and('not.contain', 'guardian.education').and('not.contain', 'student.education')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'panel')
+    const a2 = act('Choose <b>User Education</b>, Amount <b>50</b>, <b>Cash</b>, press <b>Give</b>.', ['“Advance given — PV-…”. The table reads <b>User Education · Holds 50.00</b>.'])
+    cy.get('[data-cy=adv-member] option').contains(SCHOOL.user).then(($o) => cy.get('[data-cy=adv-member]').select($o.val(), { force: true }))
+    cy.get('[data-cy=adv-amount]').type('50')
+    cy.get('[data-cy=adv-method]').select('CASH', { force: true })
+    cy.get('[data-cy=adv-give]').click()
+    cy.get('#expAdvMsg').should('contain', 'PV-')
+    cy.contains('[data-cy=adv-row]', 'User').find('[data-cy=adv-holds]').should('contain', '50.00')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'given')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>1300 Employee Advances</b> is 50 higher (the member owes it back) and <b>1000 Cash</b> 50 lower. 2300 (claims) and 2000 (suppliers) have not moved.'], { via: 'run' })
+    schoolTb().then((a) => { expect(tbDelta(before, a, '1300')).to.eq(50); expect(tbDelta(before, a, '1000')).to.eq(-50); expect(tbDelta(before, a, '2300')).to.eq(0); expect(tbDelta(before, a, '2000')).to.eq(0) })
+    const a3 = act('As <b>user.education</b>: open Expenses.', ['Above the form: “<b>You hold an advance of 50.00.</b> Spend it on the business and claim it, or hand back what is left.” There is no Advances button for a member.'])
+    asSchool('user'); schoolExpenses()
+    cy.get('[data-cy=my-advance]').should('contain', '50.00')
+    cy.get('[data-cy=expense-advances-open]').should('not.exist')
+    cy.get('[data-cy=my-advance]').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'member-sees')
+    act('Kept for case 8-2 (it spends 30 of it) and 8-3 (it takes back the rest).', [], { cleanup: true })
+  })
+
+  caseIt('8-2', 'Settle a claim from the member’s advance', () => {
+    testCase('8-2', 'ex8', 'Settle a claim from the member’s advance', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG8 taxi ' + run
+    setup(`User Education holds an advance of 50 (case 8-1) and has an approved claim of <b>30</b> (Payee <b>${payee}</b>) — the recording makes the claim as in cases 6-2 and 6-3.`)
+    approvedSchoolClaim('user', 30, payee)
+    let before = null
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act(`On <b>${payee}</b> press <b>Pay back</b> and open <b>Paid from</b>.`, ['Beside Cash and Bank it offers <b>From their advance (holds 50.00)</b>.'])
+    expenseRow(payee).find('[data-cy=pay-claim]').click()
+    cy.get('#expPayMethod option[value=ADVANCE]').should('contain', '50.00')
+    cy.get('#expPayMethod').select('ADVANCE', { force: true })
+    cy.get('#expPayPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'from-advance')
+    const a2 = act('Choose it and press <b>Pay</b>.', ['The claim reads <b>Paid back</b>. No money moved: the member had already spent the advance on this. Advances now shows <b>Holds 20.00</b>.'])
+    cy.get('[data-cy=expense-pay-go]').click()
+    expenseRow(payee).find('[data-cy=expense-bill-paid]').should('contain', 'Paid back')
+    cy.get('[data-cy=expense-advances-open]').click()
+    cy.contains('[data-cy=adv-row]', 'User').find('[data-cy=adv-holds]').should('contain', '20.00')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'holds-20')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>2300</b> is cleared of the claim’s 30 and <b>1300</b> is 30 lower. <b>Cash and Bank have not moved.</b>'], { via: 'run' })
+    schoolTb().then((a) => { expect(tbDelta(before, a, '2300')).to.eq(30); expect(tbDelta(before, a, '1300')).to.eq(-30); expect(tbDelta(before, a, '1000')).to.eq(0); expect(tbDelta(before, a, '1010')).to.eq(0) })
+    act('Kept for case 8-3: 20 is still held.', [], { cleanup: true })
+  })
+
+  caseIt('8-3', 'Take back what is left of an advance', () => {
+    testCase('8-3', 'ex8', 'Take back what is left of an advance', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    setup('User Education holds 20 of an advance (cases 8-1 and 8-2).')
+    let before = null
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('<b>Advances</b> → beside Give choose <b>Bank</b>, then press <b>Take back</b> on User Education’s row.', ['“Take back from User Education?” with the amount already filled in: <b>20.00</b>, all they hold.'])
+    cy.get('[data-cy=expense-advances-open]').click()
+    cy.get('[data-cy=adv-method]').select('BANK', { force: true })
+    cy.contains('[data-cy=adv-row]', 'User').find('[data-cy=adv-take-back]').click()
+    cy.get('.uiC-input').should('have.value', '20.00')
+    snap(a1, 'take-back')
+    const a2 = act('Confirm.', ['“Advance taken back — RCPT-…”. The table reads <b>Nobody holds an advance.</b>'])
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.get('#expAdvMsg').should('contain', 'RCPT-')
+    cy.get('#expAdvTable tbody').should('contain', 'Nobody holds an advance')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'nobody-holds')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>1010 Bank</b> is 20 higher and <b>1300</b> is back where it was before case 8-1: of the 50 given, 30 was spent on the business (the claim) and 20 came back.'], { via: 'run' })
+    schoolTb().then((a) => { expect(tbDelta(before, a, '1010')).to.eq(20); expect(tbDelta(before, a, '1300')).to.eq(-20) })
+    act('Nothing to undo — nothing is held.', [], { cleanup: true })
+  })
+
+  // ═══ EX-8a · The expense report ══════════════════════════════════════════════════════════════════════════
+  const lcToday = () => localIsoDate(new Date())
+  const lcReport = (by = 'category') => token().then((t) => cy.request({ url: `${GW}/api/expense/reports/summary?from=${lcToday()}&to=${lcToday()}&by=${by}`,
+    headers: { Authorization: `Bearer ${t}` } }).its('body.data'))
+  const lcPnl = () => token().then((t) => cy.request({ url: `${GW}/api/finance/gl/pnl?from=${lcToday()}&to=${lcToday()}`, headers: { Authorization: `Bearer ${t}` } })
+    .its('body.totalExpense').then(Number))
+  const openReport = (by) => {
+    cy.get('#expReportPanel').then(($p) => { if (!$p.is(':visible')) cy.get('[data-cy=expense-report-open]').click() })
+    cy.get('[data-cy=report-by]').select(by, { force: true })
+    cy.get('[data-cy=report-run]').click()
+    cy.get('[data-cy=report-row]').should('exist')
+  }
+  const r2x = (n) => Math.round(Number(n) * 100) / 100
+
+  caseIt('9-1', 'See what was spent, grouped by category', () => {
+    testCase('9-1', 'ex9', 'See what was spent, grouped by category', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business (their own)'] })
+    setup('Expense management switched on (case 0a-3). The list’s From and To are today (the report uses the same dates).')
+    const ids = [], rent = 'XG9 rent ' + run, util = 'XG9 power ' + run
+    let r0 = null, p0 = null
+    fresh5(ids)
+    lcReport().then((r) => { r0 = r.total }); lcPnl().then((p) => { p0 = p })
+    const a1 = act(`Record <b>Rent 40</b> in cash (Payee <b>${rent}</b>) and <b>Electricity, gas and water 25</b> by bank (Payee <b>${util}</b>).`, ['Both reach <b>In the books</b>.'])
+    fillExpense({ category: 'Rent', amount: 40, paidFrom: 'CASH', payee: rent })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(rent).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(rent, ids)
+    fillExpense({ category: 'Electricity, gas and water', amount: 25, paidFrom: 'BANK', payee: util })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(util).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(util, ids)
+    const a2 = act('Press <b>Report</b> (beside Search), Group by <b>Category</b>, <b>Show</b>.',
+      ['One row per category with its number of lines and amount, largest first, and a <b>Total</b> — 65.00 more than before the two expenses.'])
+    openReport('category')
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'by-category')
+    act('Open <b>Finance → Profit and Loss</b> for today.', ['Its expense total moved by the same <b>65.00</b>: the report counts exactly what the books count.'], { via: 'run' })
+    lcReport().then((r) => lcPnl().then((p) => { expect(r2x(r.total - r0)).to.eq(65); expect(r2x(p - p0)).to.eq(65) }))
+    act('Kept for case 9-2 (it voids the rent) and 9-3; voided at the end of 9-3.', [], { cleanup: true })
+  })
+
+  caseIt('9-2', 'A void counts on the day it is voided', () => {
+    testCase('9-2', 'ex9', 'A void counts on the day it is voided', { who: ['owner.lifecycle (recorded)'] })
+    const rent = 'XG9 rent ' + run
+    setup(`The two expenses of case 9-1 (Rent 40, ${rent}).`)
+    let r0 = null, p0 = null
+    asLifecycle(true); openDashboard(); openExpenses()
+    lcReport().then((r) => { r0 = r.total }); lcPnl().then((p) => { p0 = p })
+    const a1 = act(`Void <b>${rent}</b> (reason “Test Book”), then <b>Report → Show</b> again.`,
+      ['The Rent row is <b>40.00 lower</b> and so is the Total: a void is a minus on the day it is voided, not a row quietly left out — an expense recorded last month and voided today lowers <b>today’s</b> figures, exactly as the profit and loss does.'])
+    expenseRow(rent).find('[data-cy=void-expense]').click()
+    cy.get('.uiC-input').type('Test Book')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(rent).find('.exp-chip').should('contain', 'Void')
+    cy.wait(3000)
+    openReport('category')
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'after-void')
+    act('Profit and Loss for today.', ['Also <b>40.00 lower</b>.'], { via: 'run' })
+    lcReport().then((r) => lcPnl().then((p) => { expect(r2x(r.total - r0)).to.eq(-40); expect(r2x(p - p0)).to.eq(-40) }))
+    act('Nothing more to undo: the rent is voided.', [], { cleanup: true })
+  })
+
+  caseIt('9-3', 'Group by month or paid from, and download the CSV', () => {
+    testCase('9-3', 'ex9', 'Group by month or paid from, and download the CSV', { who: ['owner.lifecycle (recorded)'] })
+    const util = 'XG9 power ' + run
+    asLifecycle(true); openDashboard(); openExpenses()
+    const a1 = act('Report → Group by <b>Paid from</b> → Show.', ['Rows for <b>Cash</b>, <b>Bank</b> (and Till, Bill or Claim where they were used), adding up to the same Total as by category.'])
+    openReport('paidFrom')
+    cy.get('[data-cy=report-row]').contains('Bank').should('exist')
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'by-paid-from')
+    act('Group by <b>Member</b>, then <b>Month</b>.', ['Each adds up to the same Total. A member (user.business) sees only their own expenses, as “You”.'], { via: 'run' })
+    lcReport('category').then((c) => ['member', 'month', 'paidFrom'].forEach((by) => lcReport(by).then((g) => expect(r2x(g.total)).to.eq(r2x(c.total)))))
+    act('Press <b>CSV</b>.', ['A file <b>expenses-FROM-TO.csv</b>: one row per line — date, number, category, account, paid from, payee, member, amount — the voided rent as its own <b>-40.00</b> row on the day it was voided. Its amounts add up to the report’s Total.'], { via: 'run' })
+    token().then((t) => cy.request({ url: `${GW}/api/expense/reports/expenses.csv?from=${lcToday()}&to=${lcToday()}`, headers: { Authorization: `Bearer ${t}` } }).then((res) => {
+      // Amount and Kind are always the last two cells and never quoted (a category or payee may hold a quoted comma)
+      const rows = res.body.trim().split(/\r?\n/)
+      lcReport().then((r) => expect(r2x(rows.slice(1).reduce((s, l) => s + Number(l.split(',').slice(-2)[0]), 0))).to.eq(r2x(r.total)))
+    }))
+    act(`Void <b>${util}</b> (reason “Test Book”).`, [], { cleanup: true })
+    cy.request('/expense/vouchers?size=100').its('body.data.content').then((l) => {
+      const v = l.find((x) => x.payeeName === util && x.status === 'POSTED')
+      if (v) cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })
+    })
+  })
+
+  caseIt('9-4', 'The same payee, day and amount again is questioned before saving', () => {
+    testCase('9-4', 'ex9', 'The same payee, day and amount again is questioned before saving', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business'] })
+    const ids = [], payee = 'XG9 K-Electric ' + run
+    fresh5(ids)
+    const a1 = act(`Record <b>Rent 12</b> in cash, Payee <b>${payee}</b>.`, ['Saved and in the books.'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    const a2 = act(`Record it again: Rent <b>12</b>, Payee <b>${payee.toLowerCase()}</b> (the same payee, typed in small letters), and press Save.`,
+      ['Before anything is saved: “<b>This looks like an expense already recorded</b> — EXP-… is already recorded for this payee on the same day for the same amount. Save this one as well?”'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee: payee.toLowerCase() })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('.uiC-card', { timeout: 20000 }).should('contain', 'already recorded')
+    snap(a2, 'warning')
+    const a3 = act('Press <b>Cancel</b>.', ['Nothing is saved; the form keeps what was typed. Pressing Save again asks again — every time.'])
+    cy.get('.uiC-cancel').click()
+    cy.wait(1000)
+    cy.get('#tableExpense tbody tr.expense-row').filter(`:contains("${payee.toLowerCase()}")`).should('have.length', 0)
+    act('Press Save again and <b>Confirm</b> (two identical fares on one day are real).', ['Saved. A different amount, another day, another payee, or a voided expense is never questioned.'], { via: 'run' })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee.toLowerCase()).should('exist')
+    rowId(payee.toLowerCase(), ids)
+    act('Void both test expenses (reason “Test Book”).', [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
+  caseIt('9-5', 'Recover the tax inside an expense', () => {
+    testCase('9-5', 'ex9', 'Recover the tax inside an expense', { who: ['owner.lifecycle (recorded)', 'admin.business'] })
+    setup('A business registered for tax. Off by default: an expense is a cost including its tax.')
+    const ids = [], payee = 'XG9 power tax ' + run
+    const resetTax = () => token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=expense.tax.inputRecoverable`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+    fresh5(ids)
+    resetTax()
+    SAFETY.push(() => resetTax())
+    let tb0 = null
+    token().then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } }).its('body.rows')
+      .then((rows) => { tb0 = Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)])) }))
+    const a1 = act('<b>Expenses → Settings</b>: tick <b>Recover input tax on expenses</b>.', ['“Setting saved”. The New Expense form now has <b>Tax included</b> under Amount.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-input-tax]').check()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    cy.get('#expTaxGroup').should('be.visible')
+    cy.get('#expSetPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'switched-on')
+    const a2 = act(`Record <b>Electricity, gas and water 115</b> with <b>Tax included 15</b>, in cash, Payee <b>${payee}</b>.`, ['Saved and in the books for <b>115.00</b> (what was paid).'])
+    fillExpense({ category: 'Electricity, gas and water', amount: 115, paidFrom: 'CASH', payee })
+    cy.get('#expTax').clear().type('15')
+    snap(a2, 'form', '#ExpenseForm')
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    act('Open the trial balance and the tax register for today.', ['<b>6100</b> is 100 higher (the cost), <b>2100 Tax</b> 15 lower in credit (input tax), <b>Cash</b> 115 lower. The tax register shows <b>15 more input tax</b>, so 15 less to pay. Expenses → Report counts <b>100</b>, as the profit and loss does.'], { via: 'run' })
+    token().then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } }).its('body.rows').then((rows) => {
+      const a = Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)]))
+      const d = (c) => Math.round(((a[c] || 0) - (tb0[c] || 0)) * 100) / 100
+      expect(d('6100')).to.eq(100); expect(d('2100')).to.eq(15); expect(d('1000')).to.eq(-115)
+    }))
+    act(`Void <b>${payee}</b> (reason “Test Book”) and untick the setting.`, [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+    resetTax()
+  })
+
+  caseIt('9-6', 'See the last 12 months under the profit and loss', () => {
+    testCase('9-6', 'ex9', 'See the last 12 months under the profit and loss', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business (refused)'] })
+    setup('Any business with its books in finance. analytics-service running (it is in the default set since AN-1).')
+    const ids = [], payee = 'XG9 trend ' + run, month = lcToday().slice(0, 7)
+    const trendNow = () => token().then((t) => cy.request({ url: `${GW}/api/analytics/financial/monthly?from=${month}&to=${month}`,
+      headers: { Authorization: `Bearer ${t}` } }).its('body.data.months.0'))
+    let m0 = null
+    fresh5(ids)
+    trendNow().then((m) => { m0 = m })
+    const a1 = act('Open <b>Finance → Profit &amp; Loss</b>.', ['Under the statement: <b>Last 12 months</b>, this month first — Income, Expenses and Net for each month, and a Total. Each month is exactly the profit and loss for that month.'])
+    cy.window().then((w) => w.showFinance('pnl'))
+    cy.get('[data-cy=pnl-trend]', { timeout: 25000 }).should('be.visible').find('tbody tr').should('have.length', 12)
+    cy.get('[data-cy=pnl-trend]').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'trend', '#FinanceResults')
+    act(`Record <b>Rent 21.50</b> in cash (Payee <b>${payee}</b>), then open the Profit &amp; Loss again.`, ['This month’s <b>Expenses</b> in the trend is <b>21.50</b> higher: the trend is worked out from the books each time it is opened, never a copy that goes out of date.'], { via: 'run' })
+    openExpenses()
+    fillExpense({ category: 'Rent', amount: 21.5, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    trendNow().then((m) => expect(r2x(m.expenses - m0.expenses)).to.eq(21.5))
+    act('As <b>user.business</b> (no statements): ask for the trend.', ['Refused, as the profit and loss itself is: the trend shows the same figures, so the same people may see it.'], { via: 'run' })
+    cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: 'user.business@myplus.com', password: PW } }).its('body.data.accessToken')
+      .then((u) => cy.request({ url: `${GW}/api/analytics/financial/monthly`, headers: { Authorization: `Bearer ${u}` }, failOnStatusCode: false }).its('status').should('eq', 403))
+    act(`Void <b>${payee}</b> (reason “Test Book”).`, [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
+  caseIt('9-7', 'See what each branch spent', () => {
+    testCase('9-7', 'ex9', 'See what each branch spent', { who: ['user.education (one branch)', 'owner.education (recorded)'] })
+    setup('A school with several branches. Each expense carries the branch the person recording it is working in — taken from their sign-in, never chosen on the form.')
+    const payee = 'XG9 branch ' + run
+    let branch = null
+    asSchool('owner')
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: MGMT_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    const regrant = (ids) => schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/auth/org/locations/grant`,
+      headers: { Authorization: `Bearer ${t}` }, body: { userId: 96, storeIds: ids, roleAtLocation: 'USER', replace: true } }))
+    SAFETY.push(() => { regrant([]); schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/auth/settings/reset?key=${MGMT_KEY}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })) })
+    act('As the owner: give <b>user.education</b> access to <b>one</b> branch (Team → the member → Branches).', ['They now work in that branch: it is their active branch when they sign in.'], { via: 'run' })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/tags?source=education`, headers: { Authorization: `Bearer ${t}` } }).its('body.data')
+      .then((l) => { branch = l.find((x) => x.type === 'SCHOOL'); regrant([branch.id]) }))
+    act(`As <b>user.education</b>: <b>Fee → Expenses</b>, record <b>Rent 12</b> in cash, Payee <b>${payee}</b>.`, ['Saved. There is no branch to choose: the expense carries the branch they work in.'], { via: 'run' })
+    asSchool('user')
+    schoolExpenses()
+    cy.get('#expCategory option').contains('Rent').then(($o) => cy.get('#expCategory').select($o.val(), { force: true }))
+    cy.get('#expAmount').clear().type('12')
+    cy.get('#expPaidFrom').select('CASH', { force: true })
+    cy.get('#expPayee').clear().type(payee)
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg', { timeout: 20000 }).should('contain', 'Expense saved')
+    const a3 = act('As the owner: <b>Expenses → Report</b>, Group by <b>Branch</b>, <b>Show</b>.',
+      ['One row per branch, by its name, with what it spent; expenses recorded outside any branch (an owner’s, or before branches were used) under <b>No branch</b>. The Total is the same as by category, and the CSV gains a <b>Branch</b> column.'])
+    asSchool('owner')
+    schoolExpenses()
+    cy.get('[data-cy=expense-report-open]').click()
+    cy.get('[data-cy=report-by]').select('branch', { force: true })
+    cy.get('[data-cy=report-run]').click()
+    cy.then(() => cy.contains('[data-cy=report-row]', branch.label, { timeout: 20000 }).should('be.visible'))
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'by-branch')
+    act('As user.education, send another branch’s number with an expense (only possible outside the screen).', ['Refused: “An expense is recorded for the branch you are working in…”.'], { via: 'run' })
+    schoolToken('user').then((u) => cy.request({ url: `${GW}/api/expense/categories`, headers: { Authorization: `Bearer ${u}` } }).its('body.data').then((cats) =>
+      cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`, failOnStatusCode: false,
+        headers: { Authorization: `Bearer ${u}`, 'Idempotency-Key': 'xg97-' + run },
+        body: { paidFrom: 'CASH', payeeName: payee, storeId: 999999, lines: [{ categoryId: cats.find((c) => c.accountCode === '6000').id, amount: 1 }] } })
+        .its('body.message').should('contain', 'branch you are working in')))
+    act(`Void <b>${payee}</b> (reason “Test Book”), take the branch away from user.education, and switch expense management off again.`, [], { cleanup: true })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/vouchers?size=100`, headers: { Authorization: `Bearer ${t}` } }).its('body.data.content')
+      .then((l) => l.filter((v) => v.payeeName === payee && v.status === 'POSTED').forEach((v) => cy.request({ method: 'POST',
+        url: `${GW}/api/expense/vouchers/${v.id}/void`, headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' }, failOnStatusCode: false }))))
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',
@@ -909,7 +1745,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
         ['The Finance screen opens on <b>Profit &amp; Loss</b> for this month, and <b>Rent</b> is in it.',
          'Its tabs are Trial Balance, P&amp;L, Balance Sheet, Audit Log and Period Close — <b>no Tax Register</b> (only a trading business has one), and the heading does not mention one.',
          { welfare: 'A notice above the report says donations are not in these books yet.',
-           farm: 'A notice above the report says the farm’s own Income and Expense records are not in these books yet.',
+           farm: 'A notice above the report says the farm’s own Income records are not in these books yet (its expenses are, since EX-9b).',
            school: 'No notice: the school’s fees post to these books.' }[d.tag]])
       openPnl[d.tag]()
       cy.get('#finTabs .fin-tab.active').should('have.attr', 'data-report', 'pnl')
@@ -938,6 +1774,49 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.visit('/businessDashboard'); cy.waitForAppReady()
     cy.get('#snavFinance').should('not.exist')
     act('Each business: Configuration → Modules → untick Expense management (the recording does this at the end).', [], { cleanup: true })
+  })
+
+  caseIt('2a-6', 'A farm records its expenses in one place, and brings the old ones in', () => {
+    testCase('2a-6', 'ex2a', 'A farm records its expenses in one place, and brings the old ones in', { who: ['owner.agriculture (recorded)', 'admin.agriculture'] })
+    setup('A farm that used the old Add Expense screen before switching Expense management on. Its rows never reached the books.')
+    const d = DASH[2], name = 'XG farm diesel ' + run, amount = 64 + Number(run.slice(-2)) / 100
+    signInD(d); resetModule()
+    SAFETY.push(() => { signInD(d); resetModule() })
+    signInD(d, true)
+    act('With Expense management off: <b>Add Expense</b> (the old farm screen), Diesel ' + amount.toFixed(2) + ' on a land, crop Wheat.', ['Saved on the old screen, as before. It is not in the books.'], { via: 'run' })
+    cy.request('/getUserLand').then((r) => {
+      const b = typeof r.body === 'string' ? JSON.parse(r.body) : r.body
+      const land = (b.object || [])[0]
+      cy.request({ method: 'POST', url: '/addAgricultureExpense', form: true, body: { expenseName: name, amount, landId: land.id, cropName: 'Wheat', expenseType: 'Fuel' } })
+        .its('body.status').should('eq', 'SUCCESS')
+    })
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    signInD(d, true)
+    cy.visit(d.dash); cy.waitForAppReady()
+    const a2 = act('Switch Expense management on (Configuration → Modules) and look at the sidebar.',
+      ['<b>Add Expense</b> (the old screen) is gone: the farm records expenses in <b>Expenses</b>, where they reach the books. The old screen refuses a save too, in words.'])
+    cy.get('a.sb-link[onclick*="agricultureExpenseDiv"]', { timeout: 20000 }).should('have.class', 'cap-off')
+    snap(a2, 'sidebar', '.app-sidebar')
+    const a3 = act('<b>Expenses</b> → <b>Past farm expenses</b>.', ['The old rows not yet in the books, with their date, amount, expense · land · crop. One that looks like an expense already recorded is flagged and unticked.'])
+    d.openExp()
+    cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+    cy.get('[data-cy=farm-history-open]').click()
+    cy.contains('[data-cy=farm-history-row]', name, { timeout: 20000 }).scrollIntoView().should('be.visible')
+    snap(a3, 'preview', '#expHistPanel-farm')
+    const a4 = act('Tick only that row, Category <b>Fuel and transport</b> (or Rent), <b>Import</b>.',
+      ['“1 imported”. It is an expense on its own date, paid in Cash, <b>tagged to its land</b>, In the books. On the old screen it can no longer be deleted: “void it in Expenses instead”.'])
+    cy.get('[data-cy=farm-history-row] [data-cy=farm-history-pick]').uncheck({ force: true })
+    cy.contains('[data-cy=farm-history-row]', name).find('[data-cy=farm-history-pick]').check({ force: true })
+    cy.get('[data-cy=farm-history-category] option').contains('Rent').then(($o) => cy.get('[data-cy=farm-history-category]').select($o.val(), { force: true }))
+    cy.get('[data-cy=farm-history-import]').click()
+    cy.get('#expHistMsg-farm', { timeout: 20000 }).should('contain', '1 imported')
+    expenseRow(name).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a4, 'imported')
+    act(`Void <b>${name}</b> in Expenses (reason “Test Book”) and switch Expense management off again.`, [], { cleanup: true })
+    cy.request('/expense/vouchers?size=100').its('body.data.content').then((l) => {
+      const v = l.find((x) => x.payeeName === name && x.status === 'POSTED')
+      if (v) cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })
+    })
   })
 
   // ═══ EX-2b · What it was for ═══════════════════════════════════════════════════════════════════════════════
@@ -1109,6 +1988,41 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     closeShiftQuietly()
   })
 
+  caseIt('3-4', 'Bring past till pay-outs into the books', () => {
+    testCase('3-4', 'ex3', 'Bring past till pay-outs into the books', { who: ['owner.lifecycle (recorded)', 'admin.business'] })
+    setup('Pay-outs made at the till before Expense management was switched on never reached the books. The recording makes one that way (the module off for a moment), then brings it in.')
+    const reason = 'XG3 tea for guests ' + run, amount = 45 + Number(run.slice(-2)) / 100
+    asLifecycle(true)
+    act('Before switching Expense management on: <b>Till → Cash Drawer</b>, Pay Out <b>' + amount.toFixed(2) + '</b>, reason "' + reason + '".', ['The drawer moves; the books do not (there is no category: the module was off).'], { via: 'run' })
+    cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: KEY }, failOnStatusCode: false })
+    SAFETY.push(() => { asLifecycle(); closeShiftQuietly(); cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, failOnStatusCode: false, body: { key: KEY, enabled: 'true' } }) })
+    asLifecycle(true)
+    ensureShiftOpen()
+    cy.request({ method: 'POST', url: '/cashMovement', form: true, body: { type: 'PAY_OUT', amount, reason, idempotencyKey: 'xg34-' + run } }).its('body.status').should('eq', 'SUCCESS')
+    closeShiftQuietly()
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    asLifecycle(true)
+    openDashboard(); openExpenses()
+    const a2 = act('Switch Expense management on, then <b>Till → Expenses</b> → <b>Past till pay-outs</b>.',
+      ['Every pay-out that never reached the books, with its date, amount and reason. One that looks like an expense already recorded (same day, same amount) says which, and is left unticked.'])
+    cy.get('[data-cy=till-history-open]').click()
+    cy.contains('[data-cy=till-history-row]', reason, { timeout: 20000 }).scrollIntoView().should('be.visible')
+    snap(a2, 'preview', '#expHistPanel')
+    let tb0 = null
+    tb().then((b) => { tb0 = b })
+    const a3 = act('Tick only that pay-out, Category <b>Rent</b>, press <b>Import</b>.', ['“1 imported”. It leaves the list and appears in Expenses as a <b>Till</b> expense on its own date, <b>In the books</b>.'])
+    cy.get('[data-cy=till-history-row] [data-cy=till-history-pick]').uncheck({ force: true })
+    cy.contains('[data-cy=till-history-row]', reason).find('[data-cy=till-history-pick]').check({ force: true })
+    cy.get('[data-cy=till-history-category] option').contains('Rent').then(($o) => cy.get('[data-cy=till-history-category]').select($o.val(), { force: true }))
+    cy.get('[data-cy=till-history-import]').click()
+    cy.get('#expHistMsg', { timeout: 20000 }).should('contain', '1 imported')
+    cy.contains('#tableExpense tbody tr', reason, { timeout: 25000 }).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a3, 'imported')
+    act('Open the trial balance; press Import again with the same pay-out.', ['<b>6000</b> up and <b>1000 Cash</b> down by exactly ' + amount.toFixed(2) + '. A pay-out goes in once: it is no longer offered, and nothing more is booked.'], { via: 'run' })
+    tb().then((tb1) => { expect(delta(tb0, tb1, '6000')).to.eq(amount); expect(delta(tb0, tb1, '1000')).to.eq(-amount) })
+    act('Nothing to undo: a till expense is corrected at the till, and this pay-out really happened.', [], { cleanup: true })
+  })
+
   // ═══ EX-4 · Expense bills ════════════════════════════════════════════════════════════════════════════════
   const S4 = 'ex4'
   let bill1 = null   // { supplier, payee }
@@ -1244,7 +2158,51 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       })
       snap(a1, 'paid')
     })
-    act('Nothing to undo — the bill owes nothing; it stays as a paid record (a paid bill cannot be voided until payment reversal exists).', [], { cleanup: true })
+    act('Nothing to undo here — case 4-7 reverses both payments and voids the bill.', [], { cleanup: true })
+  })
+
+  caseIt('4-7', 'Reverse a payment, and a paid bill can be voided', () => {
+    testCase('4-7', S4, 'Reverse a payment, and a paid bill can be voided', { who: ['owner.lifecycle (recorded)', 'owner.business', 'admin.business', 'user.business'] })
+    setup('The bill from 4-1, paid off in 4-2 (200 cash) and 4-4 (300 bank). Recorded together with 4-1 to 4-4.')
+    asLifecycle()
+    tb().then((before) => {
+      openDashboard(); openExpenses()
+      const a1 = act('On the paid bill press <b>Payments</b>.', ['Under the bill: its two payments — <b>PV-…</b> 200 Cash and <b>PV-…</b> 300 Bank — each with a <b>Reverse</b> button.'])
+      expenseRow(bill1.payee).find('[data-cy=bill-payments]').click()
+      cy.get('[data-cy=bill-payment-row]').should('have.length', 2)
+      cy.get('[data-cy=reverse-payment]').should('have.length', 2)
+      expenseRow(bill1.payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'payments')
+      const a2 = act('On the <b>300 Bank</b> payment press <b>Reverse</b>, reason <b>Paid twice by mistake</b>, confirm.',
+        ['"Payment reversed — PV-…-R". The payment reads <b>Reversed PV-…-R — Paid twice by mistake</b>.',
+         'The bill reads <b>Owes 300.00</b> again with a <b>Pay</b> button.', 'Trial balance: <b>1010 Bank</b> up 300, <b>2000</b> owes 300 more.'])
+      cy.contains('[data-cy=bill-payment-row]', '300.00').find('[data-cy=reverse-payment]').click()
+      cy.get('.uiC-input').type('Paid twice by mistake')
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.get('#expMsg', { timeout: 20000 }).should('contain', 'Payment reversed').and('contain', '-R')
+      cy.contains('[data-cy=bill-payment-row]', '300.00', { timeout: 20000 }).should('contain', 'Reversed').and('contain', 'Paid twice by mistake')
+      expenseRow(bill1.payee).find('[data-cy=expense-bill-owes]').should('contain', '300.00')
+      tb().then((mid) => {
+        expect(delta(before, mid, '1010'), 'bank back').to.eq(300)
+        expect(delta(before, mid, '2000'), 'owed again').to.eq(-300)
+      })
+      expenseRow(bill1.payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'reversed')
+      const a3 = act('Reverse the <b>200 Cash</b> payment too (reason <b>Cancelled</b>). Then press the bill’s <b>Void</b>, reason <b>Job cancelled</b>.',
+        ['After the second reversal the bill owes the full 500 and a <b>Void</b> button appears.', 'Voided: the row reads <b>Void</b>; 6300, 2000, 1000 and 1010 are all back where they were before 4-1.'])
+      cy.contains('[data-cy=bill-payment-row]', '200.00').find('[data-cy=reverse-payment]').click()
+      cy.get('.uiC-input').type('Cancelled')
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.contains('[data-cy=bill-payment-row]', '200.00', { timeout: 20000 }).should('contain', 'Reversed')
+      expenseRow(bill1.payee).find('[data-cy=void-expense]', { timeout: 20000 }).click()
+      cy.get('.uiC-input').type('Job cancelled')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(bill1.payee).find('.exp-chip', { timeout: 20000 }).should('contain', 'Void')
+      expenseRow(bill1.payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'voided')
+    })
+    cy.then(() => {
+      act('Lock the books through today (Finance → Period Close) and try to reverse a payment.', ['Refused in the books’ words: “This period is closed …”; nothing moves. (Checked in the automated gate, case 5.)'], { via: 'run' })
+      act('As <b>user.business</b>: open a paid bill.', ['No <b>Payments</b>/<b>Reverse</b> buttons; the server refuses a reversal (gate case 6).'], { via: 'run' })
+      act('Nothing to undo — the bill is void and both payments are reversed.', [], { cleanup: true })
+    })
   })
 
   caseIt('4-5', 'A business with no suppliers does not get the option', () => {
@@ -1752,6 +2710,60 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       expect(delta(before, m, '2990'), '2990 as before').to.eq(0)
       expect(delta(before, m, '6900'), '6900 as before').to.eq(0)
     })
+  })
+
+  caseIt('6a-5', 'Expense bills are checked too, and a bill the books refused is not owed', () => {
+    testCase('6a-5', 'fp6a', 'Expense bills are checked too, and a bill the books refused is not owed',
+      { who: ['owner.lifecycle (recorded)', 'admin@myplus.com (operator)'] })
+    setup('Expense management switched on (case 0a-3); a supplier for the bill (the recording makes one through the supplier form’s own request).')
+    const y = yesterdayIso(), payee = 'XG refused bill ' + run
+    let sup = null, id = null
+    asLifecycle(true)
+    SAFETY.push(() => { asLifecycle(); reopenQuietly() })
+    SAFETY.push(() => { asLifecycle(); if (id) cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false }) })
+    reopenQuietly()
+    newSupplier('6A5').then((s) => { sup = s })
+    const a1 = act(`<b>Finance → Period Close</b>: lock the books through <b>${dmyOf(y)}</b> (yesterday).`, [`<b>Books are CLOSED through ${y}</b>.`])
+    openPeriodClose()
+    cy.get('#finLockDate').invoke('val', y).trigger('change')
+    cy.contains('#FinanceDiv button', 'Close period').click()
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.contains('#FinanceDiv', 'Books are CLOSED through ' + y, { timeout: 15000 }).should('be.visible')
+    const a2 = act(`<b>Till → Expenses</b>: a <b>Bill (pay later)</b> to the new supplier, <b>Repairs and maintenance 55</b>, dated <b>${dmyOf(y)}</b>, Payee <b>${payee}</b>.`,
+      ['The row shows <b>Not posted</b> with the books’ reason — and the supplier does <b>not</b> owe it in the ledger: before this release the ledger counted it while the books did not.'])
+    openDashboard(); openExpenses()
+    cy.get('#expDateTemp').clear().type(dmyOf(y)).blur()
+    cy.then(() => fillExpense({ category: 'Repairs and maintenance', amount: 55, paidFrom: 'AP', supplierId: sup.id, payee }))
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expFromTemp').clear().type(dmyOf(y)).blur(); cy.get('#expToTemp').clear().type(dmyOf(y)).blur()
+    cy.contains('#ExpenseDiv button', 'Search').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'Not posted')
+    expenseRow(payee).invoke('attr', 'data-id').then((v) => { id = v })
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'not-posted')
+    const a3 = act('As the operator, ask for the daily check now; then Platform → this business → <b>Supplier balances</b> → <b>Automatic check (daily)</b>.',
+      ['Today’s row has a line <b>Expense bills — in the books: X · in the ledger: X</b> — the same figure: the refused bill is in neither.',
+       'The ledger is <b>not</b> “aligned” for it (before, the check would have moved the books by 55 onto 2990).'])
+    cy.loginAsOperator()
+    cy.then(() => reconRun(lifecycleOrg)).then((d) => expect(Number(d.financeExpense), 'ledger = books for bills').to.eq(Number(d.expenseOwed)))
+    reconPanel()
+    cy.get('[data-cy=plat-payables-recon-bills]').first().should('contain', 'in the books').and('contain', 'in the ledger')
+    snap(a3, 'bills-agree', '[data-cy=plat-payables-recon]')
+    const a4 = act('Reopen the period (Period Close → <b>Reopen</b>), and on the bill press <b>Post again</b>. Ask for the check again.',
+      ['The bill reads <b>In the books</b> and <b>Owes 55.00</b>; the panel’s bills line went up by 55 on <b>both</b> sides.'])
+    asLifecycle(true)
+    reopenQuietly()
+    openDashboard(); openExpenses()
+    cy.get('#expFromTemp').clear().type(dmyOf(y)).blur(); cy.get('#expToTemp').clear().type(dmyOf(y)).blur()
+    cy.contains('#ExpenseDiv button', 'Search').click()
+    expenseRow(payee).find('[data-cy=post-again]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    expenseRow(payee).find('[data-cy=expense-bill-owes]').should('contain', '55.00')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a4, 'in-the-books')
+    cy.loginAsOperator()
+    cy.then(() => reconRun(lifecycleOrg)).then((d) => expect(Number(d.financeExpense)).to.eq(Number(d.expenseOwed)))
+    act(`Void the ${payee} bill (reason "Test Book").`, [], { cleanup: true })
+    asLifecycle()
+    cy.then(() => cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book' } })).its('body.success').should('eq', true)
   })
 
   caseIt('6a-3', 'A purchase with no supplier is a cash purchase: it is paid in full', () => {

@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: clinical-service
+  cloud:
+    config:
+      uri: ${CONFIG_URI:http://localhost:8888}
+      # fail-fast + retry: a service that boots before config-server (a Docker restart starts every
+      # container at once and ignores depends_on) keeps retrying, then EXITS so `restart: unless-stopped`
+      # brings it back. With fail-fast:false it used to start WITHOUT the shared settings (no readiness
+      # probe, no internal secret) and stay that way. Needs spring-retry + aop (service-parent / own pom).
+      fail-fast: true
+      retry:
+        initial-interval: 2000
+        multiplier: 1.5
+        max-interval: 15000
+        max-attempts: 20

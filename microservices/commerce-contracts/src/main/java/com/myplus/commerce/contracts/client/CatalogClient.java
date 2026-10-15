@@ -77,6 +77,10 @@ public interface CatalogClient {
      * its previous value — the bill saved, the stamp did not. The catalog-side unit test could not see it
      * because it calls the service directly and never crosses this interface.
      */
+    /** SSR-0c - the purchase's supplier becomes the product's main supplier only if it has none. */
+    @PutExchange("/products/{id}/main-supplier/stamp")
+    Boolean stampMainSupplier(@PathVariable Long id, @RequestParam(name = "supplierId") Long supplierId);
+
     @PutExchange("/products/{id}/price")
     void updatePrice(@PathVariable Long id,
                      @RequestParam(name = "price", required = false) BigDecimal price,

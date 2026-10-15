@@ -16,4 +16,6 @@ public class FinancialSummaryDTO {
     private BigDecimal totalExpenses;
     private BigDecimal profit;
     private double profitMargin;
+    /** AN-1 — true when finance could not be asked and these are the months as last stored. */
+    private boolean stale;
 }

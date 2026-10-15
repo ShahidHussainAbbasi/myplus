@@ -33,4 +33,19 @@ public class ExpenseRestClient {
         return gateway.forStringEntity(PREFIX, directBaseUrl, pathAndQuery, method,
                 body == null ? java.util.Map.of() : body, MediaType.APPLICATION_JSON);
     }
+
+    /** EX-5 — a binary answer (a receipt), untouched. */
+    public ResponseEntity<byte[]> getBytes(String pathAndQuery) {
+        return gateway.forBytesEntity(PREFIX, directBaseUrl, pathAndQuery);
+    }
+
+    /** EX-5 — a receipt upload, forwarded as multipart (the file's bytes and its name). */
+    public ResponseEntity<String> postFile(String pathAndQuery, byte[] bytes, String filename) {
+        org.springframework.core.io.ByteArrayResource file = new org.springframework.core.io.ByteArrayResource(bytes) {
+            @Override public String getFilename() { return filename == null || filename.isBlank() ? "receipt" : filename; }
+        };
+        org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+        body.add("file", file);
+        return gateway.forStringEntity(PREFIX, directBaseUrl, pathAndQuery, HttpMethod.POST, body, MediaType.MULTIPART_FORM_DATA);
+    }
 }

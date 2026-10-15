@@ -1,0 +1,147 @@
+[
+  {
+    "who": "business",
+    "url": "/parkedSales",
+    "status": 200,
+    "rows": 38,
+    "sample": {
+      "field": "parkedAt",
+      "value": "2026-10-10T11:01:11.274864"
+    }
+  },
+  {
+    "who": "business",
+    "url": "/currentShift",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "business",
+    "url": "/installmentReminders",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "business",
+    "url": "/priceApprovals",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "business",
+    "url": "/getAuditLog",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "business",
+    "url": "/getSupportSessions",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "business",
+    "url": "/getDriverSettlements?size=15",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "business",
+    "url": "/getOrders",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "pharma",
+    "url": "/parkedSales",
+    "status": 200,
+    "rows": 1,
+    "sample": {
+      "field": "parkedAt",
+      "value": "2026-09-24T05:45:52.240207"
+    }
+  },
+  {
+    "who": "pharma",
+    "url": "/currentShift",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "pharma",
+    "url": "/installmentReminders",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "pharma",
+    "url": "/priceApprovals",
+    "status": 200,
+    "rows": 20,
+    "sample": {
+      "field": "proposedAt",
+      "value": "2026-10-10T09:08:43Z"
+    }
+  },
+  {
+    "who": "pharma",
+    "url": "/getAuditLog",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "pharma",
+    "url": "/getSupportSessions",
+    "status": 200,
+    "rows": 1,
+    "sample": null
+  },
+  {
+    "who": "marketplace",
+    "url": "/getOrders",
+    "status": 200,
+    "rows": 25,
+    "sample": {
+      "field": "createdAt",
+      "value": "2026-10-09T10:08:01.108417"
+    }
+  },
+  {
+    "who": "marketplace",
+    "url": "/mkt/incomingOrders?size=50",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "marketplace",
+    "url": "/mkt/myProposals?size=100",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "operator",
+    "url": "/platform/mkt/cases?size=100",
+    "status": 200,
+    "rows": 0,
+    "sample": null
+  },
+  {
+    "who": "operator",
+    "url": "/platform/organizations",
+    "status": 200,
+    "rows": 1,
+    "sample": null
+  }
+]

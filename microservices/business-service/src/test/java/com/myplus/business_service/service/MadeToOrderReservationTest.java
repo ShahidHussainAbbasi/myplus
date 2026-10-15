@@ -91,7 +91,7 @@ class MadeToOrderReservationTest {
     private static SellDTO line(long productId, float qty) {
         SellDTO s = new SellDTO();
         s.setProductId(productId);
-        s.setQuantity(qty);
+        s.setQuantity(new BigDecimal(Float.toString(qty)));   // NUM-1
         s.setTotalAmount(new BigDecimal("10.00"));
         s.setNetAmount(new BigDecimal("10.00"));
         return s;

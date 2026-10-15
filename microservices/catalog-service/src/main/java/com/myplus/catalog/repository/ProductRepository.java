@@ -90,7 +90,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      */
     // PH-FORMULA: formula rides on every option so the till's picker can find a medicine by it.
     @Query("SELECT new com.myplus.catalog.dto.ProductPickerDTO("
-         + "p.id, p.name, p.sellingPrice, p.requiresSerial, p.formula) "
+         + "p.id, p.name, p.sellingPrice, p.requiresSerial, p.formula, p.noExpiry) "
          + "FROM Product p WHERE p.isActive = TRUE AND " + SCOPE + " ORDER BY p.name ASC")
     Page<com.myplus.catalog.dto.ProductPickerDTO> findPickerScoped(@Param("orgId") Long orgId,
                                                                    @Param("userId") Long userId,
@@ -108,6 +108,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p WHERE p.id IN :ids AND " + SCOPE)
     List<Product> findAllByIdScoped(@Param("ids") List<Long> ids, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** SKU-AUTO-3 — is this code already a product's SKU OR its manufacturer barcode in this business? (The scan
+     *  lookup resolves both, so an automatic SKU must avoid both.) */
+    @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE (p.sku = :code OR p.barcode = :code) AND " + SCOPE)
+    boolean existsCodeScoped(@Param("code") String code, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     boolean existsBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
@@ -242,6 +247,30 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      *
      * <p>Served by {@code idx_products_org_name} (V10), shipped in the same migration as this method.
      */
+    // ── SKU-AUTO-2 deploy fill (SkuBackfill) — SYSTEM, cross-tenant by design: runs at startup with no user ──
+    /** [id, organizationId, userId] of products with no SKU, oldest first within each business. */
+    @Query("SELECT p.id, p.organizationId, p.userId FROM Product p WHERE p.sku IS NULL AND p.organizationId IS NOT NULL "
+         + "ORDER BY p.organizationId, p.id")
+    List<Object[]> findBlankSkuRows(Pageable page);
+
+    /** Give one product its code — only if it still has none (idempotent; a concurrent filler cannot overwrite). */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Product p SET p.sku = :sku WHERE p.id = :id AND p.sku IS NULL")
+    int fillBlankSku(@Param("id") Long id, @Param("sku") String sku);
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.sku IS NULL AND p.organizationId IS NULL")
+    long countBlankSkuWithoutOrg();
+
+    @Query(value = "SELECT COUNT(*) FROM (SELECT 1 FROM products WHERE sku IS NOT NULL "
+         + "GROUP BY organization_id, sku HAVING COUNT(*) > 1) d", nativeQuery = true)
+    long countDuplicateSkuGroups();
+
+    /** SKU-AUTO-2 — which of these SKUs this business already holds (the import's batched SKU-clash check). */
+    @Query("SELECT p.sku FROM Product p WHERE p.sku IN :skus AND " + SCOPE)
+    List<String> existingSkusScoped(@Param("skus") java.util.Collection<String> skus,
+                                    @Param("orgId") Long orgId,
+                                    @Param("userId") Long userId);
+
     @Query("SELECT p.name FROM Product p WHERE p.name IN :names AND " + SCOPE)
     List<String> existingNamesScoped(@Param("names") java.util.Collection<String> names,
                                      @Param("orgId") Long orgId,

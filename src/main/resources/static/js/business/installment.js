@@ -654,9 +654,6 @@
 		return null;
 	}
 
-	function money(v) {
-		return v == null ? '' : Number(v).toFixed(2);
-	}
 
 	/** The chosen plan's schedule, under the list. Text only — no editing: this screen does not move money. */
 	function showSchedule(plan) {
@@ -790,7 +787,7 @@
 							+ esc(g.contact) + '</a>'
 						: '\u2014') + '</td>'
 					+ '<td>' + esc(g.address || '\u2014') + '</td>'
-					+ '<td>' + esc(String(g.createdAt || '').substring(0, 10)) + '</td>'
+					+ '<td>' + esc(fmtDate(g.createdAt))   /* H6: the viewer's day */ + '</td>'
 					+ (open
 						? '<td><button type="button" class="btn btn-xs btn-default js-g-remove" data-id="'
 							+ esc(String(g.id)) + '" data-name="' + esc(g.name || '') + '">'
@@ -1040,7 +1037,7 @@
 			tr$.append($('<td>').text(late
 				? tr('ui.js.instStageOverdue', 'Late') + ' (' + esc(r.daysOverdue) + 'd)'
 				: tr('ui.js.instStageDueSoon', 'Due soon')));
-			tr$.append($('<td>').text(r.actedAt ? String(r.actedAt).replace('T', ' ').slice(0, 16) : ''));
+			tr$.append($('<td>').text(fmtDateTime(r.actedAt)   /* H6 */));
 			tr$.append($('<td>').text(r.outcome || ''));
 
 			var $act = $('<td>');

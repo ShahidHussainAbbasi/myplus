@@ -19,4 +19,20 @@ public class ExpenseSettings {
         int d = settings.getInt(ExpenseSettingsCatalog.BACKDATE_DAYS, ExpenseSettingsCatalog.BACKDATE_DEFAULT);
         return Math.max(0, Math.min(d, ExpenseSettingsCatalog.BACKDATE_MAX));
     }
+
+    /** EX-8d — may an expense carry a recoverable input-tax part? */
+    public boolean inputTaxRecoverable() {
+        return settings.getBool(ExpenseSettingsCatalog.INPUT_TAX_RECOVERABLE);
+    }
+
+    /** EX-5 — above this a receipt is required; 0 (or anything not positive) = never. */
+    /** EX-6b — the most a member may post directly; {@code null} = no limit (the default: the setting is blank). */
+    public java.math.BigDecimal userPostLimit() {
+        return settings.getDecimal(ExpenseSettingsCatalog.USER_POST_LIMIT, null);
+    }
+
+    public java.math.BigDecimal receiptRequiredAbove() {
+        java.math.BigDecimal v = settings.getDecimal(ExpenseSettingsCatalog.RECEIPT_REQUIRED_ABOVE, java.math.BigDecimal.ZERO);
+        return v == null || v.signum() < 0 ? java.math.BigDecimal.ZERO : v;
+    }
 }

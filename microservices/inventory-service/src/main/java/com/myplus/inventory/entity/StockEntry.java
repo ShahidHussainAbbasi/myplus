@@ -22,13 +22,14 @@ public class StockEntry {
     @JoinColumn(name = "warehouse_id")
     private Warehouse warehouse;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 4)   // D14 — without precision Hibernate regenerates DECIMAL(38,2)
     /**
-     * U0 — BASE UNITS, exact.
+     * U0 — exact, in SHELF units (boxes): a loose sale of 3 tablets of a 40-box is 0.075 here. (This comment used to
+     * say "base units / pieces"; stock is held in packs — verified on the live DB 2026-10-14, NUM-1.)
      *
      * <p>Was {@code Float}. Selling loose divides a pack, and a pack of 3, 6, 7 or 24 does not divide cleanly
      * in binary floating point — the last pieces leave a residue no stock count reconciles to zero. Holding
-     * pieces rather than fractions of a pack makes the arithmetic exact; {@code DECIMAL(19,4)} rather than an
+     * four decimal places keeps the fractions a loose sale makes; {@code DECIMAL(19,4)} rather than an
      * integer because this column also carries genuinely continuous goods (2.5 m of cable), which an integer
      * would round away silently.
      */
@@ -36,6 +37,7 @@ public class StockEntry {
 
     /** Held by open reservations (slice 33, Phase 6a). Available = quantity - reservedQuantity. */
     @Builder.Default
+    @Column(precision = 19, scale = 4)
     private BigDecimal reservedQuantity = BigDecimal.ZERO;
 
     private String batchNo;

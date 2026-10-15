@@ -18,13 +18,11 @@ describe('Pharmacy — dispense guards', () => {
     items: [{ productId: productId, medicineName: name, quantity: 10 }],
   }, extra || {})
 
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url: url, body: body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   // ── B5: intake validation ──────────────────────────────────────────────────────────────────────────
   it('a prescribed line with no quantity is refused, with the reason', () => {
     cy.seedProduct({ name: 'GuardQty_' + Date.now(), sku: 'GQ' + Date.now(), unit: 'tablet', stock: 20 }).then(({ productId }) => {
-      post('/addPrescription', { patientName: 'ZeroQty_' + Date.now(), items: [{ productId: productId, medicineName: 'x', quantity: 0 }] })
+      cy.postJson('/addPrescription', { patientName: 'ZeroQty_' + Date.now(), items: [{ productId: productId, medicineName: 'x', quantity: 0 }] })
         .then((r) => {
           expect(r.body.success, JSON.stringify(r.body)).to.eq(false)
           expect(String(r.body.message || ''), 'the service reason survives the proxy').to.match(/quantity/i)
@@ -39,12 +37,12 @@ describe('Pharmacy — dispense guards', () => {
       // lapsed yesterday
       const yesterday = localIsoDate(new Date(Date.now() - 86400000))
       const dayBefore = localIsoDate(new Date(Date.now() - 2 * 86400000))
-      post('/addPrescription', rx(productId, name, { prescribedDate: dayBefore, validUntil: yesterday })).then((r) => {
+      cy.postJson('/addPrescription', rx(productId, name, { prescribedDate: dayBefore, validUntil: yesterday })).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         const rxId = r.body.data.id
         expect(r.body.data.status, 'expiry is derived, no nightly job').to.eq('EXPIRED')
 
-        post('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'INV-EXP-' + Date.now(), items: [{ productId: productId, quantity: 5 }] })
+        cy.postJson('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'INV-EXP-' + Date.now(), items: [{ productId: productId, quantity: 5 }] })
           .then((d) => {
             expect(d.body.success, JSON.stringify(d.body)).to.eq(false)
             expect(String(d.body.message || '')).to.match(/expired/i)
@@ -56,13 +54,13 @@ describe('Pharmacy — dispense guards', () => {
   it('a cancelled prescription cannot be dispensed', () => {
     const name = 'GuardCan_' + Date.now()
     cy.seedProduct({ name: name, sku: 'GC' + Date.now(), unit: 'tablet', stock: 20 }).then(({ productId }) => {
-      post('/addPrescription', rx(productId, name)).then((r) => {
+      cy.postJson('/addPrescription', rx(productId, name)).then((r) => {
         const rxId = r.body.data.id
-        post('/cancelPrescription', { prescriptionId: rxId }).then((c) => {
+        cy.postJson('/cancelPrescription', { prescriptionId: rxId }).then((c) => {
           expect(c.body.success, JSON.stringify(c.body)).to.eq(true)
           expect(c.body.data.status).to.eq('CANCELLED')
         })
-        post('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'INV-CAN-' + Date.now(), items: [{ productId: productId, quantity: 5 }] })
+        cy.postJson('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'INV-CAN-' + Date.now(), items: [{ productId: productId, quantity: 5 }] })
           .then((d) => {
             expect(d.body.success, JSON.stringify(d.body)).to.eq(false)
             expect(String(d.body.message || '')).to.match(/cancel/i)
@@ -76,14 +74,14 @@ describe('Pharmacy — dispense guards', () => {
     const name = 'GuardDup_' + Date.now()
     const invoiceNo = 'INV-DUP-' + Date.now()
     cy.seedProduct({ name: name, sku: 'GD' + Date.now(), unit: 'tablet', stock: 40 }).then(({ productId }) => {
-      post('/addPrescription', rx(productId, name)).then((r) => {
+      cy.postJson('/addPrescription', rx(productId, name)).then((r) => {
         const rxId = r.body.data.id
         const line = { prescriptionId: rxId, invoiceNo: invoiceNo, items: [{ productId: productId, quantity: 4 }] }
 
-        post('/dispensePrescription', line).then((first) => {
+        cy.postJson('/dispensePrescription', line).then((first) => {
           expect(first.body.data.items[0].dispensedQuantity).to.eq(4)
         })
-        post('/dispensePrescription', line).then((second) => {
+        cy.postJson('/dispensePrescription', line).then((second) => {
           expect(second.body.data.items[0].dispensedQuantity, 'still 4 — the repeat was ignored').to.eq(4)
           expect((second.body.data.warnings || []).join(' ')).to.match(/already dispensed/i)
         })
@@ -99,9 +97,9 @@ describe('Pharmacy — dispense guards', () => {
   it('selling more than prescribed records only the outstanding quantity, and says so', () => {
     const name = 'GuardCap_' + Date.now()
     cy.seedProduct({ name: name, sku: 'GK' + Date.now(), unit: 'tablet', stock: 60 }).then(({ productId }) => {
-      post('/addPrescription', rx(productId, name)).then((r) => {
+      cy.postJson('/addPrescription', rx(productId, name)).then((r) => {
         const rxId = r.body.data.id
-        post('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'INV-CAP-' + Date.now(), items: [{ productId: productId, quantity: 25 }] })
+        cy.postJson('/dispensePrescription', { prescriptionId: rxId, invoiceNo: 'INV-CAP-' + Date.now(), items: [{ productId: productId, quantity: 25 }] })
           .then((d) => {
             expect(d.body.success, JSON.stringify(d.body)).to.eq(true)
             expect(d.body.data.items[0].dispensedQuantity, 'capped at the prescribed 10').to.eq(10)

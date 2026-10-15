@@ -325,4 +325,15 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
 //    @Query(value = "SELECT * FROM appointment a WHERE a.FK_hospital_id =:FK_hospital_id AND a.FK_doctor_id = :doctor_id AND a.date = :date"
 //    		+" ORDER BY a.patients_appointed DESC LIMIT 1",nativeQuery=true)
 //    Appointment getLastAppointment(Long FK_hospital_id, Long doctor_id, String date);
+
+   /**
+    * SSR-1 - per product, for sale lines dated in [:from, :toExcl): [product_id, sales value (the lines' current
+    * total), bonus quantity]. Voided sales have no lines (SaleVoidService deletes them); a returned line is reduced in
+    * place - its returned value is added back by SaleReturnRepo#returnValueOfSalesInPeriod to get GROSS sales.
+    */
+   @org.springframework.data.jpa.repository.Query(value = "SELECT s.product_id, COALESCE(SUM(s.total_amount), 0), "
+        + "COALESCE(SUM(s.bonus_quantity), 0) FROM sell s WHERE s.organization_id = :org AND s.product_id IS NOT NULL "
+        + "AND s.dated >= :from AND s.dated < :toExcl GROUP BY s.product_id", nativeQuery = true)
+   List<Object[]> ssrSalesByProduct(@Param("org") Long org, @Param("from") java.time.LocalDateTime from,
+                                    @Param("toExcl") java.time.LocalDateTime toExcl);
 }

@@ -160,6 +160,7 @@ public class ImportEngine {
                 : spec.existingKeys(orgId, userId, keys);
 
         Set<String> seenInFile = new HashSet<>();
+        List<CsvReader.Row> creating = new ArrayList<>();
         for (CsvReader.Row row : valid) {
             String k = spec.duplicateKey(row);
             if (k != null && existing.contains(k)) {
@@ -170,9 +171,45 @@ public class ImportEngine {
                 c.results.add(RowResult.skip(row.getLineNumber(),
                         "Appears earlier in this file — '" + k + "'."));
             } else {
-                c.results.add(RowResult.create(row.getLineNumber()));
-                c.toCreate.add(row);
+                creating.add(row);
             }
+        }
+
+        // Pass 3 — other UNIQUE columns (SKU-AUTO-2: a product's SKU), on the rows that would be CREATED only: a row
+        // already skipped as present (a re-uploaded file) must stay a skip, not turn into a clash with itself.
+        // One batched read per column. A clash is an ERROR, not a skip: the row is a different record claiming a
+        // value another one owns, so the file is refused until the operator fixes it.
+        for (String col : spec.uniqueColumns()) {
+            Set<String> values = new LinkedHashSet<>();
+            for (CsvReader.Row row : creating) {
+                String v = row.get(col);
+                if (v != null) values.add(v);
+            }
+            if (values.isEmpty()) continue;
+            Set<String> taken = new HashSet<>();
+            for (String v : spec.existingValues(col, orgId, userId, values)) {
+                if (v != null) taken.add(v.trim().toLowerCase());
+            }
+            Set<String> seen = new HashSet<>();
+            List<CsvReader.Row> still = new ArrayList<>();
+            for (CsvReader.Row row : creating) {
+                String v = row.get(col);
+                String norm = v == null ? null : v.toLowerCase();
+                if (norm != null && taken.contains(norm)) {
+                    c.results.add(RowResult.error(row.getLineNumber(),
+                            "The " + col + " '" + v + "' is already used by another record."));
+                } else if (norm != null && !seen.add(norm)) {
+                    c.results.add(RowResult.error(row.getLineNumber(),
+                            "The " + col + " '" + v + "' appears earlier in this file."));
+                } else {
+                    still.add(row);
+                }
+            }
+            creating = still;
+        }
+        for (CsvReader.Row row : creating) {
+            c.results.add(RowResult.create(row.getLineNumber()));
+            c.toCreate.add(row);
         }
 
         c.results.sort((a, b) -> Integer.compare(a.getRowNumber(), b.getRowNumber()));

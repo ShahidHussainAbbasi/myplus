@@ -1,0 +1,68 @@
+[
+  {
+    "case": "SH-01",
+    "page": "business dashboard",
+    "path": "/businessDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-02",
+    "page": "pharmacy (business) dashboard",
+    "path": "/businessDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-03",
+    "page": "education dashboard",
+    "path": "/educationDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-04",
+    "page": "guardian portal",
+    "path": "/guardianDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-05",
+    "page": "student portal",
+    "path": "/studentDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-06",
+    "page": "welfare dashboard",
+    "path": "/welfareDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-07",
+    "page": "agriculture dashboard",
+    "path": "/agricultureDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-08",
+    "page": "appointment dashboard",
+    "path": "/appointmentDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-09",
+    "page": "platform (operator) dashboard",
+    "path": "/platformDashboard",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-10",
+    "page": "login page (public)",
+    "path": "/login",
+    "consoleErrors": []
+  },
+  {
+    "case": "SH-11",
+    "page": "public booking page",
+    "path": "/appointment",
+    "consoleErrors": []
+  }
+]

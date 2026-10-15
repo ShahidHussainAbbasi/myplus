@@ -54,7 +54,6 @@ const entry = (s, key) => read(s).then((items) => {
   expect(e, `${key} on ${s.id}`).to.exist
   return e
 })
-const post = (url, body) => cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 /**
  * A setting this spec can change harmlessly: TEXT first, else INT, else a switch (welfare and agriculture have only
@@ -90,8 +89,8 @@ describe('SET-GUIDE — Settings security and tenant isolation', () => {
 
       const restore = () => {
         cy.loginAsTier('owner', s.module)
-        if (orig.isDefault) post(s.reset, { key }).its('body').then((b) => expect(ok(b), `restore ${key} by reset: ${JSON.stringify(b)}`).to.eq(true))
-        else post(s.save, { key, value: orig.value }).its('body').then((b) => expect(ok(b), `restore ${key}`).to.eq(true))
+        if (orig.isDefault) cy.postForm(s.reset, { key }).its('body').then((b) => expect(ok(b), `restore ${key} by reset: ${JSON.stringify(b)}`).to.eq(true))
+        else cy.postForm(s.save, { key, value: orig.value }).its('body').then((b) => expect(ok(b), `restore ${key}`).to.eq(true))
         entry(s, key).then((e) => {
           expect(String(e.value), `${key} is back`).to.eq(orig.value)
           expect(e.isDefault === true, `${key} override state is back`).to.eq(orig.isDefault)
@@ -101,9 +100,9 @@ describe('SET-GUIDE — Settings security and tenant isolation', () => {
       it(`1 owner reads, changes and resets a setting (positive control)`, () => {
         cy.loginAsTier('owner', s.module)
         const v = newValue({ type: orig.type, value: orig.value })
-        post(s.save, { key, value: v }).its('body').then((b) => expect(ok(b), `owner save: ${JSON.stringify(b)}`).to.eq(true))
+        cy.postForm(s.save, { key, value: v }).its('body').then((b) => expect(ok(b), `owner save: ${JSON.stringify(b)}`).to.eq(true))
         entry(s, key).then((e) => { expect(String(e.value)).to.eq(v); expect(e.isDefault).to.eq(false) })
-        post(s.reset, { key }).its('body').then((b) => expect(ok(b), `owner reset: ${JSON.stringify(b)}`).to.eq(true))
+        cy.postForm(s.reset, { key }).its('body').then((b) => expect(ok(b), `owner reset: ${JSON.stringify(b)}`).to.eq(true))
         entry(s, key).then((e) => expect(e.isDefault, 'reset removed the override').to.eq(true))
         restore()
         cy.then(() => record(s.id, 'owner read/change/reset', true, key))
@@ -112,7 +111,7 @@ describe('SET-GUIDE — Settings security and tenant isolation', () => {
       it(`2 admin may change it too`, () => {
         cy.loginAsTier('admin', s.module)
         const v = newValue({ type: orig.type, value: orig.value })
-        post(s.save, { key, value: v }).its('body').then((b) => expect(ok(b), `admin save: ${JSON.stringify(b)}`).to.eq(true))
+        cy.postForm(s.save, { key, value: v }).its('body').then((b) => expect(ok(b), `admin save: ${JSON.stringify(b)}`).to.eq(true))
         entry(s, key).then((e) => expect(String(e.value)).to.eq(v))
         restore()
         cy.then(() => record(s.id, 'admin may change', true, key))
@@ -121,9 +120,9 @@ describe('SET-GUIDE — Settings security and tenant isolation', () => {
       it(`3 user may read but NOT change or reset — refused, value untouched`, () => {
         cy.loginAsTier('user', s.module)
         read(s).then((items) => expect(items.length, 'the till can read its settings').to.be.greaterThan(0))
-        post(s.save, { key, value: newValue({ type: orig.type, value: orig.value }) }).then((r) =>
+        cy.postForm(s.save, { key, value: newValue({ type: orig.type, value: orig.value }) }).then((r) =>
           expect(ok(r.body), `user save must be refused: ${r.status} ${JSON.stringify(r.body).slice(0, 160)}`).to.eq(false))
-        post(s.reset, { key }).then((r) =>
+        cy.postForm(s.reset, { key }).then((r) =>
           expect(ok(r.body), `user reset must be refused: ${r.status} ${JSON.stringify(r.body).slice(0, 160)}`).to.eq(false))
         cy.loginAsTier('owner', s.module)
         entry(s, key).then((e) => {
@@ -140,7 +139,7 @@ describe('SET-GUIDE — Settings security and tenant isolation', () => {
           entry(s, key).then((demoBefore) => {
             cy.loginAsTier('owner', s.module)
             const v = newValue({ type: orig.type, value: orig.value })
-            post(s.save, { key, value: v, organizationId: demoOrg }).its('body').then((b) => expect(ok(b)).to.eq(true))
+            cy.postForm(s.save, { key, value: v, organizationId: demoOrg }).its('body').then((b) => expect(ok(b)).to.eq(true))
             entry(s, key).then((e) => expect(String(e.value), 'the parameter is IGNORED: the owner’s own org changed').to.eq(v))
             cy.loginAsTier('demo', s.module)
             entry(s, key).then((demoAfter) => {

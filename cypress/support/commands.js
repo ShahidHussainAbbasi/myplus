@@ -513,7 +513,17 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
     const productId = r.body.data.id
     const result = { productId, name, sku }
 
-    if (!overrides.stock) return result
+    /*
+     * EXP-REQ (doc §12.18) — where the tenant tracks expiry, a purchase needs an expiry date unless the product is
+     * marked "No expiry". A spec-made product is a fixture for whatever the spec tests, so it is exempt by DEFAULT;
+     * a spec about expiry passes `noExpiry: false` to get an ordinary, date-requiring product. Real products are
+     * untouched (the column defaults to 0). A tenant that does not track expiry refuses the flag ("not switched
+     * on") — nothing to exempt there. A non-admin seeding is refused by the ADMIN gate; its purchases then fail
+     * with the server's own "Enter the expiry date for …", which names the cause.
+     */
+    const exempt = overrides.noExpiry !== false ? cy.markNoExpiry(productId, name) : cy.wrap(null)
+
+    if (!overrides.stock) return exempt.then(() => result)
     // opening inventory (local Stock is gone — stock lives in inventory-service)
     const stockBody = { productId, quantity: overrides.stock }
     stockBody.batchNo = overrides.batchNo || `B${stamp}`
@@ -534,10 +544,10 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
       ? overrides.purchasePrice
       : Math.round(Number(overrides.sellingPrice || 100) * 0.6 * 100) / 100
     stockBody.purchasePrice = cost
-    return cy.request({
+    return exempt.then(() => cy.request({
       method: 'POST', url: '/addProductStock', body: stockBody,
       headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-    }).then(() => result)
+    })).then(() => result)
   })
 })
 
@@ -614,6 +624,31 @@ Cypress.Commands.add('restoreTaxSetting', (snap, opts = {}) => {
   if (!snap) return cy.log('restoreTaxSetting: no snapshot taken, nothing to restore')
   return cy.setTaxSetting(snap, opts)
 })
+
+/**
+ * One business setting (org_setting) — read for a snapshot, written through the owner's own /saveBusinessConfig.
+ *
+ * The same ORG-WIDE-state problem as tax: `pos.sale.looseMarkupPct` on demo.business is flipped by specs and people
+ * (10 on 2026-10-03 and 2026-10-13 — loose prices read 132 not 120). A spec whose figures assume a value pins it in
+ * before() and puts the snapshot back in after(). Added 2026-10-14 for U13; ten older specs still carry their own
+ * `setMarkup` copies — move each here when it is next touched.
+ *
+ * `snapshotBusinessConfig` yields the value in force now (the default when none is stored), so the restore writes
+ * back exactly what the run found. `setBusinessConfig` ASSERTS success: this route answers 200 with {success:false}
+ * on a refusal, and a silent failure would leave the downstream assertions testing nothing.
+ */
+Cypress.Commands.add('snapshotBusinessConfig', (key) =>
+  cy.request({ url: '/getBusinessConfig', failOnStatusCode: false }).then((r) => {
+    const rows = (r.body && r.body.data) || []
+    const row = rows.find((x) => x.key === key)
+    expect(row, `/getBusinessConfig lists ${key}`).to.exist
+    return row.value
+  }))
+
+Cypress.Commands.add('setBusinessConfig', (key, value) =>
+  cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, failOnStatusCode: false,
+    body: { key, value: String(value) } })
+    .then((r) => expect(r.body && r.body.success, `saveBusinessConfig ${key}=${value}: ${JSON.stringify(r.body).slice(0, 160)}`).to.eq(true)))
 
 /**
  * The tenant's audit trail — `auditLog` reads it once, `findAudit` polls until a matching row arrives.
@@ -1327,6 +1362,26 @@ Cypress.Commands.add('confirmSale', (opts) => {
   })
 })
 
+/**
+ * Press the sale button and confirm IF the till asks — deterministically. Registers `@sale` (POST addSell).
+ *
+ * WHY: `confirmSale({ optional: true })` looks ONCE, at once; when "Complete this sale?" renders a moment later the
+ * probe has already moved on, the dialog waits forever and no sale is sent (HMS S4 gate D4-01, 2026-10-10 — the video
+ * shows the dialog up while `cy.wait('@sale')` timed out). Here we wait up to 15 s for EITHER the dialog OR the sale
+ * request itself, and click OK only when the dialog is what came.
+ */
+Cypress.Commands.add('clickAndConfirmSale', (selector) => {
+  let sent = false
+  cy.intercept('POST', '**/addSell', () => { sent = true }).as('sale')
+  cy.get(selector || '#addSell').click({ timeout: 30000 })
+  cy.get('body', { timeout: 15000 }).should(($b) => {
+    expect(sent || $b.find('[data-ui-confirm="ok"]:visible').length > 0,
+      'the till asked "Complete this sale?" or has already sent the sale').to.eq(true)
+  }).then(($b) => {
+    if (!sent && $b.find('[data-ui-confirm="ok"]:visible').length) cy.get('[data-ui-confirm="ok"]').click({ force: true })
+  })
+})
+
 // ── the barcode scan box ───────────────────────────────────────────────────────────
 /**
  * Make the sale screen's scan box (#sellScan) usable for a spec that needs to scan.
@@ -1640,3 +1695,91 @@ Cypress.Commands.add('revealSetting', (key) => {
   })
   cy.get(`[data-key="${key}"]`).should('be.visible')
 })
+
+/**
+ * TOTAL-READ — the cart's Total footer cell (the bill before any trade discount), found through the cart table itself:
+ * the cell footerCallback writes (column 5). Not by id — the owner removed id="sellTotal" from the template
+ * (2026-10-10), and the till reads the cell the same way (business.js sellGoodsTotal). Yields the jQuery-wrapped cell,
+ * so .should('contain', …) / .invoke('text') retry on it as before.
+ */
+Cypress.Commands.add('cartTotal', () =>
+  cy.window().its('tablesi').then((t) => cy.wrap(Cypress.$(t.column(5).footer()))))
+
+// ── DRY D3 (docs/DRY-REVIEW-2026-10-11.md) — helpers the specs each defined for themselves ───────────────────────
+// `post` was written out in 53 specs, `setOf` in 9, `emulateZone` in 3. One definition each, here. They never fail on
+// the HTTP status (failOnStatusCode: false), exactly like the copies they replace: a refusal is asserted by the spec.
+
+/** A form POST through the monolith (the copies' `post` with form: true). */
+Cypress.Commands.add('postForm', (url, body) =>
+  cy.request({ method: 'POST', url, form: true, body: body || {}, failOnStatusCode: false }))
+
+/** A JSON POST through the monolith. */
+Cypress.Commands.add('postJson', (url, body) =>
+  cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }))
+
+/** A JSON PUT through the monolith. */
+Cypress.Commands.add('putJson', (url, body) =>
+  cy.request({ method: 'PUT', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }))
+
+/**
+ * Put a team member on a permission set, by e-mail and set name, as the signed-in owner (Team → Permissions).
+ * Fails loudly if the member or the set is not there, or the assignment is refused.
+ */
+Cypress.Commands.add('setPermissionSet', (email, setName) =>
+  cy.request('/team/users').then((u) => {
+    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
+    expect(member, email + ' is a member').to.exist
+    return cy.request('/team/permissions').then((p) => {
+      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
+      expect(set, 'the "' + setName + '" set exists').to.exist
+      // JSON, like every copy it replaced (their local post was JSON); the endpoint answers 415 to a form
+      return cy.postJson('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
+        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
+    })
+  }))
+
+/**
+ * HMS-4 — My queue on `doctor` ({id, name}), as the person sees it. An unlinked doctor (the owner, a Doctor-set member
+ * covering) picks from "Which doctor you are"; a LINKED doctor has no picker — the queue is already theirs and their
+ * name is shown (clinic.js startMyQueue). Fails loudly if the queue is on anyone else.
+ */
+Cypress.Commands.add('myQueueOn', (doctor) => {
+  cy.get(`#clinMyDoctor option[value="${doctor.id}"]`, { timeout: 15000 }).should('exist')
+  return cy.get('#clinMyDoctorWrap').then(($w) => {
+    if ($w.is(':visible')) return cy.get('#clinMyDoctor').select(String(doctor.id))
+    cy.get('#clinMyDoctor').should('have.value', String(doctor.id))
+    return cy.get('#clinMeName').should('be.visible').and('contain', doctor.name)
+  })
+})
+
+/**
+ * HMS-4 / RW-1 — Dr HMS Test's day, as the OWNER (the current session must be the owner's). Every doctor spec now
+ * sends its patients to the one test doctor, and completed visits count toward his patients-a-day (20) — the full run
+ * reached it on 2026-10-12. So each spec sets "no limit today" in before() and RESETS the day in after() (no server
+ * state left). {limit: 0} = no limit that day; {reset: true} = back to the doctor's usual day.
+ */
+Cypress.Commands.add('hmsDoctorDay', (day) =>
+  cy.request('/clinic/doctors').then((r) => {
+    const d = ((r.body && r.body.data) || []).find((x) => x.name === 'Dr HMS Test')
+    expect(d, 'Dr HMS Test (run hms-four-accounts first)').to.exist
+    return cy.postJson('/clinic/doctors/day', Object.assign({ providerId: d.id }, day))
+      .its('body').then((b) => expect(b && b.success, JSON.stringify(b)).to.eq(true))
+  }))
+
+/** Chrome's time zone for the page under test (DevTools emulation); '' puts the machine's zone back. */
+Cypress.Commands.add('emulateZone', (timezoneId) =>
+  cy.wrap(Cypress.automation('remote:debugger:protocol', { command: 'Emulation.setTimezoneOverride', params: { timezoneId } })))
+
+/**
+ * EXP-REQ (doc §12.18) / DRY D3 — mark a spec-made product "No expiry", so a purchase without an expiry date is
+ * accepted where the tenant tracks expiry. Was inline in seedProduct; specs that create a product themselves need it too.
+ * A tenant that does not track expiry answers "not switched on" — nothing to exempt there.
+ */
+Cypress.Commands.add('markNoExpiry', (productId, name) =>
+  cy.request({ method: 'POST', url: '/setProductTracking', form: true, failOnStatusCode: false,
+    body: { id: productId, noExpiry: true } }).then((t) => {
+    const msg = String((t.body && t.body.message) || '')
+    if (t.body && t.body.success === false && !/not switched on|denied|forbidden|privilege/i.test(msg)) {
+      throw new Error(`markNoExpiry: could not mark ${name || productId} "No expiry": ${JSON.stringify(t.body).slice(0, 200)}`)
+    }
+  }))

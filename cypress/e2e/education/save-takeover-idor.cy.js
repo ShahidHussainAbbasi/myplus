@@ -33,8 +33,6 @@ const rows = (body) => {
   return []
 }
 
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 // cy.wrap(... || null), never a bare `find`: a .then() returning undefined makes Cypress yield the
 // PREVIOUS subject, so an assertion would silently run against the Response object.
@@ -103,7 +101,7 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
       before(() => {
         // ── Tenant A creates a row it owns.
         cy.loginAsEduOwner()
-        post(c.addUrl, c.create(victimTag)).then((r) => {
+        cy.postForm(c.addUrl, c.create(victimTag)).then((r) => {
           expect(JSON.stringify(r.body), `${c.name} created by tenant A`).to.match(/SUCCESS/)
         })
         findBy(c.listUrl, c.match(victimTag)).then((row) => {
@@ -119,7 +117,7 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
         cy.then(() => {
           const attack = c.create(stolenTag)
           attack.id = victimId
-          return post(c.addUrl, attack)
+          return cy.postForm(c.addUrl, attack)
         }).then((r) => {
           // Must be refused. NOT_FOUND is the right answer: it neither confirms nor denies that the id
           // exists in another tenant.
@@ -159,10 +157,10 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
       cy.loginAsEduOwner()
       // Slice 0.2a: a tendered payment settles against a STUDENT, so one must exist — a fee for an unknown
       // enrolment number is now refused rather than silently failing to settle.
-      post('/addStudent', { name: `CY_FEEOWNER_${uniq()}`, enrollNo: victimEnroll, status: 'ACTIVE' })
+      cy.postForm('/addStudent', { name: `CY_FEEOWNER_${uniq()}`, enrollNo: victimEnroll, status: 'ACTIVE' })
         .then((r) => expect(JSON.stringify(r.body), 'student for the fee owner created').to.match(/SUCCESS/))
       // Slice 0.4 renamed the fee fields (f→fee, dt→discountType, d→discount).
-      post('/addFc', { enrollNo: victimEnroll, fee: 5000, dueAmount: 5000, feePaid: 5000,
+      cy.postForm('/addFc', { enrollNo: victimEnroll, fee: 5000, dueAmount: 5000, feePaid: 5000,
                        discountType: 'Percent', discount: 0 }).then((r) => {
         expect(JSON.stringify(r.body), 'fee record created by tenant A').to.match(/SUCCESS/)
       })
@@ -184,7 +182,7 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
 
     it('tenant B cannot overwrite another school\'s payment record', () => {
       cy.loginAsEducation()
-      cy.then(() => post('/addFc', { id: feeId, enrollNo: victimEnroll, fee: 1, feePaid: 1 })).then((r) => {
+      cy.then(() => cy.postForm('/addFc', { id: feeId, enrollNo: victimEnroll, fee: 1, feePaid: 1 })).then((r) => {
         expect(JSON.stringify(r.body), 'fee takeover must be refused').to.not.match(/SUCCESS/)
       })
     })
@@ -214,7 +212,7 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
 
     before(() => {
       cy.loginAsEduOwner()
-      post('/addOwner', { name: ownerTag, mobile: '03009999999', address: 'X', status: 'Active' })
+      cy.postForm('/addOwner', { name: ownerTag, mobile: '03009999999', address: 'X', status: 'Active' })
       findBy('/getUserOwner', (x) => x.name === ownerTag).then((row) => {
         expect(row, 'foreign owner exists in tenant A').to.not.be.null
         foreignOwnerId = row.id != null ? row.id : row.ownerId
@@ -225,7 +223,7 @@ describe('Security: a tenant cannot take over another tenant\'s record by saving
       const branch = `CY_BRANCH_${uniq()}`
       cy.loginAsEducation()
 
-      cy.then(() => post('/addSchool', {
+      cy.then(() => cy.postForm('/addSchool', {
         name: branch, branchName: branch, status: 'Active', ownerIds: foreignOwnerId,
       })).then((r) => {
         // The school itself may save — what must NOT happen is the foreign owner being attached.

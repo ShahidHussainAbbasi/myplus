@@ -32,4 +32,11 @@ public class OutletDTO {
      * it yet? The picker can then show a territory rep which shops are actually theirs without hiding the rest.
      */
     private boolean assignedToMe;
+
+    /**
+     * SRA-3 — the outlet's usual rep, so the office keying a paper order starts from the right rep. Filled ONLY for a
+     * rep.manage holder (who sees every assignment on the Territory screen anyway); null for everyone else, so a rep's
+     * picker still does not say which colleague owns which shop.
+     */
+    private Long defaultRepId;
 }

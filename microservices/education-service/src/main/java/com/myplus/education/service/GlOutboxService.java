@@ -126,7 +126,7 @@ public class GlOutboxService {
                  * now() for a row with neither.
                  */
                 .date(o.getEventDate() != null ? o.getEventDate()
-                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : TenantClock.today()))
+                        : (o.getCreatedAt() != null ? com.myplus.common.security.time.BusinessDay.of(o.getCreatedAt()) : TenantClock.today()))
                 .ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).paidAmount(o.getPaidAmount())
                 .method(o.getMethod())

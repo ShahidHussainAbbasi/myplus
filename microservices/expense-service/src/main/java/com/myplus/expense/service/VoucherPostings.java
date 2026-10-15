@@ -28,6 +28,9 @@ public final class VoucherPostings {
 
     public static final String EXPENSE = "EXPENSE", EXPENSE_REVERSAL = "EXPENSE_REVERSAL";
 
+    /** EX-8d — finance's tax account; input tax is its debit side. */
+    static final String INPUT_TAX = "2100";
+
     private VoucherPostings() { }
 
     /** The idempotency key finance dedups on: ONE per voucher and action, so a retry can never post twice. */
@@ -38,11 +41,17 @@ public final class VoucherPostings {
     public static PostingEventRequest post(ExpenseVoucher v) {
         PaidFrom from = PaidFrom.of(v.getPaidFrom());
         Map<String, BigDecimal> byAccount = new LinkedHashMap<>();
-        for (ExpenseVoucherLine l : v.getLines()) byAccount.merge(l.getAccountCode(), l.getAmount(), BigDecimal::add);
+        BigDecimal tax = BigDecimal.ZERO;
+        for (ExpenseVoucherLine l : v.getLines()) {
+            byAccount.merge(l.getAccountCode(), l.netAmount(), BigDecimal::add);
+            if (l.getTaxAmount() != null) tax = tax.add(l.getTaxAmount());
+        }
 
         List<PostingLine> lines = new ArrayList<>();
         String memo = v.getPayeeName() != null && !v.getPayeeName().isBlank() ? v.getPayeeName() : v.getVoucherNo();
         byAccount.forEach((code, amt) -> lines.add(PostingLine.builder().accountCode(code).debit(amt).lineMemo(memo).build()));
+        // EX-8d — the recoverable input tax to the tax account, where the register nets it against output tax
+        if (tax.signum() > 0) lines.add(PostingLine.builder().accountCode(INPUT_TAX).debit(tax).lineMemo("Input tax").build());
         lines.add(PostingLine.builder().accountCode(from.creditAccount()).credit(v.getTotal()).lineMemo(from.name()).build());
 
         return PostingEventRequest.builder()
@@ -69,7 +78,10 @@ public final class VoucherPostings {
                 .docNo(v.getVoucherNo()).docDate(v.getVoucherDate())
                 .amount(v.getTotal())
                 .paid(v.getPaidAmount() == null ? BigDecimal.ZERO : v.getPaidAmount())
-                .voided(ExpenseVoucher.VOIDED.equals(v.getStatus()))
+                // E11 — the subledger follows the BOOKS: a bill whose journal has not landed (still posting, or refused,
+                // e.g. a closed period) owes nothing in the ledger GL 2000 mirrors. Before, a refused bill stayed OPEN
+                // in the ledger with no credit in 2000, and the daily check "aligned" the books to it through 2990.
+                .voided(ExpenseVoucher.VOIDED.equals(v.getStatus()) || !ExpenseVoucher.PS_POSTED_GL.equals(v.getPostingStatus()))
                 // FP-4a — a bill is never returned against, so issued = total and the note trail is empty
                 .issuedAmount(v.getTotal())
                 .dueDate(v.getDueDate())

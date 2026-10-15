@@ -108,7 +108,7 @@ public class FinanceReportService {
                 }
             } else {
                 LocalDate ageDate = ch.getDueDate() != null ? ch.getDueDate()
-                        : (ch.getDated() != null ? ch.getDated().toLocalDate() : asOf);
+                        : (ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : asOf);
                 rows.add(new AgingRow(nz(ch.getDueAmount()).negate(), ageDate));   // due = paid − bill (neg while owing)
             }
         }
@@ -165,7 +165,7 @@ public class FinanceReportService {
         Map<Long, List<AgingRow>> byParty = new LinkedHashMap<>();
         List<Purchase> bills = purchaseRepo.findOpenBillsScoped(u.getOrganizationId(), u.getUserId());
         for (Purchase p : bills) {
-            LocalDate ageDate = p.getDated() != null ? p.getDated().toLocalDate() : asOf;
+            LocalDate ageDate = p.billDay() != null ? p.billDay() : asOf;   // H6 C3b
             byParty.computeIfAbsent(p.getVenderId(), k -> new ArrayList<>())
                     .add(new AgingRow(nz(p.getDueAmount()).negate(), ageDate));
         }
@@ -203,7 +203,7 @@ public class FinanceReportService {
             // to grandTotal and therefore renders exactly as it did before V34.
             BigDecimal issued = ch.getIssuedTotal() != null ? ch.getIssuedTotal() : nz(ch.getGrandTotal());
             boolean opening = OpeningBalanceService.DOC_OPENING.equalsIgnoreCase(ch.getDocType());
-            lines.add(new StatementLine(ch.getDated() != null ? ch.getDated().toLocalDate() : null,
+            lines.add(new StatementLine(ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : null,
                     ch.getInvoiceNo(), debitLineType(ch), issued, null, null));
             if (ch.getInvoiceNo() != null) invoiceNos.add(ch.getInvoiceNo());
 
@@ -211,7 +211,7 @@ public class FinanceReportService {
             // overstated by its full value. Guarded on > 0 so a pre-V34 void (back-filled to 0) adds no line.
             // L18: a reversed opening balance is the same shape and gets the same pair, named for what it is.
             if ("VOID".equals(ch.getStatus()) && issued.signum() > 0) {
-                lines.add(new StatementLine(ch.getVoidedAt() != null ? ch.getVoidedAt().toLocalDate() : null,
+                lines.add(new StatementLine(ch.getVoidedAt() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getVoidedAt()) : null,
                         ch.getInvoiceNo(), opening ? "OPENING_REVERSED" : "VOID", null, issued, null));
             }
         }
@@ -253,7 +253,7 @@ public class FinanceReportService {
         if (saleReturnRepo == null || invoiceNos.isEmpty()) return;
         AuthenticatedUser u = requestUtil.getCurrentUser();
         for (var cn : saleReturnRepo.findCreditNotesForInvoices(invoiceNos, u.getOrganizationId(), u.getUserId())) {
-            lines.add(new StatementLine(cn.getDated() != null ? cn.getDated().toLocalDate() : null,
+            lines.add(new StatementLine(cn.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(cn.getDated()) : null,
                     cn.getCreditNoteNo() != null ? cn.getCreditNoteNo() : cn.getInvoiceNo(),
                     "CREDIT_NOTE", null, nz(cn.getCreditAmount()), null));
         }
@@ -287,7 +287,7 @@ public class FinanceReportService {
             // and for them the statement previously disagreed with the payable it was meant to explain.
             BigDecimal issued = p.getIssuedTotal() != null ? p.getIssuedTotal()
                     : nz(p.getTotalAmount()).add(nz(p.getTaxAmount()));
-            lines.add(new StatementLine(p.getDated() != null ? p.getDated().toLocalDate() : null,
+            lines.add(new StatementLine(p.billDay(),   // H6 C3b
                     p.getPurchaseInvoiceNo(), creditLineType(p), issued, null, null));
         }
         addDebitNoteLines(lines, venderId);
@@ -306,7 +306,7 @@ public class FinanceReportService {
         if (purchaseReturnRepo == null) return;
         AuthenticatedUser u = requestUtil.getCurrentUser();
         for (var dn : purchaseReturnRepo.findDebitNotesForVender(venderId, u.getOrganizationId(), u.getUserId())) {
-            lines.add(new StatementLine(dn.getDated() != null ? dn.getDated().toLocalDate() : null,
+            lines.add(new StatementLine(dn.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(dn.getDated()) : null,
                     dn.getDebitNoteNo() != null ? dn.getDebitNoteNo() : dn.getPurchaseInvoiceNo(),
                     "DEBIT_NOTE", null, nz(dn.getAmount()), null));
         }

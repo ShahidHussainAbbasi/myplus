@@ -141,6 +141,22 @@ public class CustomerHistory implements Serializable {
 	private String bookedByName;
 
 	/**
+	 * SRA-3 (V85) — the SALES REP who booked this sale, and how it came in. STAMPED at write, the name too: a sale stays
+	 * credited to the rep who made it when the rep is renamed, deactivated or the outlet is moved to someone else.
+	 * {@code bookedByName} above is a different fact — who KEYED it (printed "Booked By"). Reports run on the rep.
+	 * Null rep = no rep (counter, portal) or a sale from before SRA-3 ("Not recorded"). Decided by SalesRepAttribution.
+	 */
+	@Column(name = "rep_id")
+	private Long repId;
+
+	@Column(name = "rep_name", length = 120)
+	private String repName;
+
+	/** COUNTER · REP_LOGIN · REP_PAPER · OFFICE · PORTAL (SalesRepAttribution). */
+	@Column(name = "sale_source", length = 16)
+	private String saleSource;
+
+	/**
 	 * B2B-P4b: the buyer's own PO reference, carried from the quote. Stored on the invoice (not looked up
 	 * through the quote) so the document is self-contained — a printed invoice must not depend on the quote row
 	 * still existing, and it must keep showing the reference it was issued with.

@@ -53,6 +53,18 @@ public class CustomerController {
         }
     }
 
+    /** HMS S4-lite — the pharmacy customer for a person (party id): what Dispense puts on the sale. */
+    @RequestMapping(value = "/customerForParty", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> customerForParty(@org.springframework.web.bind.annotation.RequestParam("partyId") Long partyId) {
+        try {
+            return client.get("/customerForParty?partyId=" + partyId);
+        } catch (Exception e) {
+            LOGGER.error("customerForParty proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     @RequestMapping(value = "/getUserCustomers", method = RequestMethod.GET)
     @ResponseBody
     public String getUserCustomers(final HttpServletRequest request) {

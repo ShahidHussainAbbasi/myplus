@@ -65,7 +65,8 @@ public class Sell implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
-	private Float quantity;
+	@Column(name = "quantity", precision = 19, scale = 4)   // D14 — NUM-1 (was FLOAT)
+	private BigDecimal quantity;
 
 	@Column(name = "sell_rate", precision = 19, scale = 2)
 	private BigDecimal sellRate;
@@ -92,9 +93,9 @@ public class Sell implements Serializable {
 	@Column(name = "sold_unit", length = 8)
 	private String soldUnit;
 
-	/** What the customer asked for — 5 (tablets). A quantity, so it follows {@link #quantity}'s {@code Float}. */
-	@Column(name = "sold_quantity")
-	private Float soldQuantity;
+	/** What the customer asked for — 5 (tablets). A quantity: {@code DECIMAL(19,4)} like {@link #quantity} (D14). */
+	@Column(name = "sold_quantity", precision = 19, scale = 4)
+	private BigDecimal soldQuantity;
 
 	/** Per loose piece, for the receipt. DISPLAY ONLY — the line's money is {@link #sellRate} x {@link #quantity}. */
 	@Column(name = "sold_rate", precision = 19, scale = 2)
@@ -137,8 +138,8 @@ public class Sell implements Serializable {
 	 * do so has to run through the sell↔stock saga and post to the GL at zero revenue, which is materially
 	 * more than a column and is not smuggled in behind one.
 	 */
-	@Column(name = "bonus_quantity")
-	private Float bonusQuantity;
+	@Column(name = "bonus_quantity", precision = 19, scale = 4)
+	private BigDecimal bonusQuantity;
 
 	@Column(name = "total_amount", precision = 19, scale = 2)
 	private BigDecimal totalAmount;

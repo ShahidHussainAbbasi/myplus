@@ -24,8 +24,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -47,7 +45,7 @@ const fx = {}
 
 /** Assign cover and return the parsed body — the one call every case below is about. */
 const assign = (coverStaffId) =>
-  post('/assignSubstitute', { timetableEntryId: fx.entry.id, coverStaffId, date: DATE })
+  cy.postForm('/assignSubstitute', { timetableEntryId: fx.entry.id, coverStaffId, date: DATE })
     .then((r) => parse(r.body))
 
 describe('Education — notification outbox (slice N1)', () => {
@@ -57,9 +55,9 @@ describe('Education — notification outbox (slice N1)', () => {
 
     // Two teachers of our own. The email/no-email split IS the fixture — it is what separates
     // QUEUED from NO_EMAIL, and the demo org's staff cannot be assumed to provide both.
-    post('/addStaff', { name: TAG + ' Emailed', email: (TAG + '@example.test').toLowerCase(),
+    cy.postForm('/addStaff', { name: TAG + ' Emailed', email: (TAG + '@example.test').toLowerCase(),
                         status: 'ACTIVE' }).then((r) => ok(r, 'seed the teacher WITH an email'))
-    post('/addStaff', { name: TAG + ' NoEmail', status: 'ACTIVE' })
+    cy.postForm('/addStaff', { name: TAG + ' NoEmail', status: 'ACTIVE' })
       .then((r) => ok(r, 'seed the teacher WITHOUT an email'))
 
     cy.request('/getUserStaff').then((r) => {
@@ -84,7 +82,7 @@ describe('Education — notification outbox (slice N1)', () => {
     })
 
     // Our own period, so nothing depends on the org's existing school day.
-    post('/savePeriod', { name: TAG + ' P', sequence: 90, startTime: '10:00', endTime: '10:45' })
+    cy.postForm('/savePeriod', { name: TAG + ' P', sequence: 90, startTime: '10:00', endTime: '10:45' })
       .then((r) => ok(r, 'seed the period'))
     cy.request('/getPeriods').then((r) => {
       fx.period = rows(r.body).find((p) => p.name === TAG + ' P')
@@ -93,7 +91,7 @@ describe('Education — notification outbox (slice N1)', () => {
 
     // The lesson that needs cover.
     cy.then(() => {
-      post('/saveTimetableEntry', {
+      cy.postForm('/saveTimetableEntry', {
         dayOfWeek: DAY, periodId: fx.period.id, subjectId: fx.subject.id,
         staffId: fx.owner.id, room: TAG + '-R'
       }).then((r) => ok(r, 'seed the lesson needing cover'))
@@ -183,7 +181,7 @@ describe('Education — notification outbox (slice N1)', () => {
       // Param names verified against BehaviourController: `enrollNo`, and `occurredOn` is validated.
       // `guardianInformedOn` must not be in the future relative to the note, so both use today.
       const today = localIsoDate()
-      post('/saveBehaviourNote', {
+      cy.postForm('/saveBehaviourNote', {
         enrollNo: student.enrollNo,
         type: 'CONCERN',        // the param is `type` — `noteType` would silently default to NEUTRAL
         category: TAG,

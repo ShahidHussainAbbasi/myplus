@@ -48,6 +48,11 @@ public class OrgUserController {
                 .orElse(null);
     }
     private final com.myplus.auth.service.OrganizationAdminService organizationAdminService;
+    /** H3a — what this business has switched on decides which clinic / pharmacist sets the Team screen offers. */
+    private final com.myplus.common.settings.CapabilityService capabilityService;
+    private final com.myplus.auth.repository.UiMenuRepository uiMenuRepository;
+    private final com.myplus.auth.repository.UiWorkspaceRepository uiWorkspaceRepository;
+    private final com.myplus.auth.service.TeamMemberService teamMembers;
 
     /**
      * ONB-1 — the tenant changes its OWN business type, from its Configuration screen.
@@ -89,7 +94,7 @@ public class OrgUserController {
         // store grants for the new member (an admin may only grant stores they hold).
         Map<String, Object> created = authService.createOrgUser(
                 str(body.get("firstName")), str(body.get("lastName")), str(body.get("email")), str(body.get("role")),
-                orgId, callerUserId, isOwner(token), toLongList(body.get("storeIds")));
+                orgId, callerUserId, isOwner(token), toLongList(body.get("storeIds")), str(body.get("permissionSet")));
         return ResponseEntity.ok(ApiResponse.success(created,
                 "Team member created — a set-password email was sent."));
     }
@@ -108,13 +113,106 @@ public class OrgUserController {
     // Only the owner grants, and the owner already holds everything, so there is nothing to escalate to.
 
     /** The catalog and this tenant's sets — everything the matrix screen draws itself from. */
+    // ── TEAM-1 (2026-10-13): after adding a member — resend the invitation, remove (reversible), reactivate ──────────
+    // Same guard as adding a member; the who-may rules (owner / admin for ordinary members, never the owner or
+    // oneself, only this business) are TeamMemberService's.
+
+    @PostMapping("/users/{userId}/resend-invite")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<Void>> resendInvite(@org.springframework.web.bind.annotation.PathVariable Long userId,
+                                                          @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        teamMembers.resendInvite(jwtService.extractUserId(token), orgId(token), isOwner(token), userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "A new set-password e-mail was sent. Older links no longer work."));
+    }
+
+    @PostMapping("/users/{userId}/remove")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<Void>> removeMember(@org.springframework.web.bind.annotation.PathVariable Long userId,
+                                                          @RequestBody(required = false) Map<String, Object> body,
+                                                          @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        teamMembers.remove(jwtService.extractUserId(token), orgId(token), isOwner(token), userId,
+                body == null ? null : str(body.get("reason")));
+        return ResponseEntity.ok(ApiResponse.success(null, "Removed. They are signed out within 15 minutes on every device and cannot sign in to this business again. You can reactivate them."));
+    }
+
+    @PostMapping("/users/{userId}/reactivate")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<Void>> reactivateMember(@org.springframework.web.bind.annotation.PathVariable Long userId,
+                                                              @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        teamMembers.reactivate(jwtService.extractUserId(token), orgId(token), isOwner(token), userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Reactivated. They can sign in again with their own password."));
+    }
+
+    /**
+     * RW-3 — THIS person's workspaces (V27 rows): those whose setting is on for their business and whose codes they
+     * hold (the owner and an administrator hold all), in order. One → sign-in lands there; several → the tile home;
+     * none → the landing they always had (a plain shop: every row needs the clinic). Nothing about a workspace is
+     * decided in code — only "does the row's setting hold" and "does the person hold a row's code".
+     */
+    @GetMapping("/workspaces")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> workspaces(@RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        Long org = orgId(token);
+        java.util.Set<String> on = com.myplus.auth.service.PermissionVisibility.enabled(
+                org == null ? null : capabilityService.enabledMapFor(org));
+        Object claim = jwtService.extractClaim(token, c -> c.get("privileges"));
+        java.util.Set<String> held = new java.util.HashSet<>();
+        if (claim instanceof java.util.Collection<?> col) col.forEach(x -> held.add(String.valueOf(x)));
+        boolean everything = isOwner(token) || held.contains("ADMIN_PRIVILEGE") || held.contains("SUPER_PRIVILEGE");
+        Object typeClaim = jwtService.extractClaim(token, c -> c.get("activeOrgType"));
+        String orgType = typeClaim == null ? null : String.valueOf(typeClaim);
+        List<Map<String, Object>> out = uiWorkspaceRepository.findAllByOrderBySortOrderAsc().stream()
+                .filter(w -> com.myplus.auth.service.PermissionVisibility.forOrgType(w.getOrgTypes(), orgType))   // HC-1a
+                .filter(w -> com.myplus.auth.service.PermissionVisibility.visible(w.getCapability(), on))
+                .filter(w -> com.myplus.auth.service.PermissionVisibility.opens(w.getCodes(), held, everything))
+                .map(w -> {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("key", w.getWsKey());
+                    row.put("label", w.getLabelKey());
+                    row.put("icon", w.getIcon());
+                    row.put("url", w.getUrl());
+                    return row;
+                }).toList();
+        return ResponseEntity.ok(ApiResponse.success(out, "Workspaces"));
+    }
+
+    /**
+     * RW-0b — the menu catalogue (V25): each menu's key and the permission codes that unlock it. The monolith reads it
+     * to decide which menus a person sees; the pages name only the KEY. Any signed-in member may read it — it says
+     * which codes open which menu, nothing about any person — and the rows are the same for every business.
+     */
+    @GetMapping("/menus")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> menus() {
+        List<Map<String, Object>> out = uiMenuRepository.findAllByOrderBySortOrderAsc().stream().map(m -> {
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("key", m.getMenuKey());
+            row.put("parent", m.getParentKey());
+            row.put("codes", m.getCodes() == null || m.getCodes().isBlank() ? List.of()
+                    : java.util.Arrays.stream(m.getCodes().split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
+            row.put("capability", m.getCapability());
+            return row;
+        }).toList();
+        return ResponseEntity.ok(ApiResponse.success(out, "Menus"));
+    }
+
     @GetMapping("/permissions")
     @PreAuthorize("hasAuthority('ROLE_OWNER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> permissions() {
         Long org = com.myplus.common.security.CurrentUser.organizationId();
         Map<String, Object> out = new java.util.LinkedHashMap<>();
         String module = callerModule(org);
-        out.put("catalog", permissionService.catalog(module).stream().map(p -> {
+        // RW-0a: a code or set is offered when the setting its row names is on (V24 capability columns) — no names here
+        java.util.Set<String> on = com.myplus.auth.service.PermissionVisibility.enabled(capabilityService.enabledMapFor(org));
+        java.util.List<com.myplus.auth.entity.Permission> catalog = permissionService.catalog(module);
+        java.util.Map<String, String> capabilityOf = new java.util.HashMap<>();
+        catalog.forEach(p -> capabilityOf.put(p.getCode(), p.getCapability()));
+        out.put("catalog", catalog.stream()
+                .filter(p -> com.myplus.auth.service.PermissionVisibility.visible(p.getCapability(), on)).map(p -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("code", p.getCode());
             m.put("area", p.getArea());
@@ -123,14 +221,16 @@ public class OrgUserController {
             m.put("implies", p.getImplies());
             return m;
         }).toList());
-        out.put("sets", permissionService.setsFor(org, module).stream().map(ps -> {
+        out.put("sets", permissionService.setsFor(org, module).stream()
+                .filter(ps -> com.myplus.auth.service.PermissionVisibility.visible(ps.getCapability(), on)).map(ps -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("id", ps.getId());
             m.put("name", ps.getName());
             m.put("description", ps.getDescription());
             m.put("scope", ps.getScope());
             m.put("builtin", ps.isBuiltin());
-            m.put("codes", permissionService.codesOf(ps.getId()));
+            m.put("codes", permissionService.codesOf(ps.getId()).stream()
+                    .filter(c -> com.myplus.auth.service.PermissionVisibility.visible(capabilityOf.get(c), on)).toList());
             return m;
         }).toList());
         return ResponseEntity.ok(ApiResponse.success(out, "Permissions"));

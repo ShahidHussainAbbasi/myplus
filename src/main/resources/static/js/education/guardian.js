@@ -18,7 +18,11 @@
 
 	var current = null;   // the selected child's enrolment number
 
-	function esc(s) { return s == null ? '' : String(s); }
+	/*
+	 * DRY D1: was named esc() but escapes NOTHING — a null guard. Every use ends in jQuery .text(), which escapes, so
+	 * it was safe; the name invited a future .html(esc(x)) XSS. Named for what it does. Never pass it to .html().
+	 */
+	function str(s) { return s == null ? '' : String(s); }
 
 	function get(path, params) {
 		return $.get(serverContext + path, params || {});
@@ -39,7 +43,7 @@
 	$(function () {
 		get('portal/me').done(function (res) {
 			if (!res || res.status !== 'SUCCESS' || !res.object) { noAccess(); return; }
-			$('#ppWho').text(esc(res.object.guardianName || res.object.email));
+			$('#ppWho').text(str(res.object.guardianName || res.object.email));
 			loadChildren();
 		}).fail(noAccess);
 
@@ -67,7 +71,7 @@
 			var $wrap = $('#ppChildren').empty();
 			kids.forEach(function (k, i) {
 				var $b = $('<button type="button" class="pp-kid">')
-					.text(esc(k.name) + (k.gradeName ? ' · ' + esc(k.gradeName) : ''))
+					.text(str(k.name) + (k.gradeName ? ' · ' + str(k.gradeName) : ''))
 					.on('click', function () {
 						$('.pp-kid').removeClass('on');
 						$(this).addClass('on');
@@ -115,12 +119,12 @@
 				// Server-ordered (pinned, then newest) and server-deduplicated across children. The client
 				// re-sorting would be a second copy of a rule the server owns.
 				var $card = $('<div>').addClass('pp-card');
-				var $h = $('<h5>').text(esc(n.title));
+				var $h = $('<h5>').text(str(n.title));
 				if (n.pinned) { $h.prepend($('<span>').addClass('pp-muted').text('📌 ')); }
 				$card.append($h);
-				$card.append($('<div>').addClass('pp-muted').text(esc(n.publishedOn)));
+				$card.append($('<div>').addClass('pp-muted').text(str(n.publishedOn)));
 				// .text(), not .html(): a notice body is staff-authored free text sent to every family.
-				$card.append($('<div>').css('white-space', 'pre-wrap').text(esc(n.body)));
+				$card.append($('<div>').css('white-space', 'pre-wrap').text(str(n.body)));
 				$p.append($card);
 			});
 		});
@@ -138,9 +142,9 @@
 				return;
 			}
 			var $head = $('<div>').addClass('pp-card');
-			$head.append($('<h5>').text(esc(ev.title)));
-			if (ev.eventDate) { $head.append($('<div>').addClass('pp-muted').text(esc(ev.eventDate))); }
-			if (ev.notes) { $head.append($('<div>').css('white-space','pre-wrap').text(esc(ev.notes))); }
+			$head.append($('<h5>').text(str(ev.title)));
+			if (ev.eventDate) { $head.append($('<div>').addClass('pp-muted').text(str(ev.eventDate))); }
+			if (ev.notes) { $head.append($('<div>').css('white-space','pre-wrap').text(str(ev.notes))); }
 			$p.append($head);
 
 			var slots = ev.slots || [];
@@ -152,7 +156,7 @@
 			slots.forEach(function (s) {
 				var free = Number(s.available) > 0;
 				var $row = $('<div>').addClass('pp-row');
-				$row.append($('<span>').text(esc(s.teacherName) + ' · ' + esc(timeOf(s.startsAt))));
+				$row.append($('<span>').text(str(s.teacherName) + ' · ' + str(timeOf(s.startsAt))));
 				if (free) {
 					// One button per slot, disabled the moment it is clicked: the server is idempotent per
 					// (slot, guardian) so a double-click cannot double-book, but there is no reason to send
@@ -200,21 +204,21 @@
 			}
 			cards.forEach(function (c) {
 				var $card = $('<div>').addClass('pp-card');
-				$card.append($('<h5>').text(esc(c.termName)));
+				$card.append($('<h5>').text(str(c.termName)));
 				$card.append($('<div>').addClass('pp-big')
 					.text((c.termPercent == null ? '—' : c.termPercent + '%')
-						+ (c.termGradeName ? ' · ' + esc(c.termGradeName) : '')));
+						+ (c.termGradeName ? ' · ' + str(c.termGradeName) : '')));
 				(c.rows || []).forEach(function (r) {
 					$card.append($('<div>').addClass('pp-row')
-						.append($('<span>').text(esc(r.subjectName)))
+						.append($('<span>').text(str(r.subjectName)))
 						.append($('<span>').text(
 							(r.marksObtained == null ? '—' : r.marksObtained)
 							+ (r.maxMarks == null ? '' : '/' + r.maxMarks)
-							+ (r.grade ? ' · ' + esc(r.grade) : ''))));
+							+ (r.grade ? ' · ' + str(r.grade) : ''))));
 				});
 				if (c.issuedOn) {
 					$card.append($('<div>').addClass('pp-sub pp-muted')
-						.text(t('ui.js.ppIssued') + ' ' + esc(c.issuedOn)));
+						.text(t('ui.js.ppIssued') + ' ' + str(c.issuedOn)));
 				}
 				$p.append($card);
 			});
@@ -237,8 +241,8 @@
 				$recent.append($('<h5>').text(t('ui.js.ppRecent')));
 				d.recent.forEach(function (r) {
 					$recent.append($('<div>').addClass('pp-row')
-						.append($('<span>').text(esc(r.date)))
-						.append($('<span>').text(esc(r.status))));
+						.append($('<span>').text(str(r.date)))
+						.append($('<span>').text(str(r.status))));
 				});
 				$p.append($recent);
 			}
@@ -264,7 +268,7 @@
 				$hist.append($('<h5>').text(t('ui.js.ppFeeHistory')));
 				d.rows.forEach(function (r) {
 					$hist.append($('<div>').addClass('pp-row')
-						.append($('<span>').text(esc(r.paymentDate) || '—'))
+						.append($('<span>').text(str(r.paymentDate) || '—'))
 						.append($('<span>').text(
 							t('ui.js.ppPaid') + ' ' + (r.feePaid == null ? 0 : r.feePaid)
 							+ (r.dueBalance ? ' · ' + t('ui.js.ppDue') + ' ' + r.dueBalance : ''))));
@@ -291,9 +295,9 @@
 					// A blank state means nothing has been recorded YET — not "did not do it" (2.4 D3).
 					: t('ui.js.ppHwPending');
 				$card.append($('<div>').addClass('pp-row')
-					.append($('<span>').text(esc(h.title)
-						+ (h.subjectName ? ' · ' + esc(h.subjectName) : '')
-						+ (h.dueOn ? ' · ' + t('ui.js.ppDueOn') + ' ' + esc(h.dueOn) : '')))
+					.append($('<span>').text(str(h.title)
+						+ (h.subjectName ? ' · ' + str(h.subjectName) : '')
+						+ (h.dueOn ? ' · ' + t('ui.js.ppDueOn') + ' ' + str(h.dueOn) : '')))
 					.append($('<span>').addClass('pp-muted').text(right)));
 			});
 			$p.append($card);

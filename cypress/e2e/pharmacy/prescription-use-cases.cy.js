@@ -16,14 +16,12 @@
 describe('Pharmacy — prescription business cases', () => {
   beforeEach(() => { cy.loginAsPharma() })
 
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   const stamp = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
 
   /** A real sale through the same path the till uses, declaring the prescription it satisfies. */
   const sell = (productId, qty, rate, prescriptionId) =>
-    post('/addSell', {
+    cy.postJson('/addSell', {
       customer: { name: 'Pat_' + stamp(), contact: '0300', paidAmount: qty * rate, dueAmount: 0 },
       sales: [{ productId, quantity: qty, sellRate: rate, totalAmount: qty * rate, netAmount: qty * rate }],
       tenders: [{ method: 'CASH', amount: qty * rate, reference: '' }],
@@ -32,7 +30,7 @@ describe('Pharmacy — prescription business cases', () => {
     })
 
   const recordScript = (patient, items, extra = {}) =>
-    post('/addPrescription', Object.assign({ patientName: patient, items }, extra)).then((r) => {
+    cy.postJson('/addPrescription', Object.assign({ patientName: patient, items }, extra)).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       return r.body.data
     })
@@ -44,7 +42,7 @@ describe('Pharmacy — prescription business cases', () => {
     })
 
   const dispense = (rxId, invoiceNo, lines) =>
-    post('/dispensePrescription', { prescriptionId: rxId, invoiceNo, items: lines })
+    cy.postJson('/dispensePrescription', { prescriptionId: rxId, invoiceNo, items: lines })
 
   const outstandingOf = (rx, productId) => {
     const line = rx.items.find((i) => Number(i.productId) === Number(productId))
@@ -185,7 +183,7 @@ describe('Pharmacy — prescription business cases', () => {
       const name = 'Augmentin_' + stamp()
       cy.seedProduct({ name, unit: 'tablet', stock: 50, sellingPrice: 100 }).then(({ productId }) => {
 
-        post('/saveClinical', { productId, medicineName: name, rxRequired: true, controlledSubstance: false })
+        cy.postJson('/saveClinical', { productId, medicineName: name, rxRequired: true, controlledSubstance: false })
           .then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
 
         // Counter sale, no script → refused, and the message says why.
@@ -233,7 +231,7 @@ describe('Pharmacy — prescription business cases', () => {
           })
 
           // Today: the doctor changes the treatment.
-          cy.then(() => post('/cancelPrescription', { prescriptionId: rx.id })).then((c) => {
+          cy.then(() => cy.postJson('/cancelPrescription', { prescriptionId: rx.id })).then((c) => {
             expect(c.body.success, JSON.stringify(c.body)).to.eq(true)
           })
 
@@ -262,7 +260,7 @@ describe('Pharmacy — prescription business cases', () => {
       const patient = 'Kamran_' + stamp()
 
       cy.seedProduct({ name, unit: 'tablet', stock: 50, sellingPrice: 100 }).then(({ productId }) => {
-        post('/saveClinical', { productId, medicineName: name, rxRequired: true, controlledSubstance: true })
+        cy.postJson('/saveClinical', { productId, medicineName: name, rxRequired: true, controlledSubstance: true })
           .then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
 
         recordScript(patient, [{ productId, medicineName: name, quantity: 10 }],
@@ -314,7 +312,7 @@ describe('Pharmacy — prescription business cases', () => {
     it('KNOWN GAP: the register carries no prescriber, prescription id or patient CNIC', () => {
       const name = 'GapCheck_' + stamp()
       cy.seedProduct({ name, unit: 'tablet', stock: 20, sellingPrice: 100 }).then(({ productId }) => {
-        post('/saveClinical', { productId, medicineName: name, rxRequired: false, controlledSubstance: true })
+        cy.postJson('/saveClinical', { productId, medicineName: name, rxRequired: false, controlledSubstance: true })
 
         recordScript('GapPat_' + stamp(), [{ productId, medicineName: name, quantity: 5 }],
           { doctorName: 'Dr. Recorded', doctorLicense: 'PMC-99999' }).then((rx) => {

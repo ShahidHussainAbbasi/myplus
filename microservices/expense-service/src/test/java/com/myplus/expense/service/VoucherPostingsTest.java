@@ -63,6 +63,27 @@ class VoucherPostingsTest {
         assertThat(net(r).values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("0");
     }
 
+    @Test @DisplayName("⭐ EX-8d — recoverable input tax: the expense account gets the net, 2100 the tax, cash the whole paid")
+    void inputTax() {
+        ExpenseVoucherLine power = line("6100", "115");
+        power.setTaxAmount(new BigDecimal("15"));
+        ExpenseVoucher v = voucher("CASH", power, line("6000", "40"));
+        v.post("EXP-000042", java.time.LocalDateTime.now());
+        Map<String, BigDecimal> m = net(VoucherPostings.post(v));
+        assertThat(m.get("6100")).isEqualByComparingTo("100");
+        assertThat(m.get("2100")).isEqualByComparingTo("15");
+        assertThat(m.get("6000")).isEqualByComparingTo("40");
+        assertThat(m.get("1000")).isEqualByComparingTo("-155");
+        assertThat(m.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("0");
+    }
+
+    @Test @DisplayName("no tax part: no 2100 line at all (every expense before EX-8d posts exactly as before)")
+    void noTaxNoLine() {
+        ExpenseVoucher v = voucher("CASH", line("6000", "40"));
+        v.post("EXP-000042", java.time.LocalDateTime.now());
+        assertThat(VoucherPostings.post(v).getLines()).noneMatch(l -> "2100".equals(l.getAccountCode()));
+    }
+
     @Test @DisplayName("bank credits 1010; two lines on one account become one debit line")
     void bank_grouped() {
         ExpenseVoucher v = voucher("BANK", line("6200", "100.50"), line("6200", "49.50"), line("6100", "10"));

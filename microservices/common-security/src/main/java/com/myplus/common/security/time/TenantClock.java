@@ -64,6 +64,15 @@ public final class TenantClock {
     }
 
     /** Set once at startup from {@link #DEFAULT_ZONE_PROPERTY}; an unusable value keeps the current default. */
+    /**
+     * H6 C3 — the BUSINESS's zone ({@code app.tz.default-zone}), never the viewer's. The day a recorded transaction
+     * belongs to is decided in it (client ruling 2026-10-11) — see {@link BusinessDay}. A per-business setting
+     * replaces this platform default when it exists.
+     */
+    public static ZoneId businessZone() {
+        return defaultZone;
+    }
+
     public static void configureDefaultZone(String zoneId) {
         RenderZone.parse(zoneId).ifPresent(z -> defaultZone = z);
     }

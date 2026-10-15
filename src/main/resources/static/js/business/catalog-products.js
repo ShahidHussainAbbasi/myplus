@@ -578,6 +578,45 @@
      * <p>Failures surface rather than being swallowed: the product HAS been saved by this point, so silence
      * would leave the operator believing a policy was applied when it was not.
      */
+    /*
+     * SSR-0c — the product's MAIN SUPPLIER (its group on the Stock & Sales Report). Its own endpoint, admin-gated in
+     * catalog, and sent ONLY when the user changed the picker: a purchase stamps it when blank, so an untouched form
+     * must never overwrite (or clear) what the first purchase recorded.
+     */
+    function loadMainSupplierOptions(selected) {
+        var $dd = $('#prodMainSupplier');
+        if (!$dd.length) return;
+        var apply = function () {
+            $dd.val(selected == null ? '' : String(selected)).data('loadedValue', $dd.val());
+            if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($dd);
+        };
+        if ($dd.data('loaded')) return apply();
+        $.get(serverContext + 'getUserVenders', function (html) {
+            $dd.find('option:not(:first)').remove();
+            $(String(html)).filter('option').each(function () { if (this.value) $dd.append($(this).clone()); });
+            $dd.data('loaded', true);
+            apply();
+        });
+    }
+    global.loadMainSupplierOptions = loadMainSupplierOptions;
+
+    function saveMainSupplier(productId) {
+        var $dd = $('#prodMainSupplier');
+        if (!productId || !$dd.length || !$dd.is(':visible')) return;
+        var now = $dd.val() || '';
+        if (now === ($dd.data('loadedValue') || '')) return;   // untouched: leave it to the purchases
+        $.ajax({
+            type: 'POST', url: serverContext + 'setProductMainSupplier', dataType: 'json',
+            data: { id: productId, supplierId: now },
+            success: function (resp) {
+                if (resp && resp.success === false && global.showFormError) {
+                    global.showFormError(resp.message || 'The main supplier could not be saved.');
+                }
+            },
+            error: function () { if (global.showFormError) global.showFormError('The main supplier could not be saved.'); }
+        });
+    }
+
     function saveProductTracking(productId) {
         if (!productId) return;
         var body = { id: productId };
@@ -590,8 +629,12 @@
         if (global.hasCapability('batchTracking')) {
             body.tracksBatch = $('#prodTracksBatch').is(':checked');
         }
+        // EXP-REQ — the exemption from the purchase expiry requirement; only where expiry is tracked.
+        if (global.hasCapability('expiryTracking')) {
+            body.noExpiry = $('#prodNoExpiry').is(':checked');
+        }
         // Nothing this tenant may set — no call worth making.
-        if (body.requiresSerial === undefined && body.tracksBatch === undefined) return;
+        if (body.requiresSerial === undefined && body.tracksBatch === undefined && body.noExpiry === undefined) return;
 
         $.ajax({
             type: 'POST', url: serverContext + 'setProductTracking', dataType: 'json', data: body,
@@ -643,6 +686,7 @@
         $('#prodManufacturer').val('');
         $('#prodManufacturerNew').val('');
         $('#prodFormula').val('');   // PH-FORMULA: a new product starts with none
+        loadMainSupplierOptions(null);   // SSR-0c: a new product's supplier comes from its first purchase
         refreshPicker('#prodManufacturer');   // else the button keeps showing the cleared brand
         $('#prodSku').removeClass('alert-danger');
         $('#prodName').removeClass('alert-danger');
@@ -977,6 +1021,8 @@
             // enforce, not a separate copy that could disagree with it.
             $('#prodRequiresSerial').prop('checked', p.requiresSerial === true);
             $('#prodTracksBatch').prop('checked', p.tracksBatch === true);
+            $('#prodNoExpiry').prop('checked', p.noExpiry === true);   // EXP-REQ
+            loadMainSupplierOptions(p.mainSupplierId);   // SSR-0c
             prodPackSizeChanged();
             loadProductStickers(p.id);   // U7: a sticker needs a product to point at
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
@@ -1178,6 +1224,7 @@
                     // because it is policy rather than product data. Fired after the product exists so a
                     // newly created product has an id to attach it to.
                     saveProductTracking(id || (resp.data && resp.data.id));
+                    saveMainSupplier(id || (resp.data && resp.data.id));   // SSR-0c
                     showSaleSuccess(id ? 'Product updated.' : 'Product saved.');
                     // Consume the intent exactly once, whatever we decide below, so it can never leak
                     // into a later save (the same rule afterSavePurchase follows).
@@ -1602,6 +1649,9 @@
      * Build (or rebuild) #tableProduct as a server-paged grid. Entered only through `loadDataTable()`.
      */
     global.loadProductTable = function () {
+        // GRID-LATE — this grid takes over the shared `datatable`, so a shared-loader reply still in flight must not
+        // draw into it. Bumped here as well as in loadDataTable(): some callers build this grid directly.
+        global.gridLoadGen = (global.gridLoadGen || 0) + 1;
         if (datatable != null) { datatable.destroy(); datatable = null; }
 
         // The section's dropdowns belong to the SECTION, not to a grid refresh — start them in parallel with
@@ -1630,7 +1680,7 @@
                 exportAll(lazyPdfButton({ orientation: 'landscape', pageSize: 'LEGAL', footer: true }))
             ].concat((typeof importButtons === 'function') ? importButtons('Product') : []),
 
-            ajax: function (d, callback) {
+            ajax: function (d, callback, settings) {
                 /*
                  * The adapter between DataTables' request shape and /getProductPage.
                  *
@@ -1656,8 +1706,19 @@
                     else params.category = global.productCategoryFilter;
                 }
 
+                /*
+                 * ⚠ Is the table that asked still alive? A page can still be in flight when the grid is destroyed -
+                 * rebuilt by loadProductTable() (reopening Products while it reloads after a save) or by the shared
+                 * loadDataTable() opening another section. Handing the reply to a destroyed table threw "Cannot read
+                 * properties of undefined (reading 'style')" inside DataTables (doc selling-price-per-purchase §8.1).
+                 * destroy() removes the table's settings from DataTable.settings, so that list is the truth; the
+                 * reply is dropped and a rebuilt grid asks for its own page.
+                 */
+                var alive = function () { return $.inArray(settings, $.fn.dataTable.settings) !== -1; };
+
                 /** Hand DataTables a drawn set. `total` is the FILTERED total it paginates by. */
                 var deliver = function (rows, total) {
+                    if (!alive()) return;
                     if (rows.length) userId = rows[0].userId;   // keeps the shared bookkeeping happy
 
                     callback({
@@ -1675,6 +1736,7 @@
                 };
 
                 var onFail = function (jqXHR, textStatus, errorThrown) {
+                    if (!alive()) return;
                     callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
                     handleAjaxFailure(jqXHR, errorThrown, 'loadProductTable');
                 };
@@ -1725,6 +1787,26 @@
                         .fail(onFail);
                 }
             }
+        });
+
+        /*
+         * PG-TICK — a tick survives a redraw of the row it was on. This grid is server-paged: every search keystroke,
+         * page change or reload REPLACES the rows, and the replacement checkbox came back unticked while the bar still
+         * said "1 selected" — Delete then had nothing to confirm (seen: tick a product while its search is still
+         * settling). The page is the truth at redraw time: what is ticked just before (preDraw) is re-ticked where the
+         * same product is drawn again; a product no longer shown is not carried, so Delete never acts on a row the
+         * operator cannot see. Then the bar is recounted from the page.
+         */
+        var tickedBeforeDraw = {};
+        datatable.on('preDraw.pgTick', function () {
+            tickedBeforeDraw = {};
+            $("#tableProduct input[type='checkbox']:checked").each(function () { tickedBeforeDraw[this.value] = true; });
+        }).on('draw.pgTick', function () {
+            $("#tableProduct tbody input[type='checkbox']").each(function () {
+                if (tickedBeforeDraw[this.value]) this.checked = true;
+            });
+            tickedBeforeDraw = {};
+            if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
         });
 
         // Enable the fields for editing the data in the table (parity with the shared path).

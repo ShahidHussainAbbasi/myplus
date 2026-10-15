@@ -16,6 +16,8 @@
     <dependency><groupId>com.myplus</groupId><artifactId>common-audit</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- I2: CSV template + import engine (Template Method + Strategy). Holds no @Entity. -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-import</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- SKU-AUTO-1: the per-business counter the product System ID is allocated from -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-docnum</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>com.myplus</groupId><artifactId>commerce-pricing</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>

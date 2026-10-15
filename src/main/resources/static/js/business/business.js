@@ -143,15 +143,16 @@ $(document).ready(function() {
  	        total = api.column(2).data().reduce( function (a, b) {
  	                	return intVal(a) + intVal(b);
  	            	}, 0 );
- 	        // Update footer
- 	        $( api.column(2).footer() ).html(total);
+ 	        // Update footer — MONEY-2: a quantity sum of loose lines (0.25 + 0.5) carries float noise too; three places
+ 	        // are enough for any unit this till sells, and whole numbers stay whole ("10", not "10.000").
+ 	        $( api.column(2).footer() ).html(String(Math.round(total * 1000) / 1000));
 
  	        // sell Total over all pages
  	       total = api.column(3).data().reduce( function (a, b) {
  	                	return intVal(a) + intVal(b);
  	            	}, 0 );
- 	        // Update footer
- 	        $( api.column(3).footer() ).html(total);
+ 	        // Update footer — MONEY-2: two decimals, never "606.8499999999999"
+ 	        $( api.column(3).footer() ).html(money2(total));
 
  	        // CART-2: the Disc column's footer is the MONEY taken off the lines. Its cells are labels ("10%",
  	        // "10 (Amt)") and a percent is not an amount, so summing the cell text was never money — it was NaN.
@@ -162,8 +163,9 @@ $(document).ready(function() {
    	       total = api.column(5).data().reduce( function (a, b) {
    	                	return intVal(a) + intVal(b);
    	            	}, 0 );
-   	        // Update footer
-   	        $( api.column(5).footer() ).html(total);
+   	        // Update footer — MONEY-2: #sellTotal is money ("2988.45", never "2988.4500000000003"). Its readers parse it
+   	        // as a number (sellPayable, calculateChange, the confirm dialog), so two decimals change no figure.
+   	        $( api.column(5).footer() ).html(money2(total));
    	        // TRADE-DISC-1: the payable line under the cart follows every redraw, including a deleted line.
    	        if (typeof sellRefreshPayable === 'function') sellRefreshPayable();
 
@@ -183,8 +185,35 @@ $(document).ready(function() {
             $(this).addClass('selected');
         }
     } );
- 
-    
+
+    /*
+     * CART-TOP — the cart sits above the entry row with a capped height (theme.css #sellCartTop). After a line is ADDED,
+     * bring it into view inside the cart box. Rows are sorted by item id, so the newest line is not always the last
+     * row: it is the last entry of `data` (the cart's lines), found by its product id. Only the cart box scrolls —
+     * never the page — and the pinned header/Totals are allowed for, so the line is never hidden under them.
+     */
+    var cartLineCount = 0;
+    $('#tablesi').on('draw.dt', function () {
+        var lines = window.data || [];
+        var grew = lines.length > cartLineCount;
+        cartLineCount = lines.length;
+        var box = document.getElementById('sellCartScroll');
+        if (!grew || !box || !lines.length || box.scrollHeight <= box.clientHeight) return;
+        var last = lines[lines.length - 1];
+        var pid = String(last && last.productId != null ? last.productId : (last && last.itemId));
+        var target = null;
+        tablesi.rows().every(function () {
+            var d = this.data() || [];
+            if (String(d[0]).replace(/<[^>]*>/g, '').trim() === pid) target = this.node();
+        });
+        if (!target) return;
+        var b = box.getBoundingClientRect(), r = target.getBoundingClientRect();
+        var head = (box.querySelector('thead') || { offsetHeight: 0 }).offsetHeight;
+        var foot = (box.querySelector('tfoot') || { offsetHeight: 0 }).offsetHeight;
+        if (r.bottom > b.bottom - foot) box.scrollTop += r.bottom - (b.bottom - foot);
+        else if (r.top < b.top + head) box.scrollTop -= (b.top + head) - r.top;
+    });
+
   //All button get initialized when user switch form
     // Show dashboard on page load
     $('#DashboardDiv').show();
@@ -318,8 +347,9 @@ function sellCartRow(line, idx){
 	var st = line.stock || {};
 	// Rate: the per-piece rate on a loose line (U15-A2); the RAW value otherwise, so "311.60" stays "311.60".
 	var ld = (typeof looseDisplay === 'function') ? looseDisplay(line) : null;
+	// MONEY-2: shown with two decimals ("297.7" → "297.70"); a rate typed with MORE decimals is shown as typed.
 	var rate = (ld && ld.isLoose) ? Number(ld.rate).toFixed(2)
-		: (st.bsellRate != null && st.bsellRate !== '' ? st.bsellRate : (line.sellRate != null ? line.sellRate : ''));
+		: money2(st.bsellRate != null && st.bsellRate !== '' ? st.bsellRate : (line.sellRate != null ? line.sellRate : ''));
 	// SF-9: a discount carries its type — "10%" vs "10 (Amt)".
 	var dv = Number(st.bsellDiscount) || 0;
 	var pct = (st.bsellDiscountType === '1' || st.bsellDiscountType === '%');
@@ -328,7 +358,8 @@ function sellCartRow(line, idx){
 	var gross = Number(line.totalAmount) || 0;
 	var receivable = (Math.round((gross - sellLineDiscount(line)) * 100) / 100).toFixed(2);
 	var pid = line.productId;
-	var action = ((window.Counter && Counter.isEnabled())
+	// RX-FILL-2: a dispense ALWAYS gets + / − — the counter adjusts the prescribed quantity with the patient.
+	var action = ((window.Counter && (Counter.isEnabled() || window.dispensingPrescriptionId))
 			? "<span class='ctr-qty'><button type=button class='ctr-step' data-d='-1' data-pid='" + pid
 				+ "' aria-label='One fewer'>&minus;</button><button type=button class='ctr-step' data-d='1' data-pid='"
 				+ pid + "' aria-label='One more'>+</button></span> "
@@ -384,6 +415,7 @@ function renderCart(){
 	tablesi.draw(false);             // footerCallback → #sellTotal + the payable line
 	if (typeof CIT === 'function') CIT(data);
 	calculateChange();               // Change and Due follow every cart change
+	if (typeof rxFillNote === 'function') rxFillNote();   // RX-FILL: "15 left on the script · 15 in this sale"
 }
 
 /**
@@ -779,6 +811,11 @@ function loadSellForEdit(sellId){
 		if(inDD){ $('#sellCustomerDD').val(String(custId)); }
 		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');     // the save reads name/contact
 		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
+		// SRA-3: the rep STAMPED on this invoice (not the customer's usual rep — that may have changed since). Only a
+		// rep.manage holder may change it; the server refuses anyone else, so the picker is locked for them.
+		if(window.SalesReps) SalesReps.setSaleRep(inv.repId);
+		$('#sellRepId').prop('disabled', $('#sellRepId').attr('data-rep-manage') !== 'true');
+		if(typeof refreshSearchableSelect === 'function') refreshSearchableSelect($('#sellRepId'));
 		// SF-1/SF-2: show what was already paid on this invoice; "Amount Received" now means ADDITIONAL payment
 		// (the server keeps the prior payment and adds the new tender). Received stays empty by default.
 		// TRADE-DISC-1: show the invoice's OWN trade discount. Before, the box kept whatever the last sale left
@@ -823,7 +860,7 @@ function showSellEditBanner(invoiceNo){
 		+ "<span><b>Editing invoice " + escHtml(invoiceNo || '') + "</b> — change items / amounts, then click <b>Add Sell</b> to update.</span>"
 		+ "<button type='button' id='cancelSellEdit' class='btn btn-xs btn-default' style='margin-left:auto'>Cancel edit</button>"
 		+ "</div>");
-	$('#iDiv').before(banner);
+	$('#sellCartTop').before(banner);   // CART-TOP: above the lines being edited (was #iDiv, now the checkout below)
 	$('#cancelSellEdit').off().on('click', cancelSellEdit);
 }
 
@@ -899,6 +936,7 @@ function exitSellEditMode(){
 	$('#sellItemDD').prop('disabled', false);
 	if($('#sellItemDD').data('selectpicker')) repaintPicker('#sellItemDD');   // PSEL-1 F3: unlock = repaint, not rebuild
 	$('#sellCustomerDD').prop('disabled', false);   // unlock the customer controls
+	$('#sellRepId').prop('disabled', false);         // SRA-3: the rep picker is locked only while editing
 	$('#sellCN').prop('disabled', false);
 	$('#sellCC').prop('disabled', false);
 }
@@ -1376,7 +1414,7 @@ function renderReturns(mode, rows){
 			: '';
 		$tb.append('<tr>'
 			+ '<td>' + escHtml(noteNo || '—') + '</td>'
-			+ '<td>' + escHtml(r.dated ? String(r.dated).substring(0, 10) : '') + '</td>'
+			+ '<td>' + escHtml(!r.dated ? '' : serverInstant(r.dated) ? fmtDate(r.dated) : String(r.dated).substring(0, 10)) + '</td>'   // H6
 			// Resolved server-side in batch — the return row itself holds only ids.
 			+ '<td>' + escHtml(r.partyName || '—') + '</td>'
 			+ '<td>' + escHtml(r.referenceNo || '') + '</td>'
@@ -2164,13 +2202,30 @@ function buildCustomerRow(obj){
 		 * conflict check silently does nothing.
 		 */
 		"<div id=customerId>"+obj.customerId+"</div>"
-			+"<span id=customerVersion style='display:none'>"+(obj.version!=null?obj.version:'')+"</span>",
+			+"<span id=customerVersion style='display:none'>"+(obj.version!=null?obj.version:'')+"</span>"
+			+"<span id=customerCity style='display:none'>"+escHtml(obj.city||'')+"</span>"
+			+"<span id=customerCnic style='display:none'>"+escHtml(obj.cnic||'')+"</span>"
+			+"<span id=customerLicenseNo style='display:none'>"+escHtml(obj.licenseNo||'')+"</span>"
+			+"<span id=customerLicenseExpiry style='display:none'>"+escHtml(obj.licenseExpiry||'')+"</span>"
+			+"<span id=customerAreaId style='display:none'>"+(obj.areaId!=null?obj.areaId:0)+"</span>"
+			// SRA-2: the usual rep (0 = nobody), read back by the Usual rep picker on edit.
+			+"<span id=customerDefaultRepId style='display:none'>"+(obj.defaultRepId!=null?obj.defaultRepId:0)+"</span>",
 		"<input type='checkbox' value="+ obj.customerId+ ">",
 		// DR-2: the badge sits OUTSIDE #customerName, so editing the row never copies it into the name field.
 		"<div id=customerName>"+escHtml(obj.name)+"</div>"
 			+(obj.alsoSupplier ? "<span class='label label-info dr-badge' data-dr-badge='supplier'>"+escHtml(tOr('ui.js.drAlsoSupplier','Also a supplier'))+"</span>" : ""),
 		"<div id=contact>"+escHtml(obj.contact)+"</div>",
-		"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
+		"<div id=email>"+escHtml(obj.email)+"</div>",
+		/*
+		 * ⚠ SRA-1 (owner-approved fix) — the fields the edit form has but the grid has no column for ride HIDDEN in the
+		 * id cell (with the version, below the id), never in a visible cell: a visible cell's text goes into the Excel /
+		 * PDF export and the column search, and would put a CNIC under "Address". editRecord() fills each form field from the row element
+		 * with the same id; with no element it LEFT THE FIELD AS IT WAS — empty, or the previously edited customer's
+		 * value — and the save wrote that back. Every edit wiped City, CNIC and the licence, or copied another
+		 * customer's onto this one. customerAreaId is the new area (0 = none), read back by the Area select.
+		 */
+		"<div id=address>"+escHtml(obj.address)+"</div>"
+			+"<div class='text-muted small' data-sra-label data-area-id='"+(obj.areaId!=null?obj.areaId:'')+"'>"+escHtml(window.SraAddress ? SraAddress.label(obj.areaId) : '')+"</div>",
 		"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
 		"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
 		"<div id=paymentTermsDays>"+(obj.paymentTermsDays!=null?obj.paymentTermsDays:'')+"</div>",
@@ -2245,6 +2300,14 @@ window.applySavedRow = applySavedRow;
 function loadDataTable(){
 	tableSellReport.clear().draw();
 	edit = false;
+	/*
+	 * GRID-LATE — this load's number. The reply below is drawn with the GLOBALS (getAll picks the row builder,
+	 * datatable is the table it fills), read when the reply ARRIVES. Open another section, or this one again, while a
+	 * load is in flight and the old reply was drawn by the new section's branch into the new section's table: a sale
+	 * reply drawn as purchases threw "Cannot read properties of null (reading 'bpurchaseRate')" (doc
+	 * selling-price-per-purchase §12.7). Taken BEFORE the Product fork below: that grid replaces `datatable` too.
+	 */
+	var gen = window.gridLoadGen = (window.gridLoadGen || 0) + 1;
 
 	/*
 	 * The Product grid is SERVER-PAGED and has its own initialiser.
@@ -2356,6 +2419,7 @@ function loadDataTable(){
 			 */
 			"global": false,
 			"success": function(data) {
+				if (gen !== window.gridLoadGen) return false;   // GRID-LATE: a later load owns the grid now
 				if(reload != tableV) reload = tableV;
 
 				// (The dropdown preload that used to sit here now runs from loadDataTable() — see
@@ -2391,7 +2455,7 @@ function loadDataTable(){
 				} else if (getAll === "Vender") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
-							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=venderId>"+obj.id+"</div><span id=venderAreaId style='display:none'>"+(obj.areaId!=null?obj.areaId:0)+"</span>","<input type='checkbox' value="+ obj.id+ ">",
 							// DR-1: the CNIC / NTN rides hidden in the name cell — editRecord() fills #venderCnicNtn from it,
 							// and it needs no column of its own.
 							"<div id=venderName>"+escHtml(obj.name)+"</div><div id=venderCnicNtn hidden>"+escHtml(obj.cnicNtn||'')+"</div>"
@@ -2400,7 +2464,10 @@ function loadDataTable(){
 							// into the multi-select, matching each comma-separated label against the options.
 							"<div id=venderCompanyDD>"+escHtml(obj.companyNames || "")+"</div>",
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
-							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
+							"<div id=venderEmail>"+escHtml(obj.email)+"</div>",
+							// SRA-1 — the area, hidden for editRecord() (0 = none) and as a label under the address.
+							"<div id=venderAddress>"+escHtml(obj.address)+"</div>"
+								+"<div class='text-muted small' data-sra-label data-area-id='"+(obj.areaId!=null?obj.areaId:'')+"'>"+escHtml(window.SraAddress ? SraAddress.label(obj.areaId) : '')+"</div>",
 							// FP-4c — on FINANCE the Due cell is everything owed (purchases + expense bills), with what part is
 							// bills and any advance shown beside it. The Pay button below still carries dueAmount (purchases):
 							// Pay Supplier settles purchases only until FP-5, so a bill-inclusive figure there would overpay.
@@ -2552,11 +2619,11 @@ function loadDataTable(){
 							"<div id=sellItems>"+escHtml(looseQtyText(obj))+bonusSuffix(obj)+"</div>",
 							// The rate the line SOLD at. Read obj.sellRate FIRST: it is the server's authoritative
 							// value; stock.bsellRate is the form's echo and is not what was persisted.
-							"<div id=sellSellRate>"+(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",
+							"<div id=sellSellRate>"+money2(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",   // MONEY-2
 							"<div id=sellDiscount>"+escHtml(String(discCell))+"</div>",
-							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
+							"<div id=sellTaxAmount>"+money2(obj.taxAmount)+"</div>",   // MONEY-2
 							// Line Total = what this line was charged (discounted base + tax) — the server derives it.
-							"<div id=sellNetAmount>"+(obj.netAmount!=null?obj.netAmount:'')+"</div>",
+							"<div id=sellNetAmount>"+money2(obj.netAmount)+"</div>",   // MONEY-2
 							// COGS-2. Numbers only, so no escaping is needed — and a blank says "not known",
 							// which is the honest answer for a product that was never purchased here.
 							"<div id=sellCostAmount>"+(lineCost!=null?lineCost.toFixed(2):'')+"</div>",
@@ -2617,6 +2684,7 @@ function loadDataTable(){
 				if (getAll === "Purchase") applyPurchaseColumnCapabilities(datatable);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
+				if (gen !== window.gridLoadGen) return;   // GRID-LATE: superseded — not this screen's failure to report
 				console.log(jqXHR, textStatus, errorThrown);
 				handleAjaxFailure(jqXHR, errorThrown, "loadDataTable");   // was: unconditional redirect to /login
 			}
@@ -2685,7 +2753,7 @@ function loadSellCustomers(ddId) {
 				// the server re-checks against the current balance, which another till may have moved.
 				// B2B-P2-UI: carry customerType too — a TIER price rule matches on it, and the till must quote
 				// with the same inputs the server does or the two can disagree about the price.
-				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '">' + escHtml(c.name) + '</option>');
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '" data-rep-id="' + (c.defaultRepId || '') + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 		// The widget will NOT redraw on its own: a `global: false` request is excluded from the
@@ -2712,12 +2780,15 @@ function onSellCustomerSelect(sel) {
 		var lim = opt.attr('data-credit-limit');
 		window.selectedCustomerLimit = (lim === '' || lim == null || isNaN(Number(lim))) ? null : Number(lim);
 		loadCustomerCredit(customerId);                      // SF-5 Model B: show/offer store credit
+		// SRA-3: default the rep to the customer's usual rep — never while editing (the invoice keeps its stamped rep).
+		if(!window.editingInvoice && window.SalesReps) SalesReps.setSaleRep(opt.attr('data-rep-id') || null);
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');
 		window.selectedCustomerDue = null;                   // no account context (nothing picked)
 		window.selectedCustomerLimit = null;
 		$('#sellStoreCreditWrap').hide(); $('#sellStoreCredit').val('');
+		if (!window.editingInvoice && window.SalesReps) SalesReps.setSaleRep(null);   // SRA-3: no customer, no usual rep
 	}
 	refreshAccountDuePreview();
 	// B2B-P2-UI: who is buying decides the price. Re-price anything already in the cart, and the line being
@@ -2879,6 +2950,8 @@ function onCustomerModeChange(mode) {
 	}
 	// Switching mode clears the selected customer, so drop the account-balance preview.
 	window.selectedCustomerDue = null;
+	// SRA-3: …and the rep that customer brought with them (an edit sets the invoice's own rep right after this).
+	if (window.SalesReps) SalesReps.setSaleRep(null);
 	if (typeof refreshAccountDuePreview === 'function') refreshAccountDuePreview();
 }
 
@@ -3428,6 +3501,7 @@ function loadStock(label,value){
     if (tableV === 'Purchase' && typeof loadPurchaseUnitInfo === 'function') {
         loadPurchaseUnitInfo(Number($('#purchaseItemDD').val()) || null);
     }
+    if (tableV === 'Purchase') purchaseExpiryRequired();   // EXP-REQ — mark the expiry required, or not, for THIS product
     // SER-6: show the serial box only for a product that has one. Synchronous and local — the flag rides
     // on the option (data-requires-serial), so picking an item costs no extra call to learn this.
     if (typeof applySerialFieldVisibility === 'function') applySerialFieldVisibility();
@@ -3449,6 +3523,20 @@ function loadStock(label,value){
 	     */
 	    bgJson(serverContext+ "productStock?productId="+value,function(data){
     	if(data){
+	    	/*
+	    	 * TP-1 — the LIVE price wins over the picker's cached one. data-price was cached at page load; a purchase
+	    	 * (Latest / Auto) or an approved price change since then moved the price, and the till charged the old one
+	    	 * (owner.pharma@, sale 5823: 260 against 297.70). /productStock reads the catalog itself (bsellRate =
+	    	 * Product.sellingPrice), so its answer corrects the option, the cached row and the value both forms fill
+	    	 * from below — the rate box, the purchase form's "price stays" line, the Per-batch fallback, the B2B quote's
+	    	 * starting point. No extra request: this call is already made on every pick. Unreadable → cached price.
+	    	 */
+	    	if (data.bsellRate != null && data.bsellRate !== '' && !isNaN(Number(data.bsellRate))
+	    			&& Number(data.bsellRate) !== Number(catalogSellPrice)) {
+	    		catalogSellPrice = String(data.bsellRate);
+	    		$("#"+(tableV?tableV.toLowerCase():'')+"ItemDD option[value='"+value+"']").attr('data-price', catalogSellPrice);
+	    		if (window.ProductPicker && ProductPicker.notePrice) ProductPicker.notePrice(value, catalogSellPrice);
+	    	}
 	    	discountValue = data.bsellDiscount;
 	    	discountType = data.bsellDiscountType;
 	    	batchStock = data.stock;
@@ -4058,7 +4146,14 @@ function calculateSRP(){
  * discount larger than the bill.
  */
 function sellGoodsTotal() {
-	var el = $("#sellTotal")[0];
+	/*
+	 * TOTAL-READ (2026-10-10) — the bill is read from the cart table's OWN Total footer cell (column 5, the one
+	 * footerCallback writes), not looked up by id. The id was removed from the template once (an uncommitted edit that
+	 * reached a deployed build): #sellTotal vanished, this returned 0, and the live till showed Payable/Due/Change 0.00 on
+	 * a 246.90 bill. The id stays as a fallback for a table not yet built.
+	 */
+	var el = (window.tablesi && typeof tablesi.column === 'function') ? tablesi.column(5).footer() : null;
+	if (!el) el = $("#sellTotal")[0];
 	return el ? (Number(String(el.innerHTML).replace(/[^0-9.\-]/g, '')) || 0) : 0;
 }
 function sellTradeDiscountApplied() {
@@ -4131,7 +4226,7 @@ function calculateChange() {
 
     // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.
-    $("#sellCh").val(change);
+    $("#sellCh").val(change.toFixed(2));   // MONEY-2: already rounded above; shown as "-108.00", not "-108"
 
     // Due (this sale) = positive amount still owed on the current cart (0 when fully paid/overpaid).
     var dueThis = change < 0 ? -change : 0;
@@ -6083,6 +6178,20 @@ function applySerialQuantityLock() {
  * <p>Nothing selected leaves the box SHOWN: a scanner-first cashier types the IMEI before choosing anything,
  * and hiding it then would break the flow this screen was built around.
  */
+/*
+ * EXP-REQ (§12.18) — is an expiry date required on THIS purchase? Where the business tracks expiry, yes, unless the
+ * picked product is marked "No expiry" (data-no-expiry on its option, so no extra call). Marks the label required to
+ * say so up front; the save check in main.js and the server enforce it. Returns the answer for the save check.
+ */
+function purchaseExpiryRequired() {
+	var tracked = typeof hasCapability === 'function' && hasCapability('expiryTracking');
+	var $opt = $('#purchaseItemDD :selected');
+	var required = tracked && !!$('#purchaseItemDD').val() && $opt.attr('data-no-expiry') !== '1';
+	$('label[for="purchaseExpiry"]').toggleClass('req', required);
+	return required;
+}
+window.purchaseExpiryRequired = purchaseExpiryRequired;
+
 function applySerialFieldVisibility() {
 	var $cell = $('#sellDiv [data-pos-field="serial"]');
 	if (!$cell.length) return;

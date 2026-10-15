@@ -108,7 +108,7 @@ public class DeliveryService {
                 if (item == null || item.getProductId() == null)
                     throw new ValidationException("Cannot credit a returned line with no product.");
                 comingBack.add(com.myplus.commerce.contracts.dto.SaleReturnLine.builder()
-                        .productId(item.getProductId()).quantity((float) back).build());
+                        .productId(item.getProductId()).quantity(java.math.BigDecimal.valueOf(back)).build());   // NUM-1: contract is BigDecimal
                 // The order owes these units again: they went out, came back, and were never delivered.
                 item.setQuantityShipped(Math.max(0, nz(item.getQuantityShipped()) - back));
             }

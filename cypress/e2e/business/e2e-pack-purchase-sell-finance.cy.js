@@ -219,6 +219,7 @@ describe('E2E — pack product: register → purchase → sell pack → sell loo
       expect(r.status, `addProduct: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq(200)
       expect(r.body && r.body.success, JSON.stringify(r.body).slice(0, 200)).to.eq(true)
       state.productId = r.body.data.id
+      cy.markNoExpiry(state.productId)   // EXP-REQ (4818b0bd): a fixture product has no expiry, or demo.business refuses its purchase
     })
 
     // Read it back from the master rather than trusting the create response.

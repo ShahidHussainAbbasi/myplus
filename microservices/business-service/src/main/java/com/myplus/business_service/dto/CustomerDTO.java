@@ -107,4 +107,13 @@ public class CustomerDTO implements Serializable {
 
     /** DR-2 — this customer's partner is also one of our suppliers. Read-only, computed on the list read. */
     private Boolean alsoSupplier;
+
+    /**
+     * SRA-1 — the area the customer is filed under. On a save: null = keep the stored area (an older form or a caller
+     * that does not send it), 0 = clear it, anything else = an area of THIS business (else refused).
+     */
+    private Long areaId;
+
+    /** SRA-2 — the customer's usual rep. On a save: null = keep, 0 = clear, else a rep of THIS business (rep.manage only). */
+    private Long defaultRepId;
 }

@@ -15,7 +15,10 @@ import java.time.LocalDate;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class StockImportLine {
     private Long productId;
-    private Float quantity;
+    /** SSR-0a — why this stock arrives ({@link StockMovementType}); absent = RECEIPT. And the document it came from. */
+    private String movementType;
+    private String sourceRef;
+    private BigDecimal quantity;   // NUM-1 / D14: exact (was Float — JSON-compatible both ways)
     private String batchNo;
     private LocalDate expiryDate;
     private BigDecimal purchasePrice;

@@ -311,7 +311,7 @@ public class VenderService implements IVenderService {
 			java.util.List<Object[]> queue = new java.util.ArrayList<>();
 			for (int i = 0; i < docs.size(); i++) {
 				Purchase p = openPurchases.get(i);
-				queue.add(new Object[] { p.getDated() == null ? null : p.getDated().toLocalDate(), docs.get(i) });
+				queue.add(new Object[] { p.billDay(), docs.get(i) });   // H6 C3b
 			}
 			for (com.myplus.commerce.contracts.dto.OpenBillView b : openBills == null ? java.util.List.<com.myplus.commerce.contracts.dto.OpenBillView>of() : openBills) {
 				if (b == null || b.getId() == null || b.getOpen() == null || b.getOpen().signum() <= 0) continue;

@@ -54,7 +54,7 @@ class QuoteLooseUnitsTest {
         l.setUnitPrice(new BigDecimal("311.60"));
         l.setDiscount(BigDecimal.ZERO);
         l.setSoldUnit("LOOSE");
-        l.setSoldQuantity(pieces);
+        l.setSoldQuantity(new BigDecimal(Float.toString(pieces)));   // NUM-1
         return l;
     }
 
@@ -74,12 +74,12 @@ class QuoteLooseUnitsTest {
     void tenTabletsAreQuotedInTablets() {
         SalesQuoteLine l = looseRequest(10f);
 
-        service.priceLooseLine(l, 10f);
+        service.priceLooseLine(l, new BigDecimal("10"));
 
         assertThat(l.getSoldUnit()).isEqualTo("LOOSE");
-        assertThat(l.getSoldQuantity()).isEqualTo(10f);
+        assertThat(l.getSoldQuantity()).isEqualByComparingTo("10");
         assertThat(l.getSoldRate()).isEqualByComparingTo("7.79");
-        assertThat(l.getQuantity()).isEqualTo(0.25f);
+        assertThat(l.getQuantity()).isEqualByComparingTo("0.25");
         assertThat(l.getLineTotal()).isEqualByComparingTo("77.90");
         // unitPrice stays the PACK price: conversion passes it as sellRate, which the rule divides.
         assertThat(l.getUnitPrice()).as("stored marked-up, the markup would be applied twice on conversion")
@@ -94,10 +94,10 @@ class QuoteLooseUnitsTest {
         when(settings.getDecimal(eq("pos.sale.looseMarkupPct"), any())).thenReturn(new BigDecimal("10"));
         SalesQuoteLine l = looseRequest(7f);
 
-        service.priceLooseLine(l, 7f);
+        service.priceLooseLine(l, new BigDecimal("7"));
 
         SellDTO till = new SellDTO();
-        till.setSoldQuantity(7f);
+        till.setSoldQuantity(new BigDecimal("7"));
         SagaSellService.LooseLine sale = SagaSellService.looseLine(
                 till, box(40, true), "test", new BigDecimal("311.60"), new BigDecimal("10"));
         assertThat(l.getLineTotal()).isEqualByComparingTo(sale.lineTotal());
@@ -110,7 +110,7 @@ class QuoteLooseUnitsTest {
         SalesQuoteLine l = looseRequest(10f);
         l.setDiscount(new BigDecimal("7.90"));
 
-        service.priceLooseLine(l, 10f);
+        service.priceLooseLine(l, new BigDecimal("10"));
 
         assertThat(l.getLineTotal()).isEqualByComparingTo("70.00");
     }
@@ -123,7 +123,7 @@ class QuoteLooseUnitsTest {
         when(catalog.getProduct(PRODUCT)).thenReturn(box(40, false));
 
         // QuoteRefused is what SalesQuoteController shows verbatim; any other exception becomes a generic error.
-        assertThatThrownBy(() -> service.priceLooseLine(looseRequest(10f), 10f))
+        assertThatThrownBy(() -> service.priceLooseLine(looseRequest(10f), new BigDecimal("10")))
                 .isInstanceOf(SalesQuoteService.QuoteRefused.class)
                 .hasMessageContaining("not sold by the piece");
     }
@@ -131,7 +131,7 @@ class QuoteLooseUnitsTest {
     @Test
     @DisplayName("half a tablet cannot be quoted, as it cannot be sold")
     void fractionalPiecesAreRefused() {
-        assertThatThrownBy(() -> service.priceLooseLine(looseRequest(2.5f), 2.5f))
+        assertThatThrownBy(() -> service.priceLooseLine(looseRequest(2.5f), new BigDecimal("2.5")))
                 .isInstanceOf(SalesQuoteService.QuoteRefused.class)
                 .hasMessageContaining("whole");
     }
@@ -144,9 +144,9 @@ class QuoteLooseUnitsTest {
         SalesQuote q = new SalesQuote();
         SalesQuoteLine pack = new SalesQuoteLine();
         pack.setProductId(1L);
-        pack.setQuantity(2f);
+        pack.setQuantity(new BigDecimal("2"));
         SalesQuoteLine loose = looseRequest(10f);
-        service.priceLooseLine(loose, 10f);
+        service.priceLooseLine(loose, new BigDecimal("10"));
         q.getLines().add(pack);
         q.getLines().add(loose);
 
@@ -163,10 +163,10 @@ class QuoteLooseUnitsTest {
         SalesQuote q = new SalesQuote();
         SalesQuoteLine pack = new SalesQuoteLine();
         pack.setProductId(1L);
-        pack.setQuantity(2f);
+        pack.setQuantity(new BigDecimal("2"));
         pack.setUnitPrice(new BigDecimal("100"));
         SalesQuoteLine loose = looseRequest(10f);
-        service.priceLooseLine(loose, 10f);
+        service.priceLooseLine(loose, new BigDecimal("10"));
         q.getLines().add(pack);
         q.getLines().add(loose);
 
@@ -174,10 +174,10 @@ class QuoteLooseUnitsTest {
 
         SellDTO p = dto.getSales().get(0);
         assertThat(p.getSoldUnit()).as("a pack line is exactly as it was").isNull();
-        assertThat(p.getQuantity()).isEqualTo(2f);
+        assertThat(p.getQuantity()).isEqualByComparingTo("2");
         SellDTO s = dto.getSales().get(1);
         assertThat(s.getSoldUnit()).isEqualTo("LOOSE");
-        assertThat(s.getSoldQuantity()).isEqualTo(10f);
+        assertThat(s.getSoldQuantity()).isEqualByComparingTo("10");
         assertThat(s.getSellRate()).isEqualByComparingTo("311.60");
     }
 
@@ -186,11 +186,11 @@ class QuoteLooseUnitsTest {
     void anAcceptedQuoteIsInvoicedAtItsAcceptedTotal() {
         // Quoted and accepted at markup 0, pack of 40: 10 tablets = 77.90.
         SalesQuoteLine quoted = looseRequest(10f);
-        service.priceLooseLine(quoted, 10f);
+        service.priceLooseLine(quoted, new BigDecimal("10"));
         assertThat(quoted.getLineTotal()).isEqualByComparingTo("77.90");
 
         SellDTO line = new SellDTO();
-        line.setSoldQuantity(10f);
+        line.setSoldQuantity(new BigDecimal("10"));
 
         /*
          * ⚠ EACH CHANGE ON ITS OWN, with the figure it would charge stated EXACTLY.

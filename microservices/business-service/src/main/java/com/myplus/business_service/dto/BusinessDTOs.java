@@ -60,7 +60,7 @@ public class BusinessDTOs {
         private BigDecimal bsellDiscount;
         private String bsellDiscountType;
         private LocalDate bexpDate;
-        private Float stock;
+        private java.math.BigDecimal stock;
         private BigDecimal srp;
     }
 
@@ -80,7 +80,7 @@ public class BusinessDTOs {
     public static class PurchaseDTO {
         private Long purchaseId;
         private Long stockId;
-        private Float quantity;
+        private java.math.BigDecimal quantity;
         private BigDecimal totalAmount;
         private BigDecimal netAmount;
         private String purchaseInvoiceNo;
@@ -94,7 +94,7 @@ public class BusinessDTOs {
         private Long stockId;
         private Long customerHistoryId;
         private Long customerId;
-        private Float quantity;
+        private java.math.BigDecimal quantity;
         private BigDecimal totalAmount;
         private BigDecimal netAmount;
         private Long userId;

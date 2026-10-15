@@ -236,6 +236,26 @@ public class CustomerHistoryDTO {
     private String bookedByName;
 
     /**
+     * SRA-3 — in: the rep the office chose (the sale screen's Rep picker; 0 = none). Honoured only under the rules in
+     * SalesRepAttribution — a rep who is signed in is credited themselves, whatever is sent. Out: as stamped.
+     */
+    private Long repId;
+    /** SRA-3 — out only: the rep's name and the source as stamped on the invoice. Ignored on the way in. */
+    private String repName;
+    private String saleSource;
+
+    /*
+     * SRA-3 — SERVER-ONLY. Set by InternalSalesController from an order (the booker's login, who keyed it, the channel);
+     * @JsonIgnore so no browser calling /addSell can claim another login's credit or a keyer's name.
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Long attributionUserId;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String keyedByName;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String recordChannel;
+
+    /**
      * B2B-P4b: the BUYER's own purchase-order reference, carried from the quote onto the invoice.
      *
      * <p>Their accounts-payable clerk matches our invoice to their PO by this number, so it has to survive

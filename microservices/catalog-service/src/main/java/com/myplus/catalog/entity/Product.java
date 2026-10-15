@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
  * (currentStock, min/max level, reorderPoint, costPrice) lives in inventory-service's StockLevel.
  */
 @Entity
-@Table(name = "products", indexes = {@Index(columnList = "sku")})
+// SKU-AUTO: the SKU is unique per business (V26). Declared here too so a Hibernate-built schema (tests) carries it.
+@Table(name = "products", indexes = {@Index(columnList = "sku")},
+       uniqueConstraints = {@jakarta.persistence.UniqueConstraint(name = "uq_products_org_sku",
+                                                                  columnNames = {"organization_id", "sku"})})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Product {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -197,6 +200,15 @@ public class Product {
     @Column(name = "last_purchase_rate", precision = 19, scale = 2)
     private BigDecimal lastPurchaseRate;
 
+    /**
+     * SSR-0c — the product's MAIN SUPPLIER (a business-service {@code vender} id): the group it sits under on the Stock
+     * & Sales Report. Stamped by the product's FIRST purchase when blank (business → {@code /main-supplier/stamp}),
+     * changed only by an admin on the product form (SAP's regular vendor). Never moved by a later purchase from
+     * another supplier. Its own endpoints, never the product save, so a partial save cannot clear it.
+     */
+    @Column(name = "main_supplier_id")
+    private Long mainSupplierId;
+
     @Column(name = "last_sale_rate", precision = 19, scale = 2)
     private BigDecimal lastSaleRate;
 
@@ -254,6 +266,17 @@ public class Product {
     @Builder.Default
     @Column(name = "tracks_batch", nullable = false)
     private Boolean tracksBatch = false;
+
+    /**
+     * EXP-REQ — an EXEMPTION: this product has no expiry date (a BP monitor in a pharmacy).
+     *
+     * <p>Where the business tracks expiry, a purchase must carry an expiry date unless this is TRUE. An exemption
+     * rather than a "has expiry" flag so that, on the day it ships, every product of an expiry-tracking business
+     * requires a date — the owner's rule — and nothing has to guess which products expire. Defaults FALSE.
+     */
+    @Builder.Default
+    @Column(name = "no_expiry", nullable = false)
+    private Boolean noExpiry = false;
 
     private String imageUrl;
     private Long createdBy;

@@ -64,7 +64,8 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
     // limit while still at the counter, not from a rejection the next day.
     cy.get('#bkCredit').should('not.be.visible')
     cy.get('#bkOutlet').select(OUTLET, { force: true })
-    cy.get('#bkCredit').should('be.visible').and('contain', '5000')
+    // money() always groups thousands (main.js, MONEY-2 / 62c1a30c 12 Oct): the limit reads 5,000.00, never 5000.
+    cy.get('#bkCredit').should('be.visible').and('contain', '5,000.00')
   })
 
   it('selecting a product pre-fills its price, and the rep may overwrite it', () => {

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import com.web.util.AnalyticsRestClient;
 import com.web.util.FinanceRestClient;
 
 /**
@@ -21,6 +22,9 @@ public class GlController {
 
     @Autowired
     private FinanceRestClient finance;
+
+    @Autowired
+    private AnalyticsRestClient analytics;
 
     /** Ensure the tenant's default chart of accounts exists, return it. */
     @PostMapping(value = "/gl/ensureDefaults", produces = "application/json")
@@ -74,6 +78,17 @@ public class GlController {
             if (to != null && !to.isEmpty()) q = (q == null ? "" : q + "&") + "to=" + to;
             return finance.get("/gl/pnl", q);
         } catch (Exception e) { LOGGER.error("gl pnl proxy error", e); return "{\"status\":\"ERROR\"}"; }
+    }
+
+    /**
+     * AN-1 — the P&L month by month (the last 12 months), from analytics-service. Its own call under the P&L: analytics
+     * down leaves the P&L itself untouched, and the screen says the trend is unavailable.
+     */
+    @GetMapping(value = "/gl/pnlTrend", produces = "application/json")
+    @ResponseBody
+    public String pnlTrend() {
+        try { return analytics.get("/financial/monthly", null); }
+        catch (Exception e) { LOGGER.error("gl pnlTrend proxy error", e); return "{\"status\":\"ERROR\"}"; }
     }
 
     /** F3c — Balance Sheet. */

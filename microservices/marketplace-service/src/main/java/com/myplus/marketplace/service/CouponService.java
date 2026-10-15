@@ -28,6 +28,9 @@ public class CouponService {
 
     private final CouponRepository repo;
 
+    /** The clock (UTC instant source); a test fixes it. */
+    java.time.Clock clock = java.time.Clock.systemUTC();
+
     /** Result of applying a code to a subtotal. {@code discount} is 0 when there is no/invalid code; {@code message}
      *  explains an invalid code (null when fine); {@code couponId} lets the caller record usage on a real order. */
     public record CouponResult(BigDecimal discount, String code, String message, Long couponId) {
@@ -50,7 +53,10 @@ public class CouponService {
                 .organizationId(orgId).code(code).type(type).value(dto.getValue())
                 .minSpend(dto.getMinSpend())
                 .active(dto.getActive() == null ? Boolean.TRUE : dto.getActive())
-                .startsAt(dto.getStartsAt()).endsAt(dto.getEndsAt())
+                // H6 C4: the window is TYPED in the business's zone (Shopify: discount dates are in the store's zone)
+                // and stored as the UTC instant, like every other time. V35 moved the windows typed before this.
+                .startsAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(dto.getStartsAt()))
+                .endsAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(dto.getEndsAt()))
                 .usageLimit(dto.getUsageLimit()).usedCount(0)
                 .build();
         return toDTO(repo.save(c));
@@ -70,7 +76,10 @@ public class CouponService {
         if (c == null) return CouponResult.invalid(norm, "Invalid coupon code");
         if (!Boolean.TRUE.equals(c.getActive())) return CouponResult.invalid(norm, "This coupon is not active");
 
-        LocalDateTime now = LocalDateTime.now();
+        // H6-C ⚠ MONEY → H6 C4: the window is stored as UTC (typed in the business's zone, converted on save), so it is
+        // compared with the UTC clock. Before H6-C it was a local wall time compared with UTC — a Pakistan coupon
+        // started 5 h late and kept discounting 5 h after its end.
+        LocalDateTime now = LocalDateTime.now(clock);
         if (c.getStartsAt() != null && now.isBefore(c.getStartsAt())) return CouponResult.invalid(norm, "This coupon is not yet valid");
         if (c.getEndsAt() != null && now.isAfter(c.getEndsAt())) return CouponResult.invalid(norm, "This coupon has expired");
         if (c.getUsageLimit() != null && c.getUsedCount() != null && c.getUsedCount() >= c.getUsageLimit())

@@ -18,7 +18,7 @@ import lombok.Setter;
 @Getter @Setter
 public class ExpenseBillPayment {
 
-    public static final String PENDING = "PENDING", RECORDED = "RECORDED", FAILED = "FAILED";
+    public static final String PENDING = "PENDING", RECORDED = "RECORDED", FAILED = "FAILED", REVERSED = "REVERSED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,5 +68,23 @@ public class ExpenseBillPayment {
 
     public void setLastError(String e) {
         this.lastError = e == null ? null : (e.length() > 500 ? e.substring(0, 500) : e);
+    }
+
+    /** FP-3b — the books' mirror of this payment (PV-…-R) once it is reversed. */
+    @Column(name = "reversal_receipt_no", length = 24)
+    private String reversalReceiptNo;
+
+    @Column(name = "reversal_reason", length = 255)
+    private String reversalReason;
+
+    @Column(name = "reversed_by")
+    private Long reversedBy;
+
+    @Column(name = "reversed_at")
+    private LocalDateTime reversedAt;
+
+    /** FP-3b — reversible from the Expenses screen: recorded, and made there (it has its own payment in the books). */
+    public boolean reversible() {
+        return RECORDED.equals(status) && financePaymentId != null;
     }
 }

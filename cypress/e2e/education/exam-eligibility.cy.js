@@ -21,8 +21,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -59,7 +57,7 @@ describe('Education — exam eligibility by attendance (edu.exam.minAttendancePe
     setConfig('edu.exam.minAttendancePercent', '0')   // SET, never assumed — a prior run may have left it
 
     // A class of its own, so this spec's attendance cannot be diluted by other specs' students.
-    post('/addGrade', { name: TAG + ' Class', fee: 0 }).then((r) => ok(r, 'seed a class'))
+    cy.postForm('/addGrade', { name: TAG + ' Class', fee: 0 }).then((r) => ok(r, 'seed a class'))
     // /getUserGrade is the JSON read; /getUserGrades returns <option> HTML for a dropdown. Scraping the
     // markup for an id is how a renamed element silently empties a fixture (standard D9 form 7).
     cy.request('/getUserGrade').then((r) => {
@@ -70,7 +68,7 @@ describe('Education — exam eligibility by attendance (edu.exam.minAttendancePe
 
     // A subject on that class — the paper derives its class through the subject (1.2 D2).
     cy.then(() => {
-      post('/addSubject', { name: TAG + ' Subj', gradeId: fx.gradeId }).then((r) => ok(r, 'seed a subject'))
+      cy.postForm('/addSubject', { name: TAG + ' Subj', gradeId: fx.gradeId }).then((r) => ok(r, 'seed a subject'))
       // SINGULAR = JSON, PLURAL = <option> HTML. The same trap as getUserGrade/getUserGrades, and it cost
       // this spec a run: /getUserSubjects returned markup and the fixture died parsing it.
       cy.request('/getUserSubject').then((r) => {
@@ -89,7 +87,7 @@ describe('Education — exam eligibility by attendance (edu.exam.minAttendancePe
       fx.poor = TAG + 'P'
       fx.unknown = TAG + 'U'
       ;[fx.good, fx.poor, fx.unknown].forEach((en) => {
-        post('/addStudent', { name: en, enrollNo: en, status: 'ACTIVE', gradeId: fx.gradeId })
+        cy.postForm('/addStudent', { name: en, enrollNo: en, status: 'ACTIVE', gradeId: fx.gradeId })
           .then((r) => ok(r, `seed student ${en}`))
       })
     })
@@ -117,12 +115,12 @@ describe('Education — exam eligibility by attendance (edu.exam.minAttendancePe
 
     // A published exam whose term is exactly the window above.
     cy.then(() => {
-      post('/addAcademicYear', { name: TAG + 'Y', startDateStr: TERM_FROM, endDateStr: '30-06-2027' })
+      cy.postForm('/addAcademicYear', { name: TAG + 'Y', startDateStr: TERM_FROM, endDateStr: '30-06-2027' })
         .then((r) => ok(r, 'seed a year'))
       cy.request('/getAcademicYears').then((r) => {
         const y = rows(r.body).find((x) => x.name === TAG + 'Y')
         expect(y, 'the year exists').to.exist
-        post('/addTerm', {
+        cy.postForm('/addTerm', {
           academicYearId: y.id, name: 'T1', sequence: 1, startDateStr: TERM_FROM, endDateStr: TERM_TO,
         }).then((tr) => ok(tr, 'seed a term'))
         cy.request('/getAcademicYears').then((r2) => {
@@ -133,15 +131,15 @@ describe('Education — exam eligibility by attendance (edu.exam.minAttendancePe
     })
 
     cy.then(() => {
-      post('/addExam', { name: TAG + 'X', termId: fx.termId, weightPercent: 100 })
+      cy.postForm('/addExam', { name: TAG + 'X', termId: fx.termId, weightPercent: 100 })
         .then((r) => ok(r, 'seed an exam'))
       cy.request('/getExams').then((r) => {
         const e = rows(r.body).find((x) => x.name === TAG + 'X')
         expect(e, 'the exam exists').to.exist
-        post('/addExamPaper', {
+        cy.postForm('/addExamPaper', {
           examId: e.id, subjectId: fx.subjectId, maxMarks: 100, passMarks: 33, examDateStr: '20-10-2026',
         }).then((pr) => ok(pr, 'seed a paper'))
-        post('/setExamStatus', { id: e.id, status: 'PUBLISHED' })
+        cy.postForm('/setExamStatus', { id: e.id, status: 'PUBLISHED' })
         cy.request('/getExams').then((r2) => {
           const e2 = rows(r2.body).find((x) => x.name === TAG + 'X')
           expect(e2.papers, 'the exam has its paper').to.have.length(1)

@@ -69,6 +69,14 @@ const modeRow = () => cy.get(`#businessConfigBody [data-key="${KEY}"]`).closest(
 
 const newPurchase = () => {
   cy.openPurchaseSection('purchaseDiv')
+  newPurchaseHere()
+}
+/**
+ * TP-2 — New Purchase on the page as it is, NO reload. cy.openPurchaseSection VISITS (a reload), so a step that says
+ * "without reloading" and used newPurchase() photographed a claim it never tested — and the claim was false: the
+ * pickers kept the old price until a reload (TP-1).
+ */
+const newPurchaseHere = () => {
   cy.get('#newPurchase').click()
   cy.get('#PurchaseModal').should('have.class', 'open')
   cy.settled('#purchaseInvoiceNo')
@@ -188,6 +196,7 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     const a1 = act(`**Purchase → New Purchase**. Choose supplier **${vname}**, bill number **${inv}**, product **${pname}**, quantity **2**, P/U price **210**.`,
       ['S/U price fills with the product’s current price, **200**.', 'Under the rates: “**The selling price stays 200.00.**”'])
     openDashboard(); newPurchase()
+    cy.window().then((w) => { w.__noReload = 'P2-a4' })   // the page that cached 200; a reload wipes it — asserted at step 4
     cy.then(() => fillLine(vname, inv, pid, 210))
     cy.get('#purchaseSellRate').should('have.value', '200')
     cy.get('#purchasePriceEffect').should('be.visible').and('have.attr', 'data-effect', 'same').and('contain', '200.00')
@@ -206,13 +215,14 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
 
     const a4 = act(`Without reloading, open **New Purchase** again and pick **${pname}**.`,
       ['S/U price now fills with **250** — the price the last bill set — and the line says “**The selling price stays 250.00.**”'])
-    newPurchase()
+    newPurchaseHere()
     cy.intercept('GET', '/productStock*').as('prefill2')
     cy.then(() => cy.get('#purchaseItemDD').select(String(pid), { force: true }))
     cy.wait('@prefill2', { timeout: 15000 })
     cy.get('#purchaseSellRate').should('have.value', '250')
     cy.get('#purchasePriceEffect').should('have.attr', 'data-effect', 'same').and('contain', '250.00')
     snap(a4, 'next-bill', '#PurchaseModal .crud-box')
+    cy.window().its('__noReload').should('eq', 'P2-a4')   // steps 1-4 ran on ONE page: never reloaded
     cy.get('#PurchaseModal .crud-x').first().click({ force: true })
 
     const a5 = act(`**Register → Products**, search **${pname}**, click **Edit**, then the **Price history** link under Sell Price.`,
@@ -346,12 +356,83 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     closeHistory(); closeProduct()
 
     const c1 = act(`Cleanup: in **Register → Products**, tick **${pname}**, click **Delete**, confirm.`, ['It leaves the list (it is deactivated; its history is kept).'], { cleanup: true })
+    // The Products grid is server-paged with a 400 ms search debounce: tick only after the FULL term's page has drawn,
+    // or that page redraws the rows and drops the tick (Delete then has nothing to confirm).
+    // And after that page's on-hand fill: a tick made while it was in flight was seen lost (2026-10-10, "1 SELECTED"
+    // over an unticked box) — recorded in the design doc §12.7, not chased here.
+    cy.intercept({ method: 'GET', url: '**/getProductPage*', query: { q: pname } }).as('fullTerm')
+    cy.intercept('GET', '**/productStockLevels*').as('onHand')
     gridSearch('ProductDiv', pname)
+    cy.wait('@fullTerm', { timeout: 15000 })
+    cy.wait('@onHand', { timeout: 15000 })
+    cy.wait(500)
     cy.contains('#tableProduct tr', pname).find('input[type="checkbox"]').first().check({ force: true })
+    cy.contains('#tableProduct tr', pname).find('input[type="checkbox"]').first().should('be.checked')
     cy.get('#ProductDiv button[onclick="confirmBulkDelete(\'Product\')"]').click({ force: true })
     cy.get('[data-ui-confirm="ok"]').click()
     cy.contains('#tableProduct tr', pname, { timeout: 15000 }).should('not.exist')
     snap(c1, 'deleted', '#ProductDiv')
+  })
+
+  // ── P6 · the till, same page ─────────────────────────────────────────────────────────────────────────
+  // TP-1 (reported 2026-10-09 on owner.pharma@, sale 5823): the till kept the price it loaded with, and charged it.
+  caseIt('P6', 'The till offers the price a purchase just set — without reloading the page', () => {
+    asLifecycle()
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: KEY }, failOnStatusCode: false })
+    const pname = `PRG Till ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-T-${run}`
+    testCase('P6', 'The till offers the price a purchase just set — without reloading the page', {
+      covers: ['TP-1'], slice: 'PR-1', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'A shop buys stock between two sales without reloading the page. The purchase moves the selling price (Latest), and the very next sale must be offered the NEW price — before this fix the till kept the price it had loaded with, and charged it.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', '**How a purchase affects the selling price** is **Latest** (P1).',
+        `A product **${pname}** selling at **200** and a supplier **${vname}** — made through the same requests the Product and Supplier forms send.`],
+      data: [`Bill **${inv}**, quantity **2**, P/U price **210**, S/U price **250**`],
+      rollback: 'Nothing is sold. The bill is voided on screen (stock and payment reversed); the product keeps 250 and is deactivated after the run.',
+    })
+    let pid
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pid = id }); SAFETY.push(() => voidIfStanding(inv))
+    const section = (sel, val, div) => {
+      cy.window().then((w) => w.$(sel).val(val).trigger('change'))   // as the menu does it
+      cy.get('#' + div).should('be.visible')
+    }
+    const pickOnTill = () => {
+      cy.intercept('GET', '/productStock*').as('tillStock')
+      cy.then(() => cy.get(`#sellItemDD option[value="${pid}"]`, { timeout: 20000 }).should('exist'))
+      cy.get('#sellItemDD').select('', { force: true })
+      cy.then(() => cy.get('#sellItemDD').select(String(pid), { force: true }))
+      cy.wait('@tillStock', { timeout: 15000 })
+    }
+
+    const a1 = act(`**Sale → New Sale**, pick **${pname}**. Do not add it to the cart.`,
+      ['The rate shows **200** — the product’s price now.'])
+    openDashboard()
+    cy.window().then((w) => { w.__noReload = 'P6' })   // a reload wipes it — asserted at the last step
+    section('#sellType', 'sellDiv', 'sellDiv')
+    pickOnTill()
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(200))
+    snap(a1, 'till-before', '#sellDiv')
+
+    const a2 = act(`Without reloading: **Purchase → New Purchase**. Supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U **210**, S/U **250**, then **Save & Close**.`,
+      ['The bill is saved and the form closes. (The selling price is now **250** — P2.)'])
+    section('#purchaseType', 'purchaseDiv', 'purchaseDiv')
+    newPurchaseHere()
+    cy.then(() => fillLine(vname, inv, pid, 210))
+    cy.get('#purchaseSellRate').clear().type('250')
+    savePurchase()
+    cy.then(() => catalogProduct(pid)).then((p) => expect(Number(p.sellingPrice)).to.eq(250))
+    snap(a2, 'bought', '#purchaseDiv')
+
+    const a3 = act(`Without reloading: **Sale → New Sale**, pick **${pname}** again.`,
+      ['The rate shows **250** — the price the purchase just set, not the 200 the page loaded with.'])
+    section('#sellType', 'sellDiv', 'sellDiv')
+    pickOnTill()
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(250))
+    cy.window().its('__noReload').should('eq', 'P6')   // steps 1-3 ran on ONE page: never reloaded
+    snap(a3, 'till-after', '#sellDiv')
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, click **Void**, reason **guide test bill**, confirm.`,
+      ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
   })
 
   // ── P5 · who sees it ─────────────────────────────────────────────────────────────────────────────────
@@ -639,11 +720,13 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     testCase('Q6', 'Markup by category: a whole category gets its own percentage', {
       covers: ['PR2b-1', 'PR2b-2'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner or admin',
       purpose: 'Shops price by department: medicines at one margin, accessories at another. A category’s markup applies to every product in it that has no markup of its own; a blank category uses the business’s.',
-      prereq: ['Markup % **14.5** for the business (Q1).', `A product **${pname}** at **200** in a category **${cat}**, and the supplier **${vname}** — made through the forms’ own requests.`],
+      prereq: ['Markup % **14.5** for the business, rule **Suggest** (Q1).', `A product **${pname}** at **200** in a category **${cat}**, and the supplier **${vname}** — made through the forms’ own requests.`],
       data: [`Category **${cat}**: Markup % **20**; P/U price **210** (the bill is not saved)`],
       rollback: 'The category’s markup is cleared on screen at the end. The product is deactivated after the run; the category stays (categories are not deleted).',
     })
-    saveCfg('pos.pricing.markupPct', '14.5')
+    // Suggest, set HERE: Q5 leaves Auto on until the run's cleanup, and in Auto the suggestion line is (rightly) hidden —
+    // run after Q5 in one go this case failed on inherited state, not on the product (2026-10-10).
+    saveCfg('pos.pricing.markupPct', '14.5'); saveCfg('pos.pricing.markupMode', 'suggest')
     let pid
     supplier(vname)
     cy.seedProduct({ name: pname, sellingPrice: 200, category: cat }).then((p) => {
@@ -907,16 +990,13 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     snap(a3, 'history', '#PriceHistoryDialog > div')
     closeHistory(); closeProduct()
 
-    const a4 = act(`**Sale**: pick **${pname}** and open the **Batch** list.`,
-      [`The new stock: **${batch} · 4 @ 250.00 · exp …** — listed first, because it carries an expiry date and the list is earliest-expiry-first.`,
-        'The stock already on the shelf: **no batch no. · 3 @ 200.00** — the product’s price.'])
+    const a4 = act(`**Sale**: pick **${pname}**.`,
+      ['S/U Price shows **200** — the stock already on the shelf is taken first (it was received first, and neither carries an expiry date); it has no price of its own, so it sells at the product’s **200**. The new batch sells at its own **250** once the old stock runs out.'])
     openSale()
     cy.then(() => pickItem(pid))
-    cy.get('#sellBatchPickRow').should('be.visible')
-    cy.get('#sellBatchPick option').should('have.length', 3)
-    cy.contains('#sellBatchPick option', batch).should('contain', '4 @ 250.00')
-    cy.contains('#sellBatchPick option', '3 @ 200.00').should('exist')
-    cy.get('#sellBatchPickRow').as('bp')
+    cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM: no Batch choice on the till (owner, 2026-10-10)
+    // EXP-ENTRY: the purchase no longer gets today's date as an invented expiry, so the oldest receipt goes first
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(200))
     snap(a4, 'batches-on-till', '#sellDiv')
 
     const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
@@ -977,28 +1057,23 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     SAFETY.push(() => voidSaleIfStanding(sale))
 
     const a1 = act(`**Sale** (reload first). Pick **${t.pname}**.`,
-      ['A **Batch** list appears: **Earliest expiry first (FEFO)**, then **' + t.old + ' · 7 @ 200.00** and **' + t.neu + ' · 10 @ 250.00**.',
-        'S/U Price shows **200** — the price of the batch the sale will take first, not the product’s 240.'])
+      ['S/U Price shows **200** — the price of the batch the sale will take first (' + t.old + '), not the product’s 240.'])
     openSale()
     cy.then(() => pickItem(t.pid))
-    cy.get('#sellBatchPickRow').should('be.visible')
-    cy.get('#sellBatchPick option').should('have.length', 3)
-    cy.get('#sellBatchPick option').eq(1).should('contain', t.old).and('contain', '7 @ 200.00')
-    cy.get('#sellBatchPick option').eq(2).should('contain', t.neu).and('contain', '10 @ 250.00')
+    cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM: no Batch choice on the till
     cy.get('#sellSellRate').should('have.value', '200')
     snap(a1, 'batch-list', '#sellDiv')
 
     const a2 = act('Quantity **10**, **Add to Cart**.',
       ['The cart shows **one line** for the product, quantity **10**, with its batches underneath: **' + t.old + ' · 7 × 200.00** and **' + t.neu + ' · 3 × 250.00**. (The invoice still records them as two lines.)',
-        'A green note: “**Priced by batch: 7 @ 200.00 (' + t.old + ') + 3 @ 250.00 (' + t.neu + ')**”.', 'The total is **2150.00**.'])
+        'The total is **2150.00**.'])
     addLine(10, true)
     // CART-3: one row, the two batches as sub-lines
     cartRows().should('have.length', 1)
     cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
     cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t.old).and('have.attr', 'data-qty', '7').and('contain', '200.00')
     cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t.neu).and('have.attr', 'data-qty', '3').and('contain', '250.00')
-    cy.get('#sellBatchNote').should('be.visible').and('contain', '7 @ 200.00').and('contain', '3 @ 250.00')
-    cy.get('#sellTotal').should('contain', '2150')
+    cy.cartTotal().should('contain', '2,150')   // DRY D2: amounts are grouped
     snap(a2, 'cart-split', '#sellDiv')
 
     const a3 = act('Payment **Cash**, received **99999**, **Complete Sale**, confirm.',
@@ -1028,49 +1103,38 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     resetModeOnScreen(c3)
   })
 
-  caseIt('S2', 'The cashier may choose the batch, or type a price — both are respected', () => {
+  caseIt('S2', 'A price the cashier types is respected — never re-priced from the batches', () => {
     asLifecycle(); guardMode()
     const sale = { value: null }
     const t = twoBatches('S2')
-    testCase('S2', 'The cashier may choose the batch, or type a price — both are respected', {
-      covers: ['PR3c-4', 'PR3c-5'], slice: 'PR-3c', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner (any cashier)',
-      purpose: 'The pick rule is only the default. A customer may ask for the fresh stock, so the cashier can choose a batch; and a price the cashier types (a bargain, a correction) is theirs — it is never re-priced from the batches.',
+    testCase('S2', 'A price the cashier types is respected — never re-priced from the batches', {
+      covers: ['PR3c-5'], slice: 'PR-3c', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner (any cashier)',
+      purpose: 'The batch price is only what the till offers. A price the cashier types (a bargain, a correction) is theirs — it is never re-priced from the batches. (The till offers no Batch choice: the sale always takes earliest expiry first — owner, 10 Oct 2026.)',
       prereq: ['As S1: Per batch, the product with OLD (7 at 200) and NEW (10 at 250).'],
-      data: ['Line 1: batch **NEW**, quantity **3**', 'Line 2: S/U typed **230**, quantity **2**'],
+      data: ['S/U typed **230**, quantity **2**'],
       rollback: 'The invoice and both bills are voided on screen; the setting is put back to Latest on screen.',
     })
     SAFETY.push(() => voidSaleIfStanding(sale))
 
-    const a1 = act(`**Sale**: pick **${t.pname}**, choose **${t.neu} · 10 @ 250.00** in **Batch**, quantity **3**, **Add to Cart**.`,
-      ['S/U changes to **250** when the batch is chosen.', 'The cart shows **3 × 250** (' + t.neu + ').'])
+    const a1 = act(`**Sale**: pick **${t.pname}**, type **230** in **S/U Price**, quantity **2**, **Add to Cart**.`,
+      ['S/U first shows **200** (the batch the sale takes first); after typing it is **230**.', 'The cart shows **2 × 230** — the typed price stands; no batch re-prices it.'])
     openSale()
-    cy.then(() => pickItem(t.pid))
-    cy.get('#sellBatchPick option').eq(2).then(($o) => cy.get('#sellBatchPick').select($o.val(), { force: true }))
-    cy.get('#sellSellRate').should('have.value', '250.00')
-    snap(a1, 'batch-chosen', '#sellDiv')
-    addLine(3, true)
-    cartRows().should('have.length', 1)
-    cartRows().eq(0).should('contain', t.neu).and('contain', '250')
-
-    const a2 = act(`Pick **${t.pname}** again, type **230** in **S/U Price**, quantity **2**, **Add to Cart**.`,
-      ['The cart adds **2 × 230** — the typed price stands; no batch re-prices it.'])
     cy.then(() => pickItem(t.pid))
     cy.get('#sellSellRate').should('have.value', '200')
     cy.get('#sellSellRate').clear().type('230')
     addLine(2, true)
-    cartRows().should('have.length', 2)
-    cartRows().eq(1).should('contain', '230')
-    snap(a2, 'typed-price', '#sellDiv')
+    cartRows().should('have.length', 1)
+    cartRows().eq(0).should('contain', '230')
+    snap(a1, 'typed-price', '#sellDiv')
 
-    const a3 = act('**Cash**, **Complete Sale**, confirm. Then open the receipt data (the Print button’s own request).',
-      ['Recorded: **3 at 250.00** from **' + t.neu + '**, and **2 at 230.00** from **' + t.old + '** (the pick rule’s first batch).'])
+    const a2 = act('**Cash**, **Complete Sale**, confirm. Then open the receipt data (the Print button’s own request).',
+      ['Recorded: **2 at 230.00** from **' + t.old + '** (the batch taken first).'])
     cashAndComplete(true)
     confirmAndRecord(sale)
     cy.then(() => receiptLines(sale.value, t.pid)).then((ls) => {
-      expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate), lineBatches(l)]))
-        .to.deep.eq([[3, 250, `${t.neu}×3`], [2, 230, `${t.old}×2`]])
+      expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate), lineBatches(l)])).to.deep.eq([[2, 230, `${t.old}×2`]])
     })
-    snap(a3, 'recorded')
+    snap(a2, 'recorded')
 
     const c1 = act('Cleanup: void the invoice, both bills, and **Reset** the purchase mode — as in S1.', ['The invoice leaves the sale list; with **Show voided** both bills are marked **VOID**; the setting is **Latest (default)**.'], { cleanup: true })
     voidInvoice(sale)
@@ -1105,7 +1169,7 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     let posted = 0
     cy.intercept('POST', '/addSell', () => { posted++ })
     cashAndComplete(true)
-    cy.get('#sellBatchNote').should('be.visible').and('contain', 'changed its prices')
+    cy.get('#globalError').should('be.visible').and('contain', 'changed its prices')   // the form's error line (SALE-SLIM)
     cartRows().eq(1).should('contain', t.neu).and('contain', '250')
     cy.then(() => expect(posted, 'nothing posted').to.eq(0))
     snap(a2, 'corrected', '#sellDiv')
@@ -1126,6 +1190,81 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     voidInvoice(sale)
     voidBills(t)
     resetModeOnScreen(c1)
+  })
+
+  // ── S4 · PB-OLD: stock bought BEFORE the switch to Per batch (owner.pharma's Desora, 2026-10-10) ──
+  caseIt('S4', 'Stock bought before switching to Per batch sells at its own bill’s rate: 9 × 297.70 + 1 × 309.15', () => {
+    asLifecycle(); guardMode(); guardPricing()
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: KEY }, failOnStatusCode: false })
+    const sale = { value: null }
+    const pname = `PRG Desora ${run}`, vname = `PRG Supplier ${run}`
+    const t1 = `T1-${run}`, t2 = `T2-${run}`, bills = [`PRG-D1-${run}`, `PRG-D2-${run}`]
+    testCase('S4', 'Stock bought before switching to Per batch sells at its own bill’s rate: 9 × 297.70 + 1 × 309.15', {
+      covers: ['PB-OLD'], slice: 'PR-3c', tenant: `${LIFECYCLE} (sacrificial — sales and purchases post to the ledger)`, role: 'Owner (any cashier)',
+      purpose: 'A pharmacy bought two batches while on Latest (one price for all stock), then switched to Per batch. Those batches were booked with no price of their own; each now sells at the sale rate on ITS OWN bill — not at the product’s single price. Decided with the owner on 10 Oct 2026 (Desora: T25791 at 297.70, T25792 at 309.15). The oldest delivery is taken first when the expiry dates are the same.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', '**How a purchase affects the selling price** is **Latest** (the run resets it).',
+        `A product **${pname}** and two bills through the Purchase form’s own request, in Latest: **${t1}** — 9 at cost 260, S/U **297.70**; then **${t2}** — 9 at cost 270, S/U **309.15** (Latest makes the product’s price **309.15**).`],
+      data: ['Quantity **10**, the price the till offers (not typed)'],
+      rollback: 'The invoice and both bills are voided on screen and the setting is put back to Latest on screen. The product is deactivated after the run.',
+    })
+    supplier(vname)
+    cy.seedProduct({ name: pname, sellingPrice: 260 }).then((p) => {
+      const pid = p.productId
+      SAFETY.push(() => { asLifecycle(); cy.request({ method: 'POST', url: '/deactivateProduct', headers: { 'Content-Type': 'application/json' }, body: { checked: String(pid) }, failOnStatusCode: false }) })
+      bills.forEach((b) => SAFETY.push(() => voidIfStanding(b)))
+      SAFETY.push(() => voidSaleIfStanding(sale))
+      billByRequest(vname, pid, 9, 260, 297.70, bills[0], t1)
+      billByRequest(vname, pid, 9, 270, 309.15, bills[1], t2)
+      cy.then(() => catalogProduct(pid)).then((pr) => expect(Number(pr.sellingPrice), 'Latest: the last bill set the price').to.eq(309.15))
+
+      const a1 = act('**Settings → Configuration → Purchasing**: set **How a purchase affects the selling price** to **Per batch**.',
+        ['The message at the top says **Saved**.'])
+      openDashboard(); openConfiguration()
+      cy.intercept('POST', '**/saveBusinessConfig').as('saveMode')
+      cy.get(`#businessConfigBody [data-key="${KEY}"]`).select('per_batch', { force: true })
+      cy.wait('@saveMode').its('response.body.success').should('eq', true)
+      cy.get('#businessConfigMsg').should('contain', 'Saved')
+      modeRow().closest('.cfg-group').as('grpS4')
+      snap(a1, 'per-batch-saved', '@grpS4')
+
+      const a2 = act(`**Sale** (reload first). Pick **${pname}**.`,
+        ['S/U Price shows **297.70** — ' + t1 + '’s own bill rate, the batch the sale takes first (the oldest delivery, their expiry being the same), although it was bought before the switch.'])
+      openSale()
+      cy.then(() => pickItem(pid))
+      cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM
+      cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(297.7))
+      snap(a2, 'batch-list', '#sellDiv')
+
+      const a3 = act('Quantity **10**, **Add to Cart**.',
+        [`One line, quantity **10**, with its batches underneath: **${t1} · 9 × 297.70** and **${t2} · 1 × 309.15**.`, 'The total is **2988.45** (= 2679.30 + 309.15) — not 10 × 309.15 = 3091.50.'])
+      addLine(10, true)
+      cartRows().should('have.length', 1)
+      cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
+      cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t1).and('have.attr', 'data-qty', '9').and('contain', '297.70')
+      cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t2).and('have.attr', 'data-qty', '1').and('contain', '309.15')
+      cy.cartTotal().should('contain', '2,988.45')   // DRY D2
+      snap(a3, 'cart-split', '#sellDiv')
+
+      const a4 = act('Payment **Cash**, received **99999**, **Complete Sale**, confirm. Then open the receipt data (the **Print** button’s own request).',
+        ['The dialog asks to complete **Total 2988.45**.', `The invoice records **9 at 297.70** from **${t1}** and **1 at 309.15** from **${t2}**.`], { via: 'run' })
+      cashAndComplete(true)
+      cy.get('.uiC-card').should('be.visible').and('contain', '2988.45')
+      snap(a4, 'confirm', '.uiC-card')
+      confirmAndRecord(sale)
+      cy.then(() => receiptLines(sale.value, pid)).then((ls) => {
+        expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate), lineBatches(l)]))
+          .to.deep.eq([[9, 297.7, `${t1}×9`], [1, 309.15, `${t2}×1`]])
+      })
+
+      const c1 = act('Cleanup: void the invoice (Sale screen list → search → **Void**, reason **guide test sale**).', ['The sale is reversed and leaves the list.'], { cleanup: true })
+      voidInvoice(sale)
+      snap(c1, 'voided', '#tableSell')
+      const c2 = act(`Cleanup: void both bills **${bills[0]}** and **${bills[1]}**.`, ['Both are marked **VOID** under **Show voided**.'], { cleanup: true })
+      voidBills({ bills, pname })
+      snap(c2, 'bills-voided', '#purchaseDiv')
+      const c3 = act('Cleanup: **Settings → Configuration → Purchasing**, **Reset** the purchase mode.', ['It shows **Latest (default)** again.'], { cleanup: true })
+      resetModeOnScreen(c3)
+    })
   })
 
   // ══ PR-4 · the owner approves a price before customers see it ═══════════════════════════════════════

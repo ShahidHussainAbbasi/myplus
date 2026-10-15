@@ -60,6 +60,7 @@ class ExpenseBillTest {
     @Test @DisplayName("the subledger snapshot: EXPENSE_BILL keyed by voucher id, VENDOR party, versioned by @Version")
     void snapshot() {
         ExpenseVoucher v = bill("500.00");
+        v.setPostingStatus(ExpenseVoucher.PS_POSTED_GL);       // E11: in the books
         v.applyPayment(new BigDecimal("200.00"));
         PayableSnapshot s = VoucherPostings.payable(v);
         assertThat(s.getSource()).isEqualTo("EXPENSE_BILL");
@@ -73,6 +74,17 @@ class ExpenseBillTest {
         assertThat(s.getIssuedAmount()).as("FP-4a: the bill as issued").isEqualByComparingTo("500");
         assertThat(s.getDueDate()).isEqualTo(LocalDate.of(2026, 10, 30));
         assertThat(s.getNotes()).as("FP-4a: a bill has no debit notes — empty, not 'not sent'").isEmpty();
+    }
+
+    @Test @DisplayName("⭐ E11 a bill NOT in the books (still posting, or refused) owes nothing in the subledger; once in, it does")
+    void snapshotFollowsTheBooks() {
+        ExpenseVoucher v = bill("500.00");
+        v.setPostingStatus(ExpenseVoucher.PS_FAILED);
+        assertThat(VoucherPostings.payable(v).isVoided()).as("refused: not owed in the ledger").isTrue();
+        v.setPostingStatus(ExpenseVoucher.PS_PENDING);
+        assertThat(VoucherPostings.payable(v).isVoided()).as("still posting").isTrue();
+        v.setPostingStatus(ExpenseVoucher.PS_POSTED_GL);
+        assertThat(VoucherPostings.payable(v).isVoided()).as("in the books: owed").isFalse();
     }
 
     @Test @DisplayName("paying: open goes down; more than is owed, or a non-bill, is refused")

@@ -6,9 +6,9 @@
  * shows the truth back.
  *
  * <h3>What it is careful about</h3>
- * The screen renders "who covers this outlet" by joining `assignedRepUserId` against the member list it loads
- * separately — two calls, two response SHAPES (`{status, collection}` from business-service, `{success, data}`
- * from the auth proxy). Reading the wrong field yields `undefined` rather than an error, so the assertion here
+ * SRA-2: the screen renders "who covers this outlet" by joining the row's `repId` against the SALES REP list it
+ * loads separately (`/getSalesReps`); the login picker for a rep comes from the auth proxy — two response SHAPES
+ * (`{status, collection}` from business-service, `{success, data}` from the auth proxy). Reading the wrong field yields `undefined` rather than an error, so the assertion here
  * is that a rep's NAME appears in the row, not merely that a row exists.
  *
  * <h3>Leave no server state behind</h3>
@@ -27,8 +27,9 @@ describe('O7 D6a — the territory screen', () => {
     cy.window().should((w) => expect(w.showTerritory, 'territory.js is loaded').to.be.a('function'))
     cy.window().then((w) => w.showTerritory())
     cy.get('#TerritoryDiv').should('be.visible')
-    // The rows arrive by AJAX; waiting for the body to be populated is what makes the rest deterministic.
-    cy.get('#terrBody tr', { timeout: 20000 }).should('have.length.greaterThan', 0)
+    // The rows arrive by AJAX. Wait for a REAL outlet row (it has a checkbox): a "Loading…" or "No outlets." row would
+    // satisfy "at least one row" and let the next step count the wrong table — which is how the search case failed.
+    cy.get('#terrBody .terr-pick', { timeout: 20000 }).should('have.length.greaterThan', 0)
   }
 
   before(() => {
@@ -44,6 +45,12 @@ describe('O7 D6a — the territory screen', () => {
       ctx.id = row.customerId || row.id
       ctx.name = name
     })
+    // SRA-2: outlets are covered by a REP on the business's list — this spec makes its own (no login).
+    cy.request({ method: 'POST', url: '/addSalesRep', form: true, body: { name: `TerrUI Rep ${run}` } }).then((r) => {
+      expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS')
+      ctx.repId = r.body.object.id
+      ctx.repName = r.body.object.name
+    })
   })
 
   after(() => {
@@ -52,6 +59,8 @@ describe('O7 D6a — the territory screen', () => {
       method: 'POST', url: '/assignOutlets', form: true, failOnStatusCode: false,
       body: { customerIds: String(ctx.id) },
     })
+    cy.then(() => ctx.repId && cy.request({ method: 'POST', url: '/updateSalesRep', form: true, failOnStatusCode: false,
+      body: { id: ctx.repId, status: 'INACTIVE' } }))
   })
 
   it('THE SCREEN — assigning from the UI shows the rep as the outlet\'s holder', () => {
@@ -63,14 +72,10 @@ describe('O7 D6a — the territory screen', () => {
       .should('contain.text', 'Unassigned')      // baseline, and the shared-pool wording
 
     cy.get('@row').find('.terr-pick').check()
-    // Any real member other than nobody. The booker is the realistic one.
-    cy.get('#terrRep option').should('have.length.greaterThan', 1)
-    cy.get('#terrRep').then(($sel) => {
-      const opt = $sel.find('option').filter((i, o) => /booker/i.test(o.textContent))[0]
-        || $sel.find('option').filter((i, o) => o.value)[0]
-      cy.get('#terrRep').select(opt.value, { force: true })
-      cy.wrap(opt.textContent.trim()).as('repLabel')
-    })
+    // SRA-2: the picker lists the business's REPS; this spec's own rep must be offered.
+    cy.get(`#terrRep option[value="${ctx.repId}"]`).should('exist')
+    cy.get('#terrRep').select(String(ctx.repId), { force: true })
+    cy.wrap(ctx.repName).as('repLabel')
     cy.get('#terrApply').click()
 
     cy.get('#terrNotice', { timeout: 20000 }).should('be.visible')
@@ -111,8 +116,8 @@ describe('O7 D6a — the territory screen', () => {
   })
 
   it('a REP never sees the menu entry at all', () => {
-    // The markup is behind sec:authorize AND business-service refuses the endpoint, so the screen and the
-    // server agree rather than the screen being the only guard.
+    // The markup is behind the rep.manage permission (ui_menu 'territory') AND business-service refuses the
+    // endpoint, so the screen and the server agree rather than the screen being the only guard.
     cy.loginAsOrderBooker()
     cy.visit('/businessDashboard')
     cy.get('body').should('be.visible')

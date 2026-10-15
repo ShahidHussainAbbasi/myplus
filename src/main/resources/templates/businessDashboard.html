@@ -57,6 +57,7 @@ tr.row-voided .js-edit-row{display:none !important}
 .cmode-row .cmode-field-customer{width:280px}
 .cmode-row .cmode-field-name{width:220px}
 .cmode-row .cmode-field-mobile{width:170px}
+.cmode-row .cmode-field-rep{width:220px}
 /* sellCustomerDD is enhanced into a bootstrap-select at runtime (searchable-selects.js), so the thing on
    screen is the plugin's wrapper div, not the select. The plugin writes its own width inline, which is why
    this needs !important to reach the field width above. */
@@ -82,6 +83,10 @@ tr.row-voided .js-edit-row{display:none !important}
 .cart-panel__body .form-group::after{content:"";display:table;clear:both}
 #sellCartScroll{max-height:300px;overflow:auto;border:1px solid #e7ebf2;border-radius:10px;background:#fff}
 #tablesi{margin:0!important;border:none}
+/* SALE-SLIM (owner, 2026-10-10): the notice row (In stock / FEFO batch / Priced by batch) and the Batch choice are not
+   shown on the till — they repeated the Stock/Expiry boxes and the cart's batch sub-lines, and took space. The sale keeps
+   its default (earliest expiry first); a price change at Complete is still said on the form's error line. */
+#sellNoticeRow,#sellBatchPickRow{display:none!important}
 #tablesi thead th{position:sticky;top:0;z-index:2;background:#f3f6fb;color:#3a4a61;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e7ef;padding:10px 8px}
 #tablesi tbody td{padding:9px 8px;border-bottom:1px solid #eef1f6;font-size:13px;vertical-align:middle}
 #tablesi tbody tr:hover td{background:#f7faff}
@@ -171,26 +176,27 @@ tr.row-voided .js-edit-row{display:none !important}
 							<span class="glyphicon glyphicon-dashboard"></span>
 							<span>Dashboard</span>
 						</button> -->
-						<div class="snav-dd" id="snavRegister">
+						<!-- RW-2 on RW-0b (2026-10-12): each menu names its KEY; the permission codes that unlock it are the ui_menu row in auth-service (V25), never written here. The server still refuses on its own. -->
+						<div th:if="${@perm.menu('register')}" class="snav-dd" id="snavRegister">
 							<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
 								<span class="glyphicon glyphicon-pencil"></span>
 								<span th:text="#{ui.register}">Register</span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li><a onclick="snavGo('registrationType','CompanyDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.company}">Company</span></a></li>
-								<li><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.venderSupplier2}">Vender / Supplier</span></a></li>
-								<li><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.customer}">Customer</span></a></li>
+								<li th:if="${@perm.menu('register.company')}"><a onclick="snavGo('registrationType','CompanyDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.company}">Company</span></a></li>
+								<li th:if="${@perm.menu('register.supplier')}"><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.venderSupplier2}">Vender / Supplier</span></a></li>
+								<li th:if="${@perm.menu('register.customer')}"><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.customer}">Customer</span></a></li>
 								<!-- Slice 74: the Product master is the single creation path; the legacy Item screen is edit-only. -->
 								<!-- <li><a onclick="snavGo('registrationType','productDiv','snavRegister')"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>								 -->
-								<li><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.product}">Product</span></a></li>
-								<li><a onclick="showStockCount();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.stockCount}">Stock count</span></a></li>
-								<li><a onclick="showLabels();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.labels}">Labels</span></a></li>
+								<li th:if="${@perm.menu('register.products')}"><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.product}">Product</span></a></li>
+								<li th:if="${@perm.menu('register.stockCount')}"><a onclick="showStockCount();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.stockCount}">Stock count</span></a></li>
+								<li th:if="${@perm.menu('register.labels')}"><a onclick="showLabels();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.labels}">Labels</span></a></li>
 								<!-- M4e.b (slice 102): legacy Item form retired — use the Product (catalog) master form -->
-								<li data-capability="batchTracking,expiryTracking"><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
+								<li th:if="${@perm.menu('register.quarantine')}" data-capability="batchTracking,expiryTracking"><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
 							</ul>
 						</div>
-						<div class="snav-dd" id="snavPurchase">
+						<div th:if="${@perm.menu('purchase')}" class="snav-dd" id="snavPurchase">
 							<button class="snav-btn" onclick="snavToggle(event,'snavPurchase')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
 								<span th:text="#{ui.purchase}">Purchase</span>
@@ -199,41 +205,41 @@ tr.row-voided .js-edit-row{display:none !important}
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li><a onclick="snavGo('purchaseType','purchaseDiv','snavPurchase')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newPurchase}">New Purchase</span></a></li>
+								<li th:if="${@perm.menu('purchase.new')}"><a onclick="snavGo('purchaseType','purchaseDiv','snavPurchase')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newPurchase}">New Purchase</span></a></li>
 								<!-- Task #21: a purchase return is a DEBIT NOTE, and it belongs with the purchases it
 								     reverses rather than in a combined "returns" screen away from either flow. -->
-								<li><a id="navDebitNotes" onclick="showReturns('debit');document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.debitNotes}">Purchase Returns</span></a></li>
+								<li th:if="${@perm.menu('purchase.debitNotes')}"><a id="navDebitNotes" onclick="showReturns('debit');document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.debitNotes}">Purchase Returns</span></a></li>
 								<!-- PR-4: prices purchases would set, waiting for the owner. Owner/admin (catalog enforces it too). -->
 								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a id="navPriceApprovals" onclick="showPriceApprovals();document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.priceApprovals}">Price approvals</span> <span id="paCount" class="badge" style="display:none;background:#b42318"></span></a></li>
 							</ul>
 						</div>
-						<div class="snav-dd" id="snavSell">
+						<div th:if="${@perm.menu('sale')}" class="snav-dd" id="snavSell">
 							<button class="snav-btn" onclick="snavToggle(event,'snavSell')">
 								<span class="glyphicon glyphicon-tag"></span>
 								<span th:text="#{ui.sale}">Sale</span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newSale}">New Sale</span></a></li>
-								<li><a onclick="showParked();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.parkedSales}">Parked Sales</span></a></li>
-								<li><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.saleDetailReport}">Sale Detail Report</span></a></li>
+								<li th:if="${@perm.menu('sale.new')}"><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newSale}">New Sale</span></a></li>
+								<li th:if="${@perm.menu('sale.parked')}"><a onclick="showParked();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.parkedSales}">Parked Sales</span></a></li>
+								<li th:if="${@perm.menu('sale.detailReport')}"><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.saleDetailReport}">Sale Detail Report</span></a></li>
 								<!-- Task #21: a sale return is a CREDIT NOTE. Before this screen a note could only be
 								     printed at the counter, in the seconds after the return was taken. -->
-								<li><a id="navCreditNotes" onclick="showReturns('credit');document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.creditNotes}">Sale Returns</span></a></li>
+								<li th:if="${@perm.menu('sale.creditNotes')}"><a id="navCreditNotes" onclick="showReturns('credit');document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.creditNotes}">Sale Returns</span></a></li>
 								<!-- B2B-P4b: quotes live under Sale because a quote IS a pre-sale document — it converts
 								     into an invoice through the same path a counter sale uses. -->
-								<li data-capability="dealerPricing"><a onclick="showQuotes();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.quotes}">Quotes</span></a></li>
+								<li th:if="${@perm.menu('sale.quotes')}" data-capability="dealerPricing"><a onclick="showQuotes();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.quotes}">Quotes</span></a></li>
 								<!-- INST-2: installments sit under Sale because a plan IS a sale document — it structures
 								     the receivable one created. Shown to every commerce tenant; a shop that never
 								     finances anything simply has an empty list. -->
-								<li data-capability="installments"><a onclick="showInstallments();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.js.instScreenTitle}">Installment plans</span></a></li>
+								<li th:if="${@perm.menu('sale.installments')}" data-capability="installments"><a onclick="showInstallments();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.js.instScreenTitle}">Installment plans</span></a></li>
 								<!-- MKT-0a: selling on the MaxTheService marketplace is a sales CHANNEL, so it lives under Sale —
 								     for any kind of shop, not only the storefront vertical (#snavStore). Opt-in module. -->
-								<li data-capability="marketplaceSelling"><a id="navMarketplaceSeller" onclick="showMarketplaceSeller();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-globe"></span> <span th:text="#{ui.mktSellMenu}">Marketplace</span></a></li>
+								<li th:if="${@perm.menu('sale.marketplace')}" data-capability="marketplaceSelling"><a id="navMarketplaceSeller" onclick="showMarketplaceSeller();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-globe"></span> <span th:text="#{ui.mktSellMenu}">Marketplace</span></a></li>
 							</ul>
 						</div>
 						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
-						<div class="snav-dd" id="snavStore" data-vertical-only="MARKETPLACE">
+						<div th:if="${@perm.menu('store')}" class="snav-dd" id="snavStore" data-vertical-only="MARKETPLACE">
 							<button class="snav-btn" onclick="snavToggle(event,'snavStore')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
 								<span th:text="#{ui.store}">Store</span>
@@ -254,14 +260,14 @@ tr.row-voided .js-edit-row{display:none !important}
 									     out with the van, that one closes the money when it comes back. Same gate,
 									     for the same reason — it states who owes how much. -->
 									<li data-capability="fieldSales,collections" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showRoundSheet();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.roundSheet}">Round sheet</span></a></li>
-									<li data-capability="fieldSales,journeyPlanning" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showTerritory();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-map-marker"></span> <span th:text="#{ui.territory}">Territory</span></a></li>
+									<li data-capability="fieldSales,journeyPlanning" th:if="${@perm.menu('territory')}"><a onclick="showTerritory();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-map-marker"></span> <span th:text="#{ui.territory}">Territory</span></a></li>
 									<li data-capability="collections" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showDriverSettlement();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.driverSettlement}">Driver settlement</span></a></li>
 									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
 							</ul>
 						</div>
 						<!-- Pharmacy (slice 41) — clinical screens, shown ONLY for PHARMA users (vertical-profile feature). -->
-						<div class="snav-dd" id="snavPharmacy" data-vertical-only="PHARMA">
+						<div th:if="${@perm.menu('pharmacy')}" class="snav-dd" id="snavPharmacy" data-vertical-only="PHARMA">
 							<button class="snav-btn" onclick="snavToggle(event,'snavPharmacy')">
 								<span class="glyphicon glyphicon-plus"></span>
 								<span th:text="#{ui.pharmacy}">Pharmacy</span>
@@ -269,13 +275,15 @@ tr.row-voided .js-edit-row{display:none !important}
 							</button>
 							<ul class="snav-menu">
 								<!-- Medicine registration REUSES the existing Item screen (relabeled "Medicine"); no separate screen. -->
-								<li data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
-								<li data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
-								<li data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.prescriptions')}" data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.clinical')}" data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.alerts')}" data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
+								<!-- HC-1a: "Clinic reception" removed — a clinic is its own tenant (Healthcare → Hospital / Clinic). A
+								     pharmacy still running a clinic reaches it from its workspaces (Front desk) until HC-1e splits it. -->
 							</ul>
 						</div>
 						<!-- Till / cash drawer — cashier day-close (slice 39). Available to any commerce user. -->
-						<div class="snav-dd" id="snavTill">
+						<div th:if="${@perm.menu('till')}" class="snav-dd" id="snavTill">
 							<button class="snav-btn" onclick="snavToggle(event,'snavTill')">
 								<span class="glyphicon glyphicon-usd"></span>
 								<span th:text="#{ui.till}">Till</span>
@@ -303,6 +311,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span> <span th:text="#{ui.balanceSheet}">Balance Sheet</span></a></li>
 								<li><a onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span> <span th:text="#{ui.taxRegister}">Tax Register</span></a></li>
 								<li><a onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span> <span th:text="#{ui.auditLog}">Audit Log</span></a></li>
+								<!-- SSR-1: the Stock & Sales Report (doc slices/110) — owner/admin, like this whole menu -->
+								<li><a id="navSSR" onclick="showSSR();document.getElementById('snavFinance').classList.remove('snav-open');"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.ssr.menu}">Stock &amp; Sales (SSR)</span></a></li>
 							</ul>
 						</div>
 						<!-- Settings — the MENU opens for an owner or an admin, but each entry carries its own
@@ -411,7 +421,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						checking, and it would disagree with the books the moment a buying price moves.
 					-->
 					<div data-widget="stockValue" data-drill="fn:showProducts">
-						<div class="kpi-card kpi-amber">
+						<div th:if="${@perm.menu('kpi.stockValue')}" class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-scale"></span></div>
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashStockValue">-</div>
@@ -420,7 +430,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div data-widget="monthlySales" data-drill="sellType:SRDiv">
-						<div class="kpi-card kpi-purple">
+						<div th:if="${@perm.menu('kpi.sales')}" class="kpi-card kpi-purple">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-shopping-cart"></span></div>
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashMonthlySales">-</div>
@@ -429,7 +439,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div data-widget="monthlyRevenue" data-drill="sellType:SRDiv">
-						<div class="kpi-card kpi-red">
+						<div th:if="${@perm.menu('kpi.revenue')}" class="kpi-card kpi-red">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-usd"></span></div>
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashMonthlyRevenue">-</div>
@@ -1586,7 +1596,29 @@ tr.row-voided .js-edit-row{display:none !important}
 						<label class="control-label col-sm-2" for="address" th:text="#{ui.address}">Address:</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="venderAddress"
-								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}"> 
+								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}">
+						</div>
+					</div>
+					<!-- SRA-1: the same inline City / Area as the customer form (static/js/business/address.js). A supplier
+					     has no printed city column, so only the area is stored; the city comes with it. -->
+					<div class="form-group" data-sra-address="vender">
+						<label class="control-label col-sm-2" for="venderCityId" th:text="#{ui.docCity}">City</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="venderCityId" name="cityId" data-sra-city></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="city"
+									th:title="#{ui.sraNewCity}" title="New city">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewCity}">New city</span>
+							</button>
+						</div>
+						<label class="control-label col-sm-2" for="venderAreaId" th:text="#{ui.sraArea}">Area</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="venderAreaId" name="areaId" data-sra-area></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="area"
+									th:title="#{ui.sraNewArea}" title="New area">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewArea}">New area</span>
+							</button>
 						</div>
 					</div>
 					<!-- DR-1 (D5): optional. The strongest key for recognising this supplier as a business already
@@ -1808,12 +1840,45 @@ tr.row-voided .js-edit-row{display:none !important}
 					     afterwards. The licence is the BUYER's — a distributor may only supply a licensed
 					     reseller and the invoice carries it as evidence. (The SELLER's own licence is the
 					     pos.document.licenseNo setting: one per business, not one per customer.) -->
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="customerCity" th:text="#{ui.docCity}">City</label>
+					<!-- SRA-1: City and Area from the business's OWN address list. "+ New city" / "+ New area" open a small
+					     form OVER this one (the purchase form's "+ New product" pattern) and come back with it selected —
+					     the customer form is never left (static/js/business/address.js). Shown only to members whose set
+					     allows area.create (ui_menu action.area.add, auth V32). The printed city is still the
+					     free-text `city` column: it rides in the hidden #customerCity and the server writes it from the
+					     picked area's city, so invoices read exactly what they always did. The Area select holds EVERY
+					     area (those of other cities hidden), so an edit can select the stored one before the city is set. -->
+					<div class="form-group" data-sra-address="customer">
+						<label class="control-label col-sm-2" for="customerCityId" th:text="#{ui.docCity}">City</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="customerCity" name="city"
-							       placeholder="City" th:placeholder="#{ui.docCity}">
+							<select class="form-control" id="customerCityId" name="cityId" data-sra-city></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="city"
+									th:title="#{ui.sraNewCity}" title="New city">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewCity}">New city</span>
+							</button>
+							<input type="hidden" id="customerCity" name="city">
+							<div class="sra-legacy" data-sra-legacy hidden></div>
 						</div>
+						<label class="control-label col-sm-2" for="customerAreaId" th:text="#{ui.sraArea}">Area</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="customerAreaId" name="areaId" data-sra-area></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="area"
+									th:title="#{ui.sraNewArea}" title="New area">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewArea}">New area</span>
+							</button>
+						</div>
+					</div>
+					<!-- SRA-2: the rep who usually covers this customer (territory, and from SRA-3 the order's default rep).
+					     Only for rep.manage holders (ui_menu action.rep.assign, auth V33): a rep must not hand themselves
+					     outlets, and the server refuses a change from anyone else. 0 = nobody (the shared pool). -->
+					<div class="form-group" th:if="${@perm.menu('action.rep.assign')}">
+						<label class="control-label col-sm-2" for="customerDefaultRepId" th:text="#{ui.usualRep}">Usual rep</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="customerDefaultRepId" name="defaultRepId" data-sales-rep-picker></select>
+						</div>
+					</div>
+					<div class="form-group">
 						<label class="control-label col-sm-2" for="customerCnic" th:text="#{ui.docCnic}">CNIC No</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="customerCnic" name="cnic"
@@ -2105,7 +2170,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								     the Enter walk never lands on "register a product" in the middle of typing a line. -->
 								<button type="button" id="newProductFromPurchase" class="btn btn-link btn-sm"
 										style="padding-left:0" data-kbd-skip
-										sec:authorize="hasAuthority('product.create')"
+										th:if="${@perm.menu('action.product.add')}"
 										onclick="newProductForPurchase()"
 										th:title="#{ui.newProduct}" title="Register a new product">
 									<span class="glyphicon glyphicon-plus"></span>
@@ -2194,7 +2259,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 							<div class="fg-cell fg-sm" data-capability="expiryTracking">
 								<label class="fg-label" for="purchaseExpiry" th:text="#{ui.expireDate}">Expire Date</label>
-								<input type="text" class="form-control datePicker" id="purchaseExpiry"
+								<input type="text" class="form-control datePicker" id="purchaseExpiry" data-no-default autocomplete="off"
 								name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
 							</div>
 							<div class="fg-cell fg-sm">
@@ -2362,8 +2427,16 @@ tr.row-voided .js-edit-row{display:none !important}
 			<!-- P6 (slice 43): shown when a sale is dispensing a prescription; cleared after Complete Sale records the dispense. -->
 			<div id="dispenseBanner" class="alert alert-info" style="display:none">
 				<span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.dispensing}">Dispensing</span> <b id="dispenseRxLabel"></b> <span th:text="#{ui.addThePrescribedItemsAndComplete}">—
-				add the prescribed items and complete the sale.</span>
+				the prescribed medicines are in the cart. Check each with the patient, adjust with + / −, then complete the sale.</span>
 				<a href="#" onclick="cancelDispense();return false;" style="float:right" th:text="#{ui.cancel}">cancel</a>
+				<!-- RX-FILL: per medicine, what the script still owes against what this sale hands over (pharma.js rxFillNote) -->
+				<div id="dispenseFillNote" style="display:none"></div>
+				<style>
+					#dispenseFillNote ul.rx-fill{margin:6px 0 0;padding-left:18px;font-size:13px}
+					#dispenseFillNote .rx-over{color:#9a6700;font-weight:600}
+					#dispenseFillNote .rx-under{color:#31708f}
+					#dispenseFillNote .rx-warn{color:#a94442;font-weight:600}
+				</style>
 			</div>
 			<a id="MyLink"  style="display:none"></a>
 			<input id="Button1" type="button" value="Click Me" onclick="OpenWord()" style="display: none;"/>
@@ -2438,10 +2511,59 @@ tr.row-voided .js-edit-row{display:none !important}
 										<input type="radio" name="customerInputMode" value="manual">
 										<span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.enterManually}">Enter Manually</span>
 									</label>
+								</div>
+								<!--
+									SRA-3: WHICH SALES REP took this order — the office keying a rep's hand-written order picks the rep
+									here; it defaults to the customer's usual rep. Blank = a counter sale (no rep). The server decides the
+									credit (SalesRepAttribution): a booker whose login IS a rep is credited themselves whatever this says.
+									Shown only when the business has active reps (territory.js paints it and toggles THIS wrapper — a
+									bootstrap-select button cannot be hidden itself). In the Enter chain after the customer (pos-keyboard.js).
+								-->
+								<div class="form-group" id="sellRepWrap" data-sales-rep-wrap style="display: none;">
+									<div class="cmode-field-rep">
+										<span class="field-label" th:text="#{ui.salesRep}">Sales rep</span>
+										<select class="form-control" id="sellRepId" data-sales-rep-picker="sale" th:attr="data-rep-manage=${@perm.menu('action.rep.assign')}"></select>
+									</div>
 								</div>								
 							</div>
 						</div>
 
+				<!--
+					CART-TOP (2026-10-10, owner's request) — the lines of the sale sit ABOVE the item entry, after the customer: the
+					bill reads top to bottom (who, what, then how they pay) as on the desktop billing tools shops know (Marg, Busy).
+					Capped height, scrolling inside itself, header and Totals pinned (theme.css), so the entry row below never moves however long
+					the bill gets (the newest line is scrolled into view by business.js). Only the TABLE moved: the
+					payable line and payment stay in #iDiv below the entry row. The keyboard chain is built from #Sell only, so no
+					Enter step changes.
+				-->
+				<div id="sellCartTop" class="cart-panel sell-cart-top">
+					<div id="sellCartScroll">
+						<table id="tablesi" class="display" style="width:100%;">
+							<thead>
+								<tr>
+									<th th:text="#{ui.itemId}">Item id</th>
+									<th th:text="#{ui.nameCode}">Name/Code</th>
+									<th th:text="#{ui.qty2}">QTY</th>
+									<th th:text="#{ui.price}">Price</th>
+									<th th:text="#{ui.disc}">Disc</th>
+									<th th:text="#{ui.total}">Total</th>
+									<th th:text="#{ui.action}">Action</th>
+								</tr>
+							</thead>
+							<tfoot>
+					            <tr>
+					                <th></th>
+					                <th  th:text="#{ui.totals}">Totals:</th>
+					                <th ></th>
+					                <th ></th>
+					                <th ></th>
+					                <th ></th>
+					                <th></th>
+					            </tr>
+					        </tfoot>
+						</table>
+						</div><!-- /sellCartScroll -->
+				</div>
 				<form action="/" method="POST" onsubmit="return false" class="form-horizontal" role="form"
 					id="Sell" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -2620,8 +2742,10 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock). -->
-					<div class="form-group pos-fullrow">
+					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock).
+					     HIDDEN (owner, 2026-10-10) with #sellBatchPickRow below — see the style rule SALE-SLIM: the entry line's Stock and
+					     Expiry boxes and the cart's batch sub-lines already say it, and the row took space. Still filled, never shown. -->
+					<div class="form-group pos-fullrow" id="sellNoticeRow">
 						<div class="col-sm-offset-2 col-sm-10">
 							<div id="sellSellableInfo" class="alert alert-warning" style="display:none;padding:6px 10px;margin:0 0 6px 0"></div>
 							<div id="sellBatchInfo" class="alert alert-info" style="display:none;padding:6px 10px;margin:0"></div>
@@ -2768,33 +2892,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<span class="glyphicon glyphicon-shopping-cart"></span> <span th:text="#{ui.currentSale}">Current Sale</span>
 							<span class="cart-hint" th:text="#{ui.reviewItemsChooseCustomerAndPayment}">Review items, choose customer &amp; payment, then complete the sale</span>
 						</div>
-						<div class="cart-panel__body"> Add to Cart
-						<div id="sellCartScroll">
-						<table id="tablesi" class="display" style="width:100%;">
-							<thead>
-								<tr>
-									<th th:text="#{ui.itemId}">Item id</th>
-									<th th:text="#{ui.nameCode}">Name/Code</th>
-									<th th:text="#{ui.qty2}">QTY</th>
-									<th th:text="#{ui.price}">Price</th>
-									<th th:text="#{ui.disc}">Disc</th>
-									<th th:text="#{ui.total}">Total</th>
-									<th th:text="#{ui.action}">Action</th>
-								</tr>
-							</thead>
-							<tfoot>
-					            <tr>
-					                <th></th>
-					                <th  th:text="#{ui.totals}">Totals:</th>
-					                <th ></th>
-					                <th ></th>
-					                <th ></th>
-					                <th id="sellTotal" ></th>
-					                <th></th>
-					            </tr>
-					        </tfoot>
-						</table>
-						</div><!-- /sellCartScroll -->
+						<div class="cart-panel__body">
+						
 						<!-- TRADE-DISC-1: what the customer actually pays once the invoice-level trade discount is
 						     taken off. The cart footer above stays "sum of the Total column"; this line adds the
 						     discount and the payable, and only when there IS a discount, so every other sale looks
@@ -3027,7 +3126,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<button type="button" id="parkSaleBtn" data-pos-field="park" class="btn btn-info" onclick="parkCurrentSale()">
 								<span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.park}">Park</span>
 							</button>
-							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
+							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart();if(typeof cancelDispense==='function')cancelDispense();">
 								<span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.clearCart}">Clear Cart</span>
 							</button>
 						</div>
@@ -3104,9 +3203,38 @@ tr.row-voided .js-edit-row{display:none !important}
 				Single-column on purpose: every control is full-width and stacks, so it works at 360px without a
 				separate mobile layout. .booking-grid widens it on a desk (responsive.css owns the breakpoints).
 			-->
-			<!-- OMS O7 D6a — territory assignment. Owner/admin only; business-service refuses it to a rep,
-			     and this markup is hidden from one, so the two agree rather than relying on the screen alone. -->
-			<div id="TerritoryDiv" data-capability="fieldSales,journeyPlanning" class="formDiv" style="display:none" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<!-- OMS O7 D6a + SRA-2 — the sales reps and who covers each outlet. Gated on the rep.manage permission (ui_menu
+			     'territory', auth V33) — data, not role names; business-service refuses the same to anyone without it. -->
+			<div id="TerritoryDiv" data-capability="fieldSales,journeyPlanning" class="formDiv" style="display:none" th:if="${@perm.menu('territory')}">
+				<!-- SRA-2: the rep LIST. A rep is a person, with or without a login; deactivating keeps their history. -->
+				<div class="panel panel-default" id="salesRepPanel">
+					<div class="panel-heading">
+						<h4 class="panel-title" th:text="#{ui.salesReps}">Sales reps</h4>
+						<p class="help-block" style="margin:6px 0 0" th:text="#{ui.salesRepsHelp}">Everyone who books orders or sells for you. Link a login only for a rep who signs in.</p>
+					</div>
+					<div class="panel-body">
+						<div class="row" style="margin-bottom:10px">
+							<div class="col-sm-4 col-xs-12"><label for="srNewName" th:text="#{ui.name}">Name</label>
+								<input type="text" class="form-control" id="srNewName" maxlength="120" data-no-search="true"></div>
+							<div class="col-sm-3 col-xs-12"><label for="srNewPhone" th:text="#{ui.phone}">Phone</label>
+								<input type="text" class="form-control" id="srNewPhone" maxlength="40"></div>
+							<div class="col-sm-3 col-xs-12"><label for="srNewLogin" th:text="#{ui.salesRepLogin}">Login</label>
+								<select class="form-control" id="srNewLogin" data-no-search></select></div>
+							<div class="col-sm-2 col-xs-12" style="margin-top:24px">
+								<button type="button" class="btn btn-primary" id="srAdd" th:text="#{ui.salesRepAdd}">Add rep</button></div>
+						</div>
+						<div id="srNotice" class="alert alert-info" style="display:none"></div>
+						<div class="table-responsive">
+							<table class="table table-striped" id="srTable">
+								<thead><tr>
+									<th th:text="#{ui.name}">Name</th><th th:text="#{ui.phone}">Phone</th>
+									<th th:text="#{ui.salesRepLogin}">Login</th><th th:text="#{ui.status}">Status</th><th></th>
+								</tr></thead>
+								<tbody id="srBody"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
 				<div class="panel panel-default">
 					<div class="panel-heading">
 						<h4 class="panel-title" th:text="#{ui.territory}">Territory</h4>
@@ -3157,6 +3285,13 @@ tr.row-voided .js-edit-row{display:none !important}
 						<!-- Credit standing, BEFORE any line is entered (finding B3) — hidden entirely when the
 						     outlet has no limit, because "0 of 0" would train reps to ignore the banner. -->
 						<div id="bkCredit" class="alert alert-info" style="display:none"></div>
+						<!-- SRA-3: the office keying a rep's paper order names the rep (defaults to the shop's usual rep). Only for
+						     rep.manage holders (ui_menu action.rep.assign): a rep booking signed in is credited themselves, and
+						     the server ignores a choice from them. Hidden while the business has no reps (territory.js). -->
+						<div class="form-group" id="bkRepWrap" data-sales-rep-wrap style="display:none" th:if="${@perm.menu('action.rep.assign')}">
+							<label for="bkRepId" th:text="#{ui.salesRep}">Sales rep</label>
+							<select class="form-control input-lg" id="bkRepId" data-sales-rep-picker="order"></select>
+						</div>
 
 						<div class="form-group">
 							<label for="bkContact" th:text="#{ui.contact}">Contact</label>
@@ -3591,6 +3726,11 @@ tr.row-voided .js-edit-row{display:none !important}
 						        th:text="#{ui.exportCsv}">Export CSV</button>
 					</div>
 					<div class="panel-body table-scroll">
+						<!-- SKU-AUTO-3: products with no manufacturer barcode are listed too (their SKU is the code) — search narrows -->
+						<input type="search" id="lblSearch" class="form-control input-sm" style="max-width:320px;margin-bottom:8px"
+						       oninput="filterLabels()" autocomplete="off"
+						       placeholder="Search name or code" th:placeholder="#{ui.lblSearch}">
+						<div id="lblMore" class="text-muted small" style="display:none;margin-bottom:6px"></div>
 						<table class="table table-condensed" id="tableLabels">
 							<thead><tr>
 								<th><input type="checkbox" id="lblAll" onchange="selectAllLabels(this.checked)"></th>
@@ -3751,7 +3891,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 							<div class="fg-cell">
 								<label class="fg-label" for="prodSku" th:text="#{ui.skuCode}">SKU / Code</label>
-								<input type="text" class="form-control" id="prodSku">
+								<input type="text" class="form-control" id="prodSku" autocomplete="off"
+								       placeholder="Automatic if left blank" th:placeholder="#{ui.skuAutoPlaceholder}"><!-- SKU-AUTO -->
 							</div>
 							<!-- Barcode: shown by the tenant's barcode setting (business.js toggles #prodBarcodeLabel AND
 							     #prodBarcodeWrap; the label now lives inside the wrap, so both toggles still agree). -->
@@ -3939,6 +4080,21 @@ tr.row-voided .js-edit-row{display:none !important}
 									<span th:text="#{ui.js.tracksBatch}">Arrives in batches</span>
 								</label>
 							</div>
+							<!-- SSR-0c: the product's main supplier (its Stock & Sales Report group). Owner/admin only;
+							     blank = named by its first purchase. Saved through its own endpoint. -->
+							<div class="form-group" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+								<label for="prodMainSupplier" th:text="#{ui.mainSupplier}">Main supplier</label>
+								<select id="prodMainSupplier" class="form-control input-sm">
+									<option value="">&#8212;</option>
+								</select>
+							</div>
+							<!-- EXP-REQ: where expiry is tracked a purchase needs a date, unless the product has none -->
+							<div class="checkbox" data-capability="expiryTracking">
+								<label>
+									<input type="checkbox" id="prodNoExpiry">
+									<span th:text="#{ui.js.noExpiry}">No expiry date (e.g. a device)</span>
+								</label>
+							</div>
 						</div>
 					</div>
 
@@ -4034,7 +4190,7 @@ tr.row-voided .js-edit-row{display:none !important}
 				<!-- <h4>Alerts &amp; Controlled Register</h4> -->
 				<h5 th:text="#{ui.stockAlertsNearExpiryLowStock}">Stock alerts (near-expiry / low stock)</h5>
 				<table id="tableStockAlerts" class="table table-bordered table-striped">
-					<thead><tr><th th:text="#{ui.type}">Type</th><th th:text="#{ui.product}">Product</th><th th:text="#{ui.message}">Message</th><th th:text="#{ui.created}">Created</th></tr></thead>
+					<thead><tr><th th:text="#{ui.type}">Type</th><th th:text="#{ui.product}">Product</th><th th:text="#{ui.details}">Details</th></tr></thead>
 					<tbody id="stockAlertsBody"></tbody>
 				</table>
 				<div id="stockAlertsEmpty" class="text-muted" style="display:none" th:text="#{ui.noStockAlerts}">No stock alerts.</div>
@@ -4126,10 +4282,69 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 				</form>
 				<h5 th:text="#{ui.recentPrescriptions}">Recent prescriptions</h5>
+				<!-- HMS S4-lite: find by clinic token (A-007), MRN, phone or name; paged -->
+				<div class="rx-search-row">
+					<input type="search" id="rxSearch" class="form-control" autocomplete="off"
+					       th:placeholder="#{ui.rxSearchPlaceholder}" placeholder="Token (A-007), MRN, phone or name"
+					       aria-label="Search prescriptions"/>
+					<button type="button" id="rxSearchBtn" class="btn btn-primary" onclick="searchPrescriptions()"><span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span></button>
+					<!-- the WRAPPER is hidden, never the .btn: theme.css forces every .btn to display:inline-flex !important -->
+					<span id="rxSearchClearWrap" style="display:none"><button type="button" id="rxSearchClear" class="btn btn-default" onclick="clearPrescriptionSearch()" th:text="#{ui.clear}">Clear</button></span>
+				</div>
+				<p id="rxSearchFound" class="rx-search-found" style="display:none"></p>
 				<table id="tablePrescription" class="table table-bordered table-striped">
 					<thead><tr><th th:text="#{ui.patient}">Patient</th><th th:text="#{ui.doctor}">Doctor</th><th th:text="#{ui.products}">Products</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.date2}">Date</th><th th:text="#{ui.action}">Action</th></tr></thead>
 					<tbody id="prescriptionBody"></tbody>
 				</table>
+				<p id="rxSearchEmpty" class="text-muted" style="display:none" th:text="#{ui.rxSearchNone}">No prescriptions match.</p>
+				<div class="text-center" id="rxLoadMoreWrap" style="display:none"><button type="button" id="rxLoadMore" class="btn btn-default" onclick="loadMorePrescriptions()" th:text="#{ui.loadMore}">Load more</button></div>
+
+				<!-- HMS H3b: only the PHARMACIST (rx.dispense) dispenses, changes or cancels; everyone else sees the list -->
+				<style>
+					.rx-panel{border:1px solid #d6dde8;border-radius:8px;padding:12px 14px;margin:14px 0;background:#fbfcfe}
+					.rx-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+					.rx-panel-head h5{margin:0;font-weight:700}
+					.rx-amend-table .form-control{min-width:64px}
+					.rx-amend-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+					.rx-amend-add #rxAmendMedicine{flex:1 1 260px;min-width:0}
+					.rx-amend-add #rxAmendQty{flex:0 0 90px}
+					.rx-panel-actions{display:flex;gap:8px;margin-top:10px}
+					.rx-history{padding-left:18px;margin:8px 0 0}
+					.rx-history-item{margin-bottom:10px}
+					.rx-history-reason{color:#4a5568;font-style:italic}
+				</style>
+				<span id="rxCanDispense" hidden="hidden" th:if="${@perm.menu('action.rx.dispense')}"></span>
+				<div id="rxPanel" class="rx-panel" style="display:none" aria-live="polite">
+					<div class="rx-panel-head">
+						<h5 id="rxPanelTitle"></h5>
+						<span id="rxPanelCloseWrap"><button type="button" class="btn btn-link" onclick="closeRxPanel()" th:text="#{ui.close}">Close</button></span>
+					</div>
+					<div id="rxAmendBox">
+						<div class="table-responsive">
+							<table class="table table-bordered rx-amend-table">
+								<thead><tr><th th:text="#{ui.medicine}">Medicine</th><th th:text="#{ui.qty}">Qty</th><th th:text="#{ui.rxDose}">Dose</th><th th:text="#{ui.rxFrequency}">Frequency</th><th th:text="#{ui.rxDuration}">Duration</th><th th:text="#{ui.rxDispensed}">Dispensed</th><th></th></tr></thead>
+								<tbody id="rxAmendBody"></tbody>
+							</table>
+						</div>
+						<div class="rx-amend-add">
+							<input type="text" id="rxAmendMedicine" class="form-control" list="rxAmendMedicines" autocomplete="off" placeholder="Add a medicine from the list" aria-label="Add a medicine"/>
+							<datalist id="rxAmendMedicines"></datalist>
+							<input type="text" id="rxAmendQty" class="form-control" inputmode="numeric" placeholder="Qty" aria-label="Quantity"/>
+							<span><button type="button" id="rxAmendAdd" class="btn btn-default" onclick="addRxAmendLine()"><span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.add}">Add</span></button></span>
+						</div>
+					</div>
+					<label for="rxPanelReason" th:text="#{ui.rxReason}">Reason (the doctor sees it)</label>
+					<input type="text" id="rxPanelReason" class="form-control" maxlength="500" placeholder="e.g. 500mg not in stock — 250mg given"/>
+					<div class="rx-panel-actions">
+						<span id="rxAmendSaveWrap"><button type="button" id="rxAmendSave" class="btn btn-success" onclick="saveRxAmend()"><span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.rxSaveChange}">Save change</span></button></span>
+						<span id="rxCancelConfirmWrap"><button type="button" id="rxCancelConfirm" class="btn btn-danger" onclick="confirmRxCancel()" th:text="#{ui.cancelPrescription}">Cancel prescription</button></span>
+					</div>
+				</div>
+				<div id="rxHistoryPanel" class="rx-panel" style="display:none">
+					<div class="rx-panel-head"><h5 id="rxHistoryTitle"></h5>
+						<span><button type="button" class="btn btn-link" onclick="$('#rxHistoryPanel').hide()" th:text="#{ui.close}">Close</button></span></div>
+					<ol id="rxHistoryList" class="rx-history"></ol>
+				</div>
 			</div>
 
 			<!-- POS R10 (slice 40): parked / held sales. -->
@@ -4404,6 +4619,41 @@ tr.row-voided .js-edit-row{display:none !important}
 			     sidebar Finance menu). One page with a report switcher + per-report filter criteria. -->
 			<div th:replace="~{fragments/finance :: financeSection(true, '')}"></div>
 
+			<!-- SSR-1 (doc slices/110-stock-ledger-ssr.md): per product for a period, grouped by main supplier. ssr.js -->
+			<div id="SSRDiv" class="formDiv" style="display:none">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<span th:text="#{ui.ssr.title}">Stock With Sales Report</span>
+						<button type="button" class="btn btn-sm btn-default pull-right" id="ssrCsv" style="margin-left:6px"
+						        onclick="exportSSRCsv()" disabled="disabled" th:text="#{ui.exportCsv}">Export CSV</button>
+						<button type="button" class="btn btn-sm btn-default pull-right" id="ssrPdf"
+						        onclick="printSSR()" disabled="disabled" th:text="#{ui.ssr.pdf}">Download PDF</button>
+					</div>
+					<div class="panel-body">
+						<div class="form-inline" style="margin-bottom:8px">
+							<label for="ssrFrom" th:text="#{ui.from}">From</label>
+							<input type="date" id="ssrFrom" class="form-control input-sm">
+							<label for="ssrTo" th:text="#{ui.to}">To</label>
+							<input type="date" id="ssrTo" class="form-control input-sm">
+							<select id="ssrSupplier" class="form-control input-sm">
+								<option value="" th:text="#{ui.js.allSuppliers}">All suppliers</option>
+							</select>
+							<select id="ssrCompany" class="form-control input-sm">
+								<option value="" th:text="#{ui.ssr.allCompanies}">All companies</option>
+							</select>
+							<button type="button" class="btn btn-sm btn-primary" id="ssrLoad" onclick="loadSSR()"
+							        th:text="#{ui.ssr.show}">Show</button>
+						</div>
+						<div id="ssrNotice" class="alert alert-warning" style="display:none"></div>
+						<div class="table-scroll">
+							<table class="table table-condensed table-bordered ssr-table" id="ssrTable">
+								<thead id="ssrHead"></thead>
+								<tbody id="ssrBody"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
 			<div id="SRDiv" class="formDiv">
 				<style>
 					/* Sale Detail Report — scoped presentation */
@@ -4562,7 +4812,7 @@ tr.row-voided .js-edit-row{display:none !important}
          for a holder. PermissionInterceptor refuses POST /updateProduct without product.edit, so drawing them
          for anyone else would be offering a button that always refuses. The owner holds everything. The
          server remains the control. -->
-    <script sec:authorize="hasAuthority('product.edit')" th:inline="none">window.canEditProduct = true;</script>
+    <script th:if="${@perm.menu('action.product.edit')}" th:inline="none">window.canEditProduct = true;</script>
     <!-- PROD-DEL: permanently deleting a deactivated product is the OWNER's alone (the user's ruling). This flag only
          decides whether the "cannot be undone" confirm is shown; catalog enforces ROLE_OWNER itself. -->
     <script sec:authorize="hasAuthority('ROLE_OWNER')" th:inline="none">window.canPermanentlyDeleteProduct = true;</script>
@@ -4597,7 +4847,6 @@ tr.row-voided .js-edit-row{display:none !important}
          iframe + window.print(), not jsPDF, and no other business/* or common/* file references it.
          educationDashboard still loads jsPDF because education.js:1062 genuinely uses it. -->
     <script th:src="@{/js/business/chart.umd.min.js}"></script>
-    <script th:src="@{/js/common/dom-safe.js}"></script>
     <script th:src="@{/js/common/api-response.js}"></script>
     <script th:src="@{/js/common/loose-format.js}"></script>
     <!-- Team & Users: shared with education. Locations for this vertical are STORES. getMyStores (not getStores)
@@ -4669,6 +4918,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/price-history.js}"></script>
     <!-- PR-4: the Price approvals screen and its menu badge (owner/admin). -->
     <script th:src="@{/js/business/price-approvals.js}"></script>
+    <script th:src="@{/js/common/stock-alerts.js}"></script>   <!-- STK-ALERT: header badge (owner/admin) -->
     <!--
          SER-5 dashboard cards. Loads AFTER catalog-products.js because the category card's click handler
          calls openProductsForCategory(), which that file defines. The handler is delegated on `document`, so
@@ -4682,9 +4932,12 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/JsBarcode.all.min.js}"></script>
     <script th:src="@{/js/business/labels.js}"></script>
     <script th:src="@{/js/business/crud-modal.js}"></script>
+    <!-- SRA-1: inline City / Area on the customer and supplier forms. AFTER crud-modal.js: it wraps openCrudModal. -->
+    <script th:src="@{/js/business/address.js}"></script>
     <script th:src="@{/js/business/sidebar.js}"></script>
     <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>
+    <script th:src="@{/js/business/ssr.js}"></script>   <!-- SSR-1 -->
     <script th:src="@{/js/business/ecommerce.js}"></script>
     <!-- O7 D2b: the field rep's booking screen. Separate from ecommerce.js, which is the WAREHOUSE's surface. -->
     <script th:src="@{/js/business/order-booking.js}"></script>

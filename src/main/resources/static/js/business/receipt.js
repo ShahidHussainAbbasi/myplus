@@ -107,14 +107,16 @@
      */
     function moneyG(v) { return money(v); }
 
-    function dateOnly(v) { return v ? String(v).replace('T', ' ').substring(0, 10) : ''; }
+    // H6: an ISO instant prints in the viewer's zone; any other text (a server-formatted date) prints as before
+    function dateOnly(v) { return !v ? '' : serverInstant(v) ? fmtDate(v) : String(v).replace('T', ' ').substring(0, 10); }
 
     function timeOnly(v) {
+        if (v && serverInstant(v)) return fmtTime(v);
         var s = v ? String(v).replace('T', ' ') : '';
         return s.length >= 16 ? s.substring(11, 16) : '';
     }
 
-    function dateTime(v) { return v ? String(v).replace('T', ' ').substring(0, 16) : ''; }
+    function dateTime(v) { return !v ? '' : serverInstant(v) ? fmtDateTime(v) : String(v).replace('T', ' ').substring(0, 16); }
 
     /** Safe label lookup: a built-in label is an i18n key, an owner-authored one is literal text. */
     function labelOf(spec, override) {

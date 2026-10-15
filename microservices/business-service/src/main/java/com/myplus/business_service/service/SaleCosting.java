@@ -187,7 +187,7 @@ public class SaleCosting {
         if (lines == null) return cost;
         for (SagaLine l : lines) {
             if (l.costPrice() == null) continue;
-            cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+            cost = cost.add(l.costPrice().multiply(com.myplus.business_service.util.Quantities.nz(l.quantity())));
         }
         return cost.setScale(2, java.math.RoundingMode.HALF_UP);
     }
@@ -218,7 +218,7 @@ public class SaleCosting {
         BigDecimal snapshot = BigDecimal.ZERO;
         for (com.myplus.business_service.entity.Sell s : sells) {
             if (s.getCostPrice() == null || s.getQuantity() == null) continue;
-            snapshot = snapshot.add(s.getCostPrice().multiply(BigDecimal.valueOf(s.getQuantity())));
+            snapshot = snapshot.add(s.getCostPrice().multiply(s.getQuantity()));   // NUM-1: exact, no float hop
         }
         return snapshot.setScale(2, java.math.RoundingMode.HALF_UP);
     }

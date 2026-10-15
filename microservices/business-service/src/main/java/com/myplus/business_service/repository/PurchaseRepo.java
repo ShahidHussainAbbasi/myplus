@@ -122,6 +122,16 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    List<java.math.BigDecimal> findRecentCosts(@Param("productId") Long productId, @Param("orgId") Long orgId,
         @Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
 
+   // TP-4: how many of this product's bills in the tenant are NEWER than the one being edited — later date, or the same
+   // date and a higher id. A voided bill is not a purchase any more and does not count. Zero = the edited bill is the
+   // product's latest, so its rates may stand as the product's price and last rates.
+   @Query("select count(p) from purchase p where p.productId = :productId and p.purchaseId <> :id "
+        + "and (p.status is null or p.status <> 'VOID') "
+        + "and (p.organizationId = :orgId or (p.organizationId is null and p.userId = :userId)) "
+        + "and (p.dated > :dated or (p.dated = :dated and p.purchaseId > :id))")
+   long countNewerPurchases(@Param("productId") Long productId, @Param("id") Long id,
+        @Param("dated") java.time.LocalDateTime dated, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // M3c.4f (slice 88): the product_id backfill-from-stock queries were retired with the local Stock table.
    // The historical backfill ran at Flyway time (V5/V6) before the drop; nothing references local Stock anymore.
 
@@ -159,4 +169,17 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    /** FP-6a — someone the background job can act as for this tenant (service calls need a user identity). */
    @Query("select max(p.userId) from purchase p where p.organizationId = :org")
    Long anyUserOfOrg(@Param("org") Long org);
+
+   /** PB-OLD — each batch's own bill sale rate, for Per batch stock received before the switch (no price of its own).
+    *  One bill per batch (PR-3b stores the batch id on its bill); a VOID bill and a missing rate give nothing. */
+   @Query("select p.stockEntryId, p.bsellRate from purchase p where p.organizationId = :orgId "
+         + "and p.stockEntryId in :ids and (p.status is null or p.status <> 'VOID') and p.bsellRate > 0")
+   List<Object[]> billSellRates(@Param("orgId") Long orgId, @Param("ids") java.util.Collection<Long> ids);
+
+   /** SSR-0c fallback - each product's FIRST non-void purchase's supplier: [product_id, vender_id]. For products bought
+    *  before catalog stamped a main supplier. */
+   @Query(value = "SELECT p.product_id, p.vender_id FROM purchase p JOIN (SELECT product_id, MIN(purchase_id) AS mid "
+        + "FROM purchase WHERE organization_id = :org AND vender_id IS NOT NULL AND (status IS NULL OR status <> 'VOID') "
+        + "AND product_id IN :ids GROUP BY product_id) f ON f.mid = p.purchase_id", nativeQuery = true)
+   List<Object[]> firstSupplierByProduct(@Param("org") Long org, @Param("ids") java.util.Collection<Long> ids);
 }

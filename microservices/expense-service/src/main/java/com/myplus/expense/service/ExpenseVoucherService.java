@@ -58,12 +58,26 @@ public class ExpenseVoucherService {
     private final ExpenseTagService tags;
     private final com.myplus.expense.repository.ExpenseBillPaymentRepo billPayments;
     private final ExpenseSettings expenseSettings;   // EX-2f
+    private final ReceiptService receipts;            // EX-5
 
     @Transactional(readOnly = true)
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, int page, int size) {
+        return list(from, to, status, null, page, size);
+    }
+
+    /** EX-6 — {@code claim}: only claims in that state (the approvers' queue: SUBMITTED). */
+    @Transactional(readOnly = true)
+    public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, String claim, int page, int size) {
         int s = Math.max(1, Math.min(size <= 0 ? 50 : size, 200));
-        return PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to,
-                PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
+        String c = blankToNull(claim);
+        PageResponse<VoucherView> out = PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to == null ? null : to.plusDays(1),
+                c == null ? null : c.toUpperCase(java.util.Locale.ROOT), PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
+        // EX-5 — how many receipts each row has, in one query for the page
+        if (out.getContent() != null && !out.getContent().isEmpty()) {
+            java.util.Map<Long, Integer> n = receipts.counts(out.getContent().stream().map(VoucherView::id).toList());
+            out.setContent(out.getContent().stream().map(v -> v.withReceipts(n.getOrDefault(v.id(), 0))).toList());
+        }
+        return out;
     }
 
     /**
@@ -79,7 +93,8 @@ public class ExpenseVoucherService {
 
     @Transactional(readOnly = true)
     public VoucherView get(Long id) {
-        return VoucherView.of(visible(id));
+        ExpenseVoucher v = visible(id);
+        return VoucherView.of(v).withReceipts(receipts.counts(java.util.List.of(v.getId())).getOrDefault(v.getId(), 0));
     }
 
     /** Record (and, when {@code post}, post) a voucher. A replayed Idempotency-Key returns the first voucher. */
@@ -103,14 +118,21 @@ public class ExpenseVoucherService {
             throw new ValidationException("This expense is already being saved. Refresh the list.");
         }
         audit.record("EXPENSE_RECORDED", "EXPENSE", String.valueOf(v.getId()), v.getTotal(), v.getPaidFrom(), null);
-        if (post) postInTx(v);
-        return VoucherView.of(v);
+        receipts.attachOnSave(v, r.receiptIds());           // EX-5: the receipts, and "required above X", in this save
+        // EX-6b — a member's expense above what they may post is kept as a draft that waits for an owner or admin
+        if (post && !aboveMemberLimit(v)) postInTx(v);
+        return VoucherView.of(v).withReceipts(r.receiptIds() == null ? 0 : (int) r.receiptIds().stream().distinct().count());
     }
 
     @Transactional
     public VoucherView post(Long id) {
         access.assertModuleOn();
         ExpenseVoucher v = visible(id);
+        // EX-6 — a claim is posted by APPROVING it (owner/admin, not the claimant); this command would skip that.
+        if (v.isClaim()) throw new ValidationException("A claim goes to the books when an owner or admin approves it.");
+        if (aboveMemberLimit(v))
+            throw new ValidationException("This expense is above the " + expenseSettings.userPostLimit().toPlainString()
+                    + " a member may post. An owner or admin posts it.");
         postInTx(v);
         return VoucherView.of(v);
     }
@@ -120,7 +142,7 @@ public class ExpenseVoucherService {
         access.assertModuleOn();
         if (!access.seesAll()) throw new AccessDeniedException("Only an owner or admin can void an expense.");
         ExpenseVoucher v = visible(id);
-        if (v.isBill()) {
+        if (v.isOwed()) {
             // FP-3 — locked like a payment, so a void and a payment to the same bill cannot interleave; a payment
             // still waiting for finance's answer blocks the void exactly as a recorded one does.
             v = repo.lockForPayment(id, access.org()).orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
@@ -129,10 +151,11 @@ public class ExpenseVoucherService {
         }
         try {
             v.voidWith(reason, access.userId(), LocalDateTime.now());
+            v.setVoidPostedOn(TenantClock.today());          // EX-8a — the reversal's own date, kept
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw new ValidationException(e.getMessage());
         }
-        if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, TenantClock.today()));
+        if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, v.getVoidPostedOn()));
         if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the subledger document goes VOID
         audit.record("EXPENSE_VOIDED", "EXPENSE", v.getVoucherNo(), v.getTotal(), null, v.getVoidReason());
         return VoucherView.of(v);
@@ -187,6 +210,61 @@ public class ExpenseVoucherService {
     }
 
     /**
+     * EX-9b — an old farm expense row brought into the books by the owner (R-4). Idempotent on {@code (FARM, row id)}: the
+     * same row imported again returns the first voucher. Paid from Cash (an old farm row has none), on the row's own
+     * date, the line tagged to its LAND when agriculture still lists that land for the caller (untagged otherwise), the
+     * crop and type kept in the line's description.
+     */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ExpenseVoucherRef recordFromFarm(com.myplus.commerce.contracts.dto.FarmExpenseView r, Long categoryId) {
+        Long org = access.org();
+        if (r == null || r.getId() == null) throw new ValidationException("A farm expense needs its row id.");
+        String ref = String.valueOf(r.getId());
+        Optional<ExpenseVoucher> replay = repo.findByOrganizationIdAndSourceAndSourceRef(org, ExpenseVoucher.SOURCE_FARM, ref);
+        if (replay.isPresent()) return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(replay.get().getId(), replay.get().getVoucherNo());
+        if (r.getAmount() == null || r.getAmount().signum() <= 0) throw new ValidationException("A farm expense needs an amount.");
+        ExpenseCategory c = categories.activeCategory(org, categoryId);
+        ExpenseVoucher v = new ExpenseVoucher();
+        v.setOrganizationId(org);
+        v.setUserId(access.userId());
+        v.setVoucherDate(r.getDate() == null ? TenantClock.today() : r.getDate());
+        v.setPaidFrom(PaidFrom.CASH.name());
+        v.setPayeeName(limit(r.getExpenseName(), 160));
+        v.setNote("Farm expense, brought into the books");
+        v.setSource(ExpenseVoucher.SOURCE_FARM);
+        v.setSourceRef(ref);
+        v.setCreatedAt(LocalDateTime.now());
+        v.setUpdatedAt(LocalDateTime.now());
+        ExpenseVoucherLine l = new ExpenseVoucherLine();
+        l.setCategoryId(c.getId());
+        l.setAccountCode(c.getAccountCode());
+        l.setCategoryName(c.getName());
+        String what = java.util.stream.Stream.of(r.getCropName(), r.getExpenseType(), r.getDescription())
+                .filter(x -> x != null && !x.isBlank()).collect(java.util.stream.Collectors.joining(" · "));
+        l.setDescription(limit(what.isEmpty() ? r.getExpenseName() : what, 255));
+        l.setAmount(r.getAmount().setScale(2, RoundingMode.HALF_UP));
+        if (r.getLandId() != null) {
+            try {
+                String label = tags.confirm("LAND", r.getLandId());       // agriculture's own list, as the caller
+                l.setTagType("LAND");
+                l.setTagId(r.getLandId());
+                l.setTagLabel(label);
+            } catch (ValidationException gone) {
+                // the land was removed, or is not the caller's: the expense still comes in, untagged
+            }
+        }
+        v.addLine(l);
+        try {
+            v = repo.saveAndFlush(v);
+        } catch (DataIntegrityViolationException raced) {
+            throw new ValidationException("This farm expense is already being brought in.");
+        }
+        audit.record("EXPENSE_RECORDED", "EXPENSE", String.valueOf(v.getId()), v.getTotal(), "FARM " + ref, null);
+        postInTx(v);
+        return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(v.getId(), v.getVoucherNo());
+    }
+
+    /**
      * EX-1b — send again what the books refused or never took: the posting of a POSTED voucher, the reversal of a
      * VOIDED one, and a bill's subledger snapshot. Same event keys, so finance books each once however often it is
      * sent. Never the posting of a voided voucher (it voided with no reversal). Anyone who may see the expense may ask —
@@ -213,6 +291,21 @@ public class ExpenseVoucherService {
         return VoucherView.of(v);
     }
 
+    /**
+     * EX-8b — what this expense may duplicate: the same payee, date and amount already recorded in the business. A
+     * warning, never a refusal (two identical taxi fares on one day are real); the screen asks before saving. Named by
+     * number only, so a member learns no more about a colleague's expense than that it exists.
+     */
+    @Transactional(readOnly = true)
+    public List<String> possibleDuplicates(LocalDate date, java.math.BigDecimal amount, String payee) {
+        access.assertModuleOn();
+        if (date == null || amount == null || amount.signum() <= 0 || payee == null || payee.isBlank()) return List.of();
+        return repo.sameExpense(access.org(), date, amount.setScale(2, java.math.RoundingMode.HALF_UP), payee.trim().toLowerCase())
+                .stream().map(v -> v.getVoucherNo() != null ? v.getVoucherNo()
+                        : v.isClaim() ? "a claim waiting for approval" : "an expense waiting to be posted")   // EX-6b
+                .distinct().toList();
+    }
+
     /** A DRAFT may be discarded; anything posted stays, and is voided instead. */
     @Transactional
     public void deleteDraft(Long id) {
@@ -220,12 +313,23 @@ public class ExpenseVoucherService {
         ExpenseVoucher v = visible(id);
         if (!ExpenseVoucher.DRAFT.equals(v.getStatus()))
             throw new ValidationException("A posted expense cannot be deleted. Void it instead, with a reason.");
+        if (v.isClaim()) throw new ValidationException("A claim is withdrawn, not deleted — its trail is kept.");   // EX-6
         repo.delete(v);
     }
 
     // ── internals ───────────────────────────────────────────────────────────────────────────────────
 
-    private void postInTx(ExpenseVoucher v) {
+    /**
+     * EX-6b — is this above what the caller may post themselves? Only a member (not an owner or admin) is limited, and
+     * only when the owner set a limit (blank = none, the default). Compared on the total paid.
+     */
+    boolean aboveMemberLimit(ExpenseVoucher v) {
+        if (access.canApprove()) return false;
+        java.math.BigDecimal limit = expenseSettings.userPostLimit();
+        return limit != null && v.getTotal() != null && v.getTotal().compareTo(limit) > 0;
+    }
+
+    void postInTx(ExpenseVoucher v) {   // EX-6: also the claim's approval
         // the number is taken LAST before the outbox: the counter row stays locked until this commits
         long seq = numbers.next(v.getOrganizationId(), DOC_TYPE);
         try {
@@ -235,12 +339,13 @@ public class ExpenseVoucherService {
         }
         repo.saveAndFlush(v);
         outbox.enqueue(v, VoucherPostings.post(v));
-        if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the bill joins finance's payables subledger
+        // FP-3/E11 — a bill joins finance's payables subledger when its journal LANDS (ExpenseOutboxService.stampVoucher),
+        // so the ledger never holds a bill that GL 2000 does not.
         audit.record("EXPENSE_POSTED", "EXPENSE", v.getVoucherNo(), v.getTotal(), v.getPaidFrom(), null);
     }
 
     /** The voucher, if this caller may see it. Another tenant's — or, for a user, a colleague's — is "not found". */
-    private ExpenseVoucher visible(Long id) {
+    ExpenseVoucher visible(Long id) {
         ExpenseVoucher v = repo.findByIdAndOrganizationId(id, access.org())
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
         Long only = access.visibleUserId();
@@ -248,7 +353,10 @@ public class ExpenseVoucherService {
         return v;
     }
 
-    private ExpenseVoucher build(Long org, VoucherRequest r) {
+    private ExpenseVoucher build(Long org, VoucherRequest r) { return build(org, r, false); }
+
+    /** EX-6 — {@code asClaim}: the claim path, the only one that may build an EMPLOYEE voucher. */
+    ExpenseVoucher build(Long org, VoucherRequest r, boolean asClaim) {
         if (r == null) throw new ValidationException("Nothing to save.");
         LocalDate today = TenantClock.today();
         LocalDate date = r.voucherDate() == null ? today : r.voucherDate();
@@ -264,6 +372,12 @@ public class ExpenseVoucherService {
         // in the books with no cash leaving any drawer, and (being a till expense) it could never be voided.
         if (from == PaidFrom.DRAWER)
             throw new ValidationException("A pay-out from the till is recorded at the till (Till → Cash Drawer).");
+        // EX-6 — money paid from your own pocket is a CLAIM: it is owed back only once an owner or admin approves it,
+        // so it can never be recorded (and posted) straight in.
+        if (from == PaidFrom.EMPLOYEE && !asClaim)
+            throw new ValidationException("Money you paid yourself is a claim: choose \"Me (claim)\" so it goes for approval.");
+        if (asClaim && from != PaidFrom.EMPLOYEE)
+            throw new ValidationException("A claim is money you paid yourself.");
         // FP-3 — a bill is owed to a supplier business-service confirms for THIS caller; nothing else carries one.
         String supplierName = null;
         if (from == PaidFrom.AP) {
@@ -281,7 +395,14 @@ public class ExpenseVoucherService {
         ExpenseVoucher v = new ExpenseVoucher();
         v.setOrganizationId(org);
         v.setUserId(access.userId());
-        v.setStoreId(r.storeId());
+        // EX-8e (E8) — the branch is the one the person is WORKING IN: the active branch in their signed token (auth sets it
+        // to the one branch they hold, or the one they switched to; never a branch they do not hold). It is never taken
+        // from the request: one sent that is not their active branch is refused. No active branch = no branch, as before.
+        // The till's pay-outs keep theirs: business-service sets it from the drawer that paid (recordFromDrawer).
+        Long branch = com.myplus.common.security.LocationScope.active();
+        if (r.storeId() != null && !r.storeId().equals(branch))
+            throw new ValidationException("An expense is recorded for the branch you are working in. To record one for another branch, switch to it first.");
+        v.setStoreId(branch);
         v.setVoucherDate(date);
         v.setPaidFrom(from.name());
         v.setPayeeName(limit(r.payeeName(), 160));
@@ -307,6 +428,15 @@ public class ExpenseVoucherService {
             l.setCategoryName(c.getName());           // snapshot
             l.setDescription(limit(lr.description(), 255));
             l.setAmount(amt);
+            // EX-8d — the recoverable tax inside the amount: only while the business recovers input tax, never more than it
+            if (lr.taxAmount() != null && lr.taxAmount().signum() != 0) {
+                if (!expenseSettings.inputTaxRecoverable())
+                    throw new ValidationException("Recovering input tax is switched off for this business. An owner can switch it on in Expenses → Settings.");
+                BigDecimal tax = lr.taxAmount().setScale(2, RoundingMode.HALF_UP);
+                if (tax.signum() < 0) throw new ValidationException("The tax part cannot be negative.");
+                if (tax.compareTo(amt) >= 0) throw new ValidationException("The tax part must be less than the amount it is part of.");
+                l.setTaxAmount(tax);
+            }
             // EX-2b — confirmed by the owning module with the caller's identity; the label is the module's.
             String label = tags.confirm(lr.tagType(), lr.tagId(), tagLists);
             if (label != null) {

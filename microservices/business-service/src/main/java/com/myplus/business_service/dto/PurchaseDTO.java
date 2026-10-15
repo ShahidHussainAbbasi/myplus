@@ -90,7 +90,7 @@ public class PurchaseDTO implements Serializable {
 	 */
 	private Boolean duplicateBillAcknowledged;
 
-	private Float purchaseExpense;
+	private java.math.BigDecimal purchaseExpense;
 
 	private String purchaseExpenseDesc;
 
@@ -100,11 +100,14 @@ public class PurchaseDTO implements Serializable {
 
 	private String updated;
 
-	@ValidateEmpty
-	private Float quantity;
+	@ValidateEmpty   // rejects null
+	// NUM-1: rejects 0 and negatives — what @ValidateEmpty's Float branch did; its BigDecimal reading is "non-null",
+	// which money fields (CustomerDTO.paidAmount = 0) rely on, so the rule is stated here rather than changed there.
+	@jakarta.validation.constraints.Positive(message = "Blank/Null Not Allowed")
+	private java.math.BigDecimal quantity;
 
 	/** #17 P2: free units received on top of the billed quantity. Null/absent on an ordinary purchase. */
-	private Float bonusQuantity;
+	private java.math.BigDecimal bonusQuantity;
 
 	/** #17 P2: the scheme that produced the bonus, for traceability. */
 	private String bonusSchemeCode;

@@ -64,10 +64,12 @@ public class ExpenseBillService {
     private final ExpenseAccess access;
     private final ObjectProvider<FinanceClient> finance;
     private final TransactionTemplate tx;
+    private final com.myplus.expense.repository.ExpenseAdvanceBalanceRepo advances;   // EX-7b
 
     public ExpenseBillService(ExpenseVoucherRepo vouchers, ExpenseBillPaymentRepo payments, ExpenseOutboxService outbox,
                               ExpenseAuditService audit, ExpenseAccess access, ObjectProvider<FinanceClient> finance,
-                              PlatformTransactionManager txm) {
+                              PlatformTransactionManager txm, com.myplus.expense.repository.ExpenseAdvanceBalanceRepo advances) {
+        this.advances = advances;
         this.vouchers = vouchers;
         this.payments = payments;
         this.outbox = outbox;
@@ -127,6 +129,75 @@ public class ExpenseBillService {
                 LOG.warn("bill payment {} could not be reconciled yet", p.getId(), e);
             }
         }
+    }
+
+    // ── FP-3b: reversing a payment ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Reverse a payment made from the Expenses screen, so the bill owes it again (and, with nothing left paid, can be
+     * voided). finance FIRST — its mirror payment and opposite journal are idempotent per payment, so a lost answer is
+     * safe to press again — then, in one short transaction, the bill re-opened and the subledger told. A closed period
+     * (or any refusal) answers in the books' words and changes nothing here. A Pay Supplier application is not
+     * reversible here: its money is one payment for several bills, recorded by business-service.
+     */
+    public BillPaymentView reversePayment(Long voucherId, Long paymentId, String reason) {
+        access.assertModuleOn();
+        if (!access.seesAll()) throw new org.springframework.security.access.AccessDeniedException("Only an owner or admin can reverse a payment.");
+        if (reason == null || reason.isBlank()) throw new ValidationException("Say why this payment is being reversed.");
+        String why = reason.trim().length() > 255 ? reason.trim().substring(0, 255) : reason.trim();
+        ExpenseBillPayment row = tx.execute(st -> {
+            visible(voucherId);
+            return payments.findById(paymentId)
+                    .filter(p -> p.getVoucherId().equals(voucherId) && p.getOrganizationId().equals(access.org()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+        });
+        if (ExpenseBillPayment.REVERSED.equals(row.getStatus())) return BillPaymentView.of(row);   // a retried reversal
+        if (!ExpenseBillPayment.RECORDED.equals(row.getStatus()))
+            throw new ValidationException("Only a recorded payment can be reversed (this one is " + row.getStatus() + ").");
+        if (row.getFinancePaymentId() == null)
+            throw new ValidationException("This was paid through Pay Supplier (" + row.getReference()
+                    + ") — one payment for several bills — so it cannot be reversed from here.");
+
+        PaymentRecordResult res;
+        try {
+            res = finance.getObject().reversePayment(row.getFinancePaymentId(), Map.of("reason", why));
+        } catch (org.springframework.web.client.HttpClientErrorException refused) {
+            throw new ValidationException("The books refused this reversal. " + messageOf(refused.getResponseBodyAsString()));
+        } catch (Exception lost) {
+            LOG.warn("reversal of bill payment {} sent, answer lost", row.getId(), lost);
+            throw new ValidationException("The books did not answer in time. Press Reverse again — it will not reverse twice.");
+        }
+        return tx.execute(st -> {
+            ExpenseBillPayment p = payments.findById(row.getId()).orElseThrow();
+            if (ExpenseBillPayment.REVERSED.equals(p.getStatus())) return BillPaymentView.of(p);
+            ExpenseVoucher v = vouchers.lockForPayment(p.getVoucherId(), p.getOrganizationId()).orElseThrow();
+            try {
+                v.reversePayment(p.getAmount());
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                throw new ValidationException(e.getMessage());
+            }
+            v.setUpdatedAt(LocalDateTime.now());
+            giveBackAdvance(p);                         // EX-7b — a settlement reversed: the member holds it again
+            p.setStatus(ExpenseBillPayment.REVERSED);
+            p.setReversalReceiptNo(res == null ? null : res.getReceiptNo());
+            p.setReversalReason(why);
+            p.setReversedBy(access.userId());
+            p.setReversedAt(LocalDateTime.now());
+            p.setUpdatedAt(LocalDateTime.now());
+            payments.saveAndFlush(p);
+            vouchers.saveAndFlush(v);
+            if (v.isBill()) outbox.enqueuePayable(v);      // the subledger: the bill owes this again (a claim has none)
+            audit.record(v.isClaim() ? "EXPENSE_CLAIM_PAYMENT_REVERSED" : "EXPENSE_BILL_PAYMENT_REVERSED", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getReceiptNo(), why);
+            return BillPaymentView.of(p);
+        });
+    }
+
+    /** The sentence of an ApiResponse error body ({"message": "..."}), else the body itself, trimmed. */
+    static String messageOf(String body) {
+        if (body == null) return "";
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(body);
+        String out = m.find() ? m.group(1) : body.replaceAll("\\s+", " ");
+        return out.length() > 200 ? out.substring(0, 200) : out;
     }
 
     // ── FP-5b: Pay Supplier settles bills too ───────────────────────────────────────────────────────
@@ -215,24 +286,43 @@ public class ExpenseBillService {
         visible(voucherId);
         ExpenseVoucher v = vouchers.lockForPayment(voucherId, org)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
-        if (!v.isBill()) throw new ValidationException("Only a bill can be paid — this expense was paid when it was recorded.");
+        if (v.isClaim()) {
+            // EX-7a — paying a member back: an approved claim, by an owner or admin who is not the claimant
+            if (!v.isOwed()) throw new ValidationException("Only an approved claim can be paid back.");
+            if (!access.canApprove()) throw new org.springframework.security.access.AccessDeniedException("Only an owner or admin can pay a claim back.");
+            if (v.getUserId() != null && v.getUserId().equals(access.userId()))
+                throw new ValidationException("You cannot pay your own claim back. Another owner or admin pays it.");
+        } else if (!v.isBill()) throw new ValidationException("Only a bill can be paid — this expense was paid when it was recorded.");
         if (!ExpenseVoucher.POSTED.equals(v.getStatus()))
             throw new ValidationException("Only a posted bill can be paid (this one is " + v.getStatus() + ").");
         // The bill must be IN the books before money leaves against it: paying a bill whose posting failed would
         // debit Accounts Payable for a credit that was never made (STANDARDS §0b — never optimistic about money).
         if (!ExpenseVoucher.PS_POSTED_GL.equals(v.getPostingStatus()))
-            throw new ValidationException("This bill is not in the books yet. Pay it once it shows In the books.");
+            throw new ValidationException("This " + (v.isClaim() ? "claim" : "bill") + " is not in the books yet. Pay it once it shows In the books.");
 
         if (r == null || r.amount() == null || r.amount().signum() <= 0)
             throw new ValidationException("Enter the amount being paid.");
         BigDecimal amount = r.amount().setScale(2, RoundingMode.HALF_UP);
         BigDecimal stillOwed = v.openAmount().subtract(payments.sumPending(v.getId()));
         if (amount.compareTo(stillOwed) > 0)
-            throw new ValidationException("That is more than is owed on this bill (" + stillOwed.max(BigDecimal.ZERO) + ").");
-        String method = method(r.method());
+            throw new ValidationException("That is more than is owed on this " + (v.isClaim() ? "claim" : "bill") + " (" + stillOwed.max(BigDecimal.ZERO) + ").");
+        String method = method(r.method(), v.isClaim());
+        if (ADVANCE.equals(method)) {
+            // EX-7b — settle the claim from what the claimant holds as an advance: reserved here, under the member's
+            // balance row lock, so two pay-backs at once can never spend the same advance twice; a refusal gives it back
+            com.myplus.expense.entity.ExpenseAdvanceBalance b = advances.lock(org, v.getUserId())
+                    .orElseThrow(() -> new ValidationException("This member holds no advance to settle the claim from."));
+            try {
+                b.take(amount);
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                throw new ValidationException(e.getMessage());
+            }
+            b.setUpdatedAt(LocalDateTime.now());
+            advances.saveAndFlush(b);
+        }
         LocalDate paidOn = r.paidOn() == null ? TenantClock.today() : r.paidOn();
         if (paidOn.isAfter(TenantClock.today())) throw new ValidationException("A payment cannot be dated in the future.");
-        if (paidOn.isBefore(v.getVoucherDate())) throw new ValidationException("A bill cannot be paid before its own date.");
+        if (paidOn.isBefore(v.getVoucherDate())) throw new ValidationException("A " + (v.isClaim() ? "claim" : "bill") + " cannot be paid before its own date.");
 
         ExpenseBillPayment p = new ExpenseBillPayment();
         p.setOrganizationId(org);
@@ -298,8 +388,8 @@ public class ExpenseBillService {
             p.setLastError(null);
             p.setUpdatedAt(LocalDateTime.now());
             vouchers.saveAndFlush(v);
-            outbox.enqueuePayable(v);
-            audit.record("EXPENSE_BILL_PAID", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getMethod(), receiptNo);
+            if (v.isBill()) outbox.enqueuePayable(v);       // a claim is not in the supplier subledger (EX-7a)
+            audit.record(v.isClaim() ? "EXPENSE_CLAIM_PAID" : "EXPENSE_BILL_PAID", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getMethod(), receiptNo);
             return p;
         });
     }
@@ -307,6 +397,7 @@ public class ExpenseBillService {
     private void release(Long rowId, String why) {
         tx.executeWithoutResult(st -> payments.findById(rowId).ifPresent(p -> {
             if (!ExpenseBillPayment.PENDING.equals(p.getStatus())) return;
+            giveBackAdvance(p);                         // EX-7b — the reservation was never spent
             p.setStatus(ExpenseBillPayment.FAILED);
             p.setLastError(why);
             p.setUpdatedAt(LocalDateTime.now());
@@ -315,12 +406,26 @@ public class ExpenseBillService {
 
     private Optional<PaymentView> findInFinance(ExpenseBillPayment row) {
         ExpenseVoucher v = vouchers.findById(row.getVoucherId()).orElseThrow();
-        List<PaymentView> list = finance.getObject().listPayments("VENDOR", v.getSupplierId());
+        List<PaymentView> list = v.isClaim() ? finance.getObject().listPayments("EMPLOYEE", v.getUserId())
+                : finance.getObject().listPayments("VENDOR", v.getSupplierId());
         if (list == null) return Optional.empty();
         return list.stream().filter(pv -> row.getReference() != null && row.getReference().equals(pv.getReference())).findFirst();
     }
 
     static PaymentRecordRequest request(ExpenseBillPayment row, ExpenseVoucher v) {
+        if (v.isClaim()) {
+            // EX-7a — the member who paid, as finance's EMPLOYEE party: finance clears 2300 (not 2000) and the claim has
+            // no document in the supplier subledger, so nothing is allocated
+            return PaymentRecordRequest.builder()
+                    .direction("DISBURSEMENT")
+                    .partyType("EMPLOYEE").partyId(v.getUserId()).partyName(v.getClaimantName())
+                    .amount(row.getAmount()).method(row.getMethod()).paidOn(row.getPaidOn())
+                    .reference(row.getReference())
+                    .sourceModule(SOURCE_MODULE)
+                    .note("Claim " + v.getVoucherNo())
+                    .allocations(List.of())
+                    .build();
+        }
         return PaymentRecordRequest.builder()
                 .direction("DISBURSEMENT")
                 .partyType("VENDOR").partyId(v.getSupplierId()).partyName(v.getSupplierName())
@@ -334,10 +439,27 @@ public class ExpenseBillService {
                 .build();
     }
 
-    static String method(String raw) {
+    /** EX-7b — a claim may also be settled from the claimant's advance (no money moves: Dr 2300 / Cr 1300). */
+    static final String ADVANCE = "ADVANCE";
+
+    static String method(String raw) { return method(raw, false); }
+
+    static String method(String raw, boolean claim) {
         String m = raw == null ? "CASH" : raw.trim().toUpperCase();
-        if (!m.equals("CASH") && !m.equals("BANK")) throw new ValidationException("Pay a bill by cash or bank.");
+        if (claim && m.equals(ADVANCE)) return m;
+        if (!m.equals("CASH") && !m.equals("BANK")) throw new ValidationException(claim ? "Pay back by cash, bank or from the member's advance." : "Pay by cash or bank.");
         return m;
+    }
+
+    /** EX-7b — a settlement from an advance that did not happen (refused) or was undone (reversed): back on the balance. */
+    private void giveBackAdvance(ExpenseBillPayment p) {
+        if (!ADVANCE.equals(p.getMethod())) return;
+        ExpenseVoucher v = vouchers.findById(p.getVoucherId()).orElseThrow();
+        advances.lock(p.getOrganizationId(), v.getUserId()).ifPresent(b -> {
+            b.add(p.getAmount());
+            b.setUpdatedAt(LocalDateTime.now());
+            advances.saveAndFlush(b);
+        });
     }
 
     private ExpenseVoucher visible(Long id) {

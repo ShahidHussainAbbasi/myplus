@@ -14,6 +14,9 @@ public interface ILandService {
     List<Land> findScoped(Long orgId, Long userId);
     boolean exists(Example<Land> example);
     Optional<Land> findById(Long id);
+
+    /** The land with this id only if it is the caller's (their org, or their own pre-migration row); empty otherwise. */
+    Optional<Land> findScopedById(Long id, Long orgId, Long userId);
     Land save(Land land);
     void deleteById(Long id);
 }

@@ -36,7 +36,10 @@ public class PermissionService {
     private final com.myplus.auth.repository.MembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepo;
 
-    public static final String SET_STANDARD = "Standard";
+    /** RW-0a — the jobs a set can be the starting point for (permission_set.default_for, V24). */
+    public static final String JOB_MEMBER = "MEMBER";
+    public static final String JOB_ADMIN = "ADMIN";
+    public static final String JOB_DOCTOR = "DOCTOR";
 
     // ── the catalog ────────────────────────────────────────────────────────────────────────────
 
@@ -57,7 +60,10 @@ public class PermissionService {
      */
     public static String moduleOf(String orgType) {
         if (orgType == null) return null;
-        if ("BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)) return "BUSINESS";
+        // HC-1a — CLINIC (Hospital / Clinic) too: the clinic.* codes and the Doctor / Clinic reception sets live in
+        // the BUSINESS catalogue. Without this a clinic has no matrix and its members no codes.
+        if ("BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)
+                || "CLINIC".equalsIgnoreCase(orgType)) return "BUSINESS";
         if ("EDUCATION".equalsIgnoreCase(orgType)) return "EDUCATION";
         return null;
     }
@@ -298,10 +304,6 @@ public class PermissionService {
         return userSetRepo.findByUserId(userId).map(UserPermissionSet::getSetId).orElse(null);
     }
 
-    /** The set a brand-new member lands on when nobody chose one. */
-    public Optional<PermissionSet> standardSet() {
-        return setRepo.findByOrganizationIdIsNullAndName(SET_STANDARD);
-    }
 
     /** Which permission vocabulary the tenant owning this organisation speaks. */
     public String moduleForOrg(Long orgId) {
@@ -322,13 +324,20 @@ public class PermissionService {
      * <p>Returns empty when the tenant has no catalogue, and the caller leaves them on no set — which is
      * V14's fail-back: they are minted exactly the role privileges they had before PERM-1 existed.
      */
-    public Optional<PermissionSet> defaultSetFor(Long orgId, boolean admin) {
+    /**
+     * RW-0a — the set that is the starting point for a JOB in this tenant's module: the row whose
+     * {@code default_for} says so (V24). The business's OWN set wins over the built-in, so an owner can point a job at
+     * a set they made. Never a name in code.
+     */
+    public Optional<PermissionSet> setForJob(Long orgId, String job) {
         String module = moduleForOrg(orgId);
-        if (module == null) return Optional.empty();
-        String name = "EDUCATION".equals(module) ? (admin ? "Principal" : "Teacher")
-                                                 : (admin ? "Administrator" : SET_STANDARD);
+        if (module == null || job == null) return Optional.empty();
         return setsFor(orgId, module).stream()
-                .filter(ps -> ps.isBuiltin() && name.equals(ps.getName()))
-                .findFirst();
+                .filter(ps -> job.equalsIgnoreCase(ps.getDefaultFor()))
+                .min(java.util.Comparator.comparing(ps -> ps.getOrganizationId() == null ? 1 : 0));
+    }
+
+    public Optional<PermissionSet> defaultSetFor(Long orgId, boolean admin) {
+        return setForJob(orgId, admin ? JOB_ADMIN : JOB_MEMBER);
     }
 }

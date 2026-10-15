@@ -80,8 +80,9 @@ let html = fs.readFileSync(TEMPLATE, 'utf8')
 let replaced = 0
 const passed = recorded.filter((c) => c.passed)
 for (const c of passed) {
-  // a hand-written case runs from its opening <div class="case" data-case="ID"> to the line before the next case or </section>
-  const re = new RegExp(`      <div class="case" data-case="${c.id.replace(/[-]/g, '\\-')}">[\\s\\S]*?\\r?\\n      </div>\\r?\\n(?=\\s*(?:<div class="case"|</section>))`)
+  // a hand-written case runs from its opening <div class="case" data-case="ID"> to the line before the next case or </section>;
+  // the next case may already be replaced (class="case recorded"), so either spelling ends this one
+  const re = new RegExp(`      <div class="case" data-case="${c.id.replace(/[-]/g, '\\-')}">[\\s\\S]*?\\r?\\n      </div>\\r?\\n(?=\\s*(?:<div class="case[ \"]|</section>))`)
   if (re.test(html)) { html = html.replace(re, caseHtml(c)); replaced++ }
 }
 

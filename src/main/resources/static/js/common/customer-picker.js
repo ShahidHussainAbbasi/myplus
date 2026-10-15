@@ -62,7 +62,8 @@
                  + ' data-contact="' + esc(c.contact || '') + '"'
                  + ' data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '"'
                  + ' data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '"'
-                 + ' data-customer-type="' + esc(c.customerType || '') + '">'
+                 + ' data-customer-type="' + esc(c.customerType || '') + '"'
+                 + ' data-rep-id="' + (c.defaultRepId || '') + '">'
                  + esc(c.name) + '</option>';
         });
         return html;

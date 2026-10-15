@@ -32,8 +32,8 @@
 
 	function fmt(iso) {
 		if (!iso) return '';
-		var d = new Date(iso);
-		return isNaN(d) ? String(iso) : d.toLocaleString();
+		var d = serverInstant(iso);   // H6: appliedAt is server UTC with no offset
+		return d ? d.toLocaleString() : String(iso);
 	}
 
 	function load() {
@@ -214,9 +214,6 @@
 		SUSPEND: ['ui.js.mktSuspend', 'Suspend'], REINSTATE: ['ui.js.mktReinstate', 'Reinstate']
 	};
 
-	function money(v) {
-		return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-	}
 
 	function loadOffers() {
 		var $tb = $('#mktOfferQueue tbody').empty();
@@ -876,7 +873,7 @@
 			$t.find('th').each(function (i) { $(this).text(heads[i]); });
 			(v.entries || []).forEach(function (e) {
 				$t.find('tbody').append($('<tr class="mkt-entry"></tr>').attr('data-entry-type', e.entryType)
-					.append($('<td></td>').text((e.effectiveAt || '').substring(0, 10)))
+					.append($('<td></td>').text(fmtDate(e.effectiveAt)   /* H6: the viewer's day */))
 					.append($('<td></td>').text(e.entryType).append(e.memo ? $('<div class="plat__hint"></div>').text(e.memo) : null))
 					.append($('<td></td>').text(e.ref || ''))
 					.append($('<td class="text-right"></td>').text(Number(e.credit) ? money(e.credit) : ''))

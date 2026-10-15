@@ -94,6 +94,49 @@ describe('Product list — last purchase & sale rate', () => {
     })
   })
 
+  // TP-4 (2026-10-10): only the product's LATEST bill speaks for its price. Live defect: correcting an OLDER Desora bill
+  // put that bill's 297.70 back over the newer bill's 309.15. Design: selling-price-per-purchase-analysis.md §12.17.
+  it('TP-4 editing an OLDER bill leaves the newer bill’s price; editing the LATEST still re-prices', () => {
+    cy.seedProduct({ name: 'LR4_' + uniq(), sellingPrice: 50 }).then(({ productId }) => {
+      const invA = 'LR4A-' + uniq(), invB = 'LR4B-' + uniq()
+      purchase(productId, 40, 65, invA)
+      purchase(productId, 45, 70, invB)
+      const edit = (inv, cost, sell) => cy.request('/getUserPurchase').then((r) => {
+        const bill = (r.body.collection || []).find((p) => p.purchaseInvoiceNo === inv)
+        expect(bill, inv).to.exist
+        cy.request({
+          method: 'POST', url: '/updatePurchase', form: true, failOnStatusCode: false,
+          body: {
+            purchaseId: bill.purchaseId, productId, quantity: 5, purchaseRate: cost,
+            'stock.bpurchaseRate': cost, 'stock.bsellRate': sell,
+            totalAmount: cost * 5, netAmount: cost * 5, paidAmount: cost * 5, purchaseInvoiceNo: inv,
+          },
+        }).then((u) => expect(u.body.status, JSON.stringify(u.body)).to.eq('SUCCESS'))
+      })
+
+      edit(invA, 38, 62)
+      productRow(productId).then((row) => {
+        expect(Number(row.sellingPrice), 'the newer bill B still sets the price').to.eq(70)
+        expect(Number(row.lastSaleRate), 'last sale rate is still B’s').to.eq(70)
+        expect(Number(row.lastPurchaseRate), 'last purchase rate is still B’s').to.eq(45)
+      })
+      // …while the older bill itself did take the correction
+      cy.request('/getUserPurchase').then((r) => {
+        const a = (r.body.collection || []).find((p) => p.purchaseInvoiceNo === invA)
+        const r8 = a.stock || a   // the grid nests the bill's rates under stock
+        expect(Number(r8.bsellRate), 'bill A corrected').to.eq(62)
+        expect(Number(r8.bpurchaseRate)).to.eq(38)
+      })
+
+      // positive control: the LATEST bill's correction still reaches the product
+      edit(invB, 44, 69)
+      productRow(productId).then((row) => {
+        expect(Number(row.sellingPrice), 'editing the latest bill re-prices').to.eq(69)
+        expect(Number(row.lastPurchaseRate)).to.eq(44)
+      })
+    })
+  })
+
   it('a bill carrying no sell rate updates the cost WITHOUT re-pricing the shop', () => {
     cy.seedProduct({ name: 'LR4_' + uniq(), sellingPrice: 50 }).then(({ productId }) => {
       purchase(productId, 40, 65, 'LR4A-' + uniq())

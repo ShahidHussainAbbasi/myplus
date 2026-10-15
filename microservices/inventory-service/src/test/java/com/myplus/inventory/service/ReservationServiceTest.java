@@ -214,7 +214,7 @@ class ReservationServiceTest {
     }
 
     private List<StockReturnLine> returnLines(float qty) {
-        return List.of(new StockReturnLine(PRODUCT, qty));
+        return List.of(new StockReturnLine(PRODUCT, new BigDecimal(Float.toString(qty))));   // NUM-1: contract is BigDecimal
     }
 
     @Test

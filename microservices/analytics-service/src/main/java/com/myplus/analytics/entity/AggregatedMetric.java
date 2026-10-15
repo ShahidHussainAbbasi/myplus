@@ -3,6 +3,7 @@ package com.myplus.analytics.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -23,8 +24,9 @@ public class AggregatedMetric {
 
     private String dimension;
 
-    @Column(nullable = false)
-    private Double value;
+    /** AN-1 — DECIMAL(19,2) (V3; was a double): a money metric must add up to the books to the cent. */
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal value;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

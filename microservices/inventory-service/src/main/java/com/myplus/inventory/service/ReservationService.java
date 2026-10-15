@@ -36,6 +36,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final StockEntryRepository stockEntryRepository;
     private final StockLevelRepository stockLevelRepository;
+    private final StockLedger ledger;   // SSR-0a
     /** OMS O5a — how long this tenant's holds live. */
     private final ReservationPolicy reservationPolicy;
 
@@ -346,6 +347,9 @@ public class ReservationService {
             stockLevelRepository.findByProductScoped(p.getProductId(), orgId, userId).ifPresent(sl -> {
                 sl.setCurrentStock(nz(sl.getCurrentStock()).subtract(nz(p.getQuantity())));
                 stockLevelRepository.save(sl);
+                // SSR-0a - the goods leave: paid + bonus together (the split lives on the sale line)
+                ledger.record(orgId, userId, p.getProductId(), p.getStockEntryId(), com.myplus.commerce.contracts.dto.StockMovementType.SALE,
+                        nz(p.getQuantity()).negate(), p.getUnitCost(), resv.getReservationId());
             });
         }
         resv.setStatus(ReservationStatus.CONFIRMED);
@@ -382,15 +386,23 @@ public class ReservationService {
     @Transactional
     public StockReturnResponse returnPicks(String reservationId, List<StockReturnLine> lines, boolean quarantine,
                                            Long orgId, Long userId) {
+        return returnPicks(reservationId, lines, quarantine, orgId, userId, null, null);
+    }
+
+    /** SSR-0a - as above, saying why (SALE_RETURN by default; SALE_EDIT / SALE_VOID / REPOSSESSION) and the document. */
+    @Transactional
+    public StockReturnResponse returnPicks(String reservationId, List<StockReturnLine> lines, boolean quarantine,
+                                           Long orgId, Long userId, String movementType, String sourceRef) {
+        String type = StockLedger.typeOr(movementType, com.myplus.commerce.contracts.dto.StockMovementType.SALE_RETURN);
+        String ref = sourceRef != null ? sourceRef : reservationId;
         Reservation resv = reservationRepository.findByReservationIdScoped(reservationId, orgId, userId).orElse(null);
         BigDecimal total = BigDecimal.ZERO;
 
         for (StockReturnLine line : lines) {
             if (line == null || line.getProductId() == null) continue;
-            // U0 boundary: the CONTRACT still carries Float (StockReturnLine.qty) and U0 deliberately does
-            // not change it — that is a six-service change with its own regression surface. Inventory converts
-            // at its own edge, so what it STORES is exact even while what it is TOLD is not yet.
-            BigDecimal qty = line.getQty() == null ? BigDecimal.ZERO : BigDecimal.valueOf(line.getQty());
+            // NUM-1: the contract carries BigDecimal now. (Until then it was Float, converted here with
+            // BigDecimal.valueOf — which is NOT exact: 0.075f became 0.07500000298.)
+            BigDecimal qty = line.getQty() == null ? BigDecimal.ZERO : line.getQty();
             if (qty.signum() <= 0) continue;
             BigDecimal remaining = qty;
 
@@ -425,6 +437,12 @@ public class ReservationService {
 
             // Quarantined stock is physically present but NOT sellable, so it does not raise sellable on-hand.
             if (!quarantine) bumpLevel(line.getProductId(), qty, orgId, userId);
+            // SSR-0a - the return is recorded either way, so a period report counts it; a quarantined one leaves
+            // sellable stock again at once (net zero on on-hand, exactly like the level above).
+            ledger.record(orgId, userId, line.getProductId(), null, type, qty, null, ref);
+            if (quarantine) {
+                ledger.record(orgId, userId, line.getProductId(), null, com.myplus.commerce.contracts.dto.StockMovementType.QUARANTINE, qty.negate(), null, ref);
+            }
             total = total.add(qty);
         }
 

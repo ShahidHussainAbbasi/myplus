@@ -224,8 +224,7 @@
 
         backdrop.appendChild(card);
         document.body.appendChild(backdrop);
-        // next frame so the transition runs
-        requestAnimationFrame(function () { backdrop.classList.add('is-open'); });
+        reveal(backdrop);
 
         return new Promise(function (resolve) {
             var done = false;
@@ -311,6 +310,24 @@
      * Sharing the injector rather than copying the CSS keeps one definition of what a dialog looks like.
      */
     global.uiDialogStyles = injectStyles;
+
+    /**
+     * Fade a .uiC-backdrop in — the ONE way (2026-10-14).
+     *
+     * It used to wait for requestAnimationFrame before adding .is-open. Chrome PAUSES animation frames while the
+     * window or tab is not visible, so a dialog opened then (a cashier switched tabs while a save was in flight; a
+     * covered Cypress window) stayed at opacity:0 — on screen but invisible, until the tab was looked at again. Two
+     * gates failed that way (TEAM-1 TM-04, DOC-INT 7) with the server's answer correct both times.
+     *
+     * Reading offsetWidth forces the browser to lay the new element out at opacity:0 NOW, so adding .is-open in the
+     * same tick still runs the fade — with no dependence on a frame that may never come.
+     */
+    function reveal(el) {
+        if (!el) return;
+        void el.offsetWidth;
+        el.classList.add('is-open');
+    }
+    global.uiDialogReveal = reveal;
 
     /** Themed confirm. Resolves true/false. */
     global.uiConfirm = function (opts) {

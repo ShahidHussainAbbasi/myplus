@@ -121,7 +121,9 @@ describe('PERM-1 — permission sets', () => {
       const msg = JSON.stringify(r.body).toLowerCase()
       // The message must NAME the thing and say who fixes it. "Access denied" tells a cashier nothing
       // they can act on, so they telephone somebody instead of asking the owner beside them.
-      expect(msg, `names the action: ${msg}`).to.contain('create users')
+      // RW-0c: the action is named in the CATALOGUE's words (permission.label — data, may be reworded), so the
+      // message's stable part is asserted, not the label text
+      expect(msg, `names the refusal: ${msg}`).to.contain('your role does not include')
       expect(msg, 'and who can grant it').to.contain('owner')
     })
   })
@@ -260,8 +262,8 @@ describe('PERM-1 — permission sets', () => {
       },
     }).then((r) => {
       expect(r.status, `a member of another module must not hold sale.create: ${r.status}`).to.eq(403)
-      expect(JSON.stringify(r.body).toLowerCase(), 'and is told so plainly')
-        .to.contain('not allowed')
+      expect(JSON.stringify(r.body).toLowerCase(), 'and is told so plainly (RW-0c wording)')
+        .to.contain('your role does not include')
     })
 
     /*

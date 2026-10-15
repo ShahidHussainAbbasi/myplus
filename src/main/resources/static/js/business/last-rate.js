@@ -75,17 +75,13 @@
     /** dd MMM — short enough for a cart cell, unambiguous unlike a bare number. */
     function shortDate(iso) {
         if (!iso) return '';
-        var d = new Date(String(iso).replace(' ', 'T'));
+        // H6: a server instant (lastRateAt) in the viewer's zone; anything else read as before
+        var d = serverInstant(iso) || new Date(String(iso).replace(' ', 'T'));
         if (isNaN(d.getTime())) return '';
         var M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         return d.getDate() + ' ' + M[d.getMonth()];
     }
 
-    function money(n) {
-        var v = Number(n);
-        if (!isFinite(v)) return '';
-        return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
 
     /**
      * Draw the hint into every cart row whose product has history.
@@ -96,7 +92,9 @@
      */
     function annotate() {
         var table = global.tablesi;
-        if (!table || !enabled()) return;
+        // Not `|| !enabled()`: switched OFF, the loop below still has to REMOVE the hints already drawn (it skips
+        // drawing new ones itself). Returning here left them on screen after the setting went off (LR-1 case 5).
+        if (!table) return;
 
         table.rows().every(function () {
             var $tr = $(this.node());

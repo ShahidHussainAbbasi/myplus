@@ -100,7 +100,60 @@ public class PaymentService {
         // needs no relay). postPayment ensureDefaults() seeds the CoA if missing and its journal balances by
         // construction, so it can only throw on a closed period (which must reject the payment too) or a real DB
         // fault (which would fail the save anyway) — either way payment + journal commit together or not at all.
-        postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod());
+        List<com.myplus.finance.dto.JournalLineDTO> posted = postingService.postPayment(saved.getDirection().name(),
+                saved.getAmount(), saved.getMethod(), saved.getPartyType(), req.getPurpose());
+        // EX-7b — keep on the row the accounts its journal moved (the V1 slots, unused until now), so a reversal
+        // mirrors exactly what was posted
+        if (posted != null && posted.size() == 2) {
+            for (com.myplus.finance.dto.JournalLineDTO l : posted) {
+                if (l.getDebit() != null && l.getDebit().signum() > 0) saved.setDebitAccount(l.getAccountCode());
+                else saved.setCreditAccount(l.getAccountCode());
+            }
+        }
+        return toDTO(saved);
+    }
+
+    /**
+     * FP-3b — reverse a recorded payment: a MIRROR payment (same direction, opposite amount, the original's number
+     * with "-R") and the opposite journal (a disbursement: Dr cash·bank / Cr 2000), atomically — the same shape DR-4
+     * uses for a set-off. Idempotent: the mirror carries {@code clientRef = REV:<id>}, so a second call (a retry, a
+     * lost answer) finds the first reversal and answers with it, and UNIQUE (organization_id, client_ref) refuses a
+     * concurrent second one. A closed period refuses it (the journal's own lock check), and nothing is saved.
+     * No allocations on the mirror: the caller re-opens its own document (expense-service re-opens the bill and tells
+     * the payables subledger), exactly as business-service does after a set-off reversal.
+     */
+    @Transactional
+    public PaymentDTO reverse(Long paymentId, String reason) {
+        Long orgId = CurrentUser.organizationId();
+        if (orgId == null) throw new IllegalStateException("No tenant identity on the request");
+        if (reason == null || reason.isBlank())
+            throw new com.myplus.common.web.exception.ValidationException("Say why this payment is being reversed.");
+        Payment p = paymentRepository.findByIdAndOrganizationId(paymentId, orgId)
+                .orElseThrow(() -> new com.myplus.common.web.exception.ResourceNotFoundException("Payment not found"));
+        String clientRef = "REV:" + p.getId();
+        java.util.Optional<Payment> earlier = paymentRepository.findByOrganizationIdAndClientRef(orgId, clientRef);
+        if (earlier.isPresent()) return toDTO(earlier.get());
+        if (p.getAmount() == null || p.getAmount().signum() <= 0)
+            throw new com.myplus.common.web.exception.ValidationException("A reversal cannot itself be reversed.");
+        if ("SETOFF".equalsIgnoreCase(p.getMethod()))
+            throw new com.myplus.common.web.exception.ValidationException("A set-off is reversed from the supplier's statement, not here.");
+        LocalDate on = TenantClock.today();
+        String ref = "Reversal of " + p.getReceiptNo() + ": " + reason.trim();
+        Payment mirror = Payment.builder()
+                .direction(p.getDirection()).partyType(p.getPartyType()).partyId(p.getPartyId()).partyName(p.getPartyName())
+                .amount(p.getAmount().negate()).method(p.getMethod()).paidOn(on)
+                .reference(ref.length() > 255 ? ref.substring(0, 255) : ref)
+                .sourceModule(p.getSourceModule()).note(ref.length() > 255 ? ref.substring(0, 255) : ref)
+                .clientRef(clientRef)
+                .receiptNo(p.getReceiptNo() == null ? null : p.getReceiptNo() + "-R")
+                .organizationId(orgId).userId(CurrentUser.userId())
+                .createdAt(LocalDateTime.now()).allocations(new ArrayList<>())
+                .build();
+        Payment saved = paymentRepository.saveAndFlush(mirror);
+        if (p.getDebitAccount() != null && p.getCreditAccount() != null)
+            postingService.postPaymentReversalOf(p.getDebitAccount(), p.getCreditAccount(), p.getAmount(), on, saved.getReceiptNo());
+        else
+            postingService.postPaymentReversal(p.getDirection().name(), p.getAmount(), p.getMethod(), on, saved.getReceiptNo(), p.getPartyType());
         return toDTO(saved);
     }
 

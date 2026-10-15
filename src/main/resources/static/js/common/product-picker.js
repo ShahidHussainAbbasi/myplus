@@ -120,6 +120,18 @@
     }
 
     /**
+     * TP-1 — the server's live price for one product, learned on a pick (/productStock reads the catalog, not this
+     * cache). Corrects the cached row so the NEXT picker built from the cache carries it too. The <option> already on
+     * screen is corrected by the caller. A missing or non-numeric price changes nothing.
+     */
+    function notePrice(productId, price) {
+        if (!cache || productId == null || price === null || price === undefined || price === '' || isNaN(Number(price))) return;
+        for (var i = 0; i < cache.length; i++) {
+            if (String(cache[i].id) === String(productId)) { cache[i].sellingPrice = Number(price); return; }
+        }
+    }
+
+    /**
      * Build the <option> markup every picker uses.
      *
      * Here rather than in each caller because all five built the identical string, and a divergence
@@ -144,6 +156,8 @@
              // Emitted only when TRUE: absent is the common case and the safe reading. A product
              // nobody has flagged is not a tracked one.
              + (p.requiresSerial === true ? " data-requires-serial='1'" : "")
+             // EXP-REQ — sent only for the few products exempt from the purchase expiry requirement.
+             + (p.noExpiry === true ? " data-no-expiry='1'" : "")
              /*
               * PH-FORMULA — the formula as grey sub-text, which is ALSO what makes it searchable: bootstrap-select
               * 1.6.2's live search matches the rendered option text, sub-text included, and has no hidden
@@ -193,7 +207,11 @@
      */
     // PROD-DEL: removeProducts deactivates or permanently deletes, so a till picker cached before it would still
     // offer the product.
-    var MUTATES = /\/(addProduct|updateProduct|activateProduct|deactivateProduct|removeProducts|setProductTracking|import\/product\/commit)(\?|$)/;
+    // TP-1 — a purchase (Latest / Auto) and an approved price change MOVE the selling price the options carry in
+    // data-price. Without them the till offered the OLD price until a reload, and charged it (owner.pharma@, sale 5823:
+    // 260 against a price of 297.70). approvePriceChange is posted global:false, so price-approvals.js also calls
+    // invalidate() itself — this hook never sees it.
+    var MUTATES = /\/(addProduct|updateProduct|activateProduct|deactivateProduct|removeProducts|setProductTracking|import\/product\/commit|addPurchase|updatePurchase|approvePriceChange)(\?|$)/;
 
     $(document).ajaxComplete(function (evt, jqXHR, settings) {
         if (!settings || !settings.url || !MUTATES.test(settings.url)) return;
@@ -210,6 +228,7 @@
     global.ProductPicker = {
         load: load,
         invalidate: invalidate,
+        notePrice: notePrice,
         optionsHtml: optionsHtml,
         optionHtml: optionHtml,
         PAGE_SIZE: PAGE_SIZE

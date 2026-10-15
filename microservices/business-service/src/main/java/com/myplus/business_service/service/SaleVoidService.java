@@ -143,7 +143,7 @@ public class SaleVoidService {
             }
         }
 
-        periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
+        periodLockGuard.assertOpen(ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : TenantClock.today());
 
         Long chId = ch.getCustomer_history_id();
         List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId, userId);
@@ -153,16 +153,18 @@ public class SaleVoidService {
         // POSTED totals (captured below), NOT per-line totalAmount (pre-discount) — see the GL enqueue note.
         BigDecimal retCost = BigDecimal.ZERO;
         for (Sell s : lines) {
-            float qty = s.getQuantity() != null ? s.getQuantity() : 0f;
+            BigDecimal qty = com.myplus.business_service.util.Quantities.nz(s.getQuantity());   // NUM-1: exact
             if (s.getProductId() != null && reservationId != null) {
                 StockReturnRequest rr = new StockReturnRequest(List.of(new StockReturnLine(s.getProductId(), qty)));
                 rr.setQuarantine(quarantine);
+                rr.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_VOID);   // SSR-0a
                 inventoryClient.returnStock(reservationId, rr);
             } else if (s.getProductId() != null) {
                 inventoryClient.importStock(List.of(
-                        StockImportLine.builder().productId(s.getProductId()).quantity(qty).build()));
+                        StockImportLine.builder().productId(s.getProductId()).quantity(qty)
+                                .movementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_VOID).build()));   // SSR-0a
             }
-            retCost = retCost.add(nzbd(s.getCostPrice()).multiply(BigDecimal.valueOf(qty)));
+            retCost = retCost.add(nzbd(s.getCostPrice()).multiply(qty));
             sellService.deleteById(s.getSellId());
         }
 

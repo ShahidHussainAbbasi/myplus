@@ -37,8 +37,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const saveMarks = (examPaperId, marksRows) =>
   cy.request({
@@ -65,7 +63,7 @@ const seedExamWithPaper = (maxMarks) => {
   const out = { maxMarks, enrollA, enrollB }
 
   // 1. a class of our own — never reuse an existing one, whose roster we do not control
-  return post('/addGrade', { name: gradeName, fee: 1000, status: 'Active' })
+  return cy.postForm('/addGrade', { name: gradeName, fee: 1000, status: 'Active' })
     .then((r) => expect(parse(r.body).status, `addGrade: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
     .then(() => cy.request('/getUserGrade'))
     .then((r) => {
@@ -74,7 +72,7 @@ const seedExamWithPaper = (maxMarks) => {
       out.gradeId = g.id
 
       // 2. a subject IN that class — this is what makes the paper's class derivable (1.2 D2)
-      return post('/addSubject', { name: 'MKSubj' + stamp, gradeId: g.id, status: 'Active' })
+      return cy.postForm('/addSubject', { name: 'MKSubj' + stamp, gradeId: g.id, status: 'Active' })
     })
     .then((r) => expect(parse(r.body).status, `addSubject: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
     .then(() => cy.request('/getUserSubject'))
@@ -84,18 +82,18 @@ const seedExamWithPaper = (maxMarks) => {
       out.subjectId = subj.id
 
       // 3. TWO students in that class — the partial-save case needs a good row AND a bad one
-      return post('/addStudent', { name: 'Marks A', enrollNo: enrollA, gradeId: out.gradeId, status: 'ACTIVE' })
+      return cy.postForm('/addStudent', { name: 'Marks A', enrollNo: enrollA, gradeId: out.gradeId, status: 'ACTIVE' })
         .then((r2) => expect(parse(r2.body).status, `addStudent A: ${JSON.stringify(r2.body)}`).to.match(/SUCCESS/))
-        .then(() => post('/addStudent', { name: 'Marks B', enrollNo: enrollB, gradeId: out.gradeId, status: 'ACTIVE' }))
+        .then(() => cy.postForm('/addStudent', { name: 'Marks B', enrollNo: enrollB, gradeId: out.gradeId, status: 'ACTIVE' }))
         .then((r3) => expect(parse(r3.body).status, `addStudent B: ${JSON.stringify(r3.body)}`).to.match(/SUCCESS/))
     })
     // 4. a term for the exam to sit in (1.2 D3 — an exam cannot exist without one)
-    .then(() => post('/addAcademicYear', { name: 'MKY' + stamp, startDateStr: '01-08-2026', endDateStr: '30-06-2027' }))
+    .then(() => cy.postForm('/addAcademicYear', { name: 'MKY' + stamp, startDateStr: '01-08-2026', endDateStr: '30-06-2027' }))
     .then(() => cy.request('/getAcademicYears'))
     .then((r) => {
       const y = rows(r.body).find((x) => x.name === 'MKY' + stamp)
       expect(y, 'seeded year').to.exist
-      return post('/addTerm', { academicYearId: y.id, name: 'T1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-10-2026' })
+      return cy.postForm('/addTerm', { academicYearId: y.id, name: 'T1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-10-2026' })
         .then(() => cy.request('/getAcademicYears'))
         .then((r2) => {
           const y2 = rows(r2.body).find((x) => x.name === 'MKY' + stamp)
@@ -106,16 +104,16 @@ const seedExamWithPaper = (maxMarks) => {
     // 5. a PUBLISHED exam with one paper on our subject
     .then((termId) => {
       const examName = 'MKX' + stamp
-      return post('/addExam', { name: examName, termId, weightPercent: 100 })
+      return cy.postForm('/addExam', { name: examName, termId, weightPercent: 100 })
         .then(() => cy.request('/getExams'))
         .then((er) => {
           const exam = rows(er.body).find((x) => x.name === examName)
           expect(exam, 'seeded exam').to.exist
-          return post('/addExamPaper', {
+          return cy.postForm('/addExamPaper', {
             examId: exam.id, subjectId: out.subjectId, maxMarks, passMarks: 1, examDateStr: '14-11-2026',
           })
             .then((r) => expect(parse(r.body).status, `addExamPaper: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
-            .then(() => post('/setExamStatus', { id: exam.id, status: 'PUBLISHED' }))
+            .then(() => cy.postForm('/setExamStatus', { id: exam.id, status: 'PUBLISHED' }))
             .then(() => cy.request('/getExams'))
             .then((er2) => {
               const e2 = rows(er2.body).find((x) => x.name === examName)
@@ -221,7 +219,7 @@ describe('Education — marks entry (slice 1.3)', () => {
 
         // The whole point: 1.2 shipped this guard inert. Changing maxMarks now must be refused.
         const p = exam.papers[0]
-        post('/addExamPaper', {
+        cy.postForm('/addExamPaper', {
           id: p.id, examId, subjectId: p.subjectId, maxMarks: 100, passMarks: 33,
         }).then((res) => {
           const b = parse(res.body)
@@ -230,7 +228,7 @@ describe('Education — marks entry (slice 1.3)', () => {
         })
 
         // Rescheduling stays allowed even locked (1.2 D5) — proves the lock is targeted, not a blanket freeze.
-        post('/addExamPaper', {
+        cy.postForm('/addExamPaper', {
           id: p.id, examId, subjectId: p.subjectId,
           maxMarks: p.maxMarks, passMarks: p.passMarks, examDateStr: '21-11-2026',
         }).then((res) => expect(parse(res.body).status, `reschedule: ${JSON.stringify(res.body)}`).to.eq('SUCCESS'))
@@ -242,7 +240,7 @@ describe('Education — marks entry (slice 1.3)', () => {
     // Reuses the full fixture, then puts the exam BACK to DRAFT: seeding a second parallel exam by hand
     // was how this case ended up skipping when the org had no subjects.
     seedExamWithPaper(50).then(({ examId, paperId, enrollA }) => {
-      post('/setExamStatus', { id: examId, status: 'DRAFT' })
+      cy.postForm('/setExamStatus', { id: examId, status: 'DRAFT' })
         .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
 
       saveMarks(paperId, [{ enrollNo: enrollA, marksObtained: 10, absent: false }])
@@ -253,7 +251,7 @@ describe('Education — marks entry (slice 1.3)', () => {
         })
 
       // And nothing was written — a refusal must not half-save.
-      post('/setExamStatus', { id: examId, status: 'PUBLISHED' })
+      cy.postForm('/setExamStatus', { id: examId, status: 'PUBLISHED' })
       sheet(paperId).then((s) => {
         const row = s.rows.find((x) => x.enrollNo === enrollA)
         expect(row.marksObtained, 'the refused mark was never persisted').to.be.null

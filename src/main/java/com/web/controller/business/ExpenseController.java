@@ -77,6 +77,56 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, q.toString(), null));
     }
 
+    /** EX-6b — back to the default (a blank limit = no limit; a save must carry a value, so blank is a reset). */
+    @PostMapping(value = "/settings/reset", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> resetSetting(@RequestParam String key) {
+        StringBuilder q = new StringBuilder("/settings/reset?x=1");
+        param(q, "key", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), null));
+    }
+
+    // ── EX-5 — receipts ──────────────────────────────────────────────────────────────────────────────
+
+    @PostMapping(value = "/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> uploadReceipt(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+                                                @RequestParam(value = "voucherId", required = false) Long voucherId) {
+        StringBuilder q = new StringBuilder("/receipts?x=1");
+        if (voucherId != null) q.append("&voucherId=").append(voucherId);
+        return call(() -> {
+            try {
+                return expense.postFile(q.toString(), file.getBytes(), file.getOriginalFilename());
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException("The receipt could not be read", e);
+            }
+        });
+    }
+
+    @GetMapping(value = "/vouchers/{id}/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> receipts(@PathVariable Long id) {
+        return call(() -> expense.get("/vouchers/" + id + "/receipts"));
+    }
+
+    /** The file, with the type, disposition and no-cache headers expense-service set (passed through by strip()). */
+    @GetMapping("/receipts/{id}/content")
+    public ResponseEntity<byte[]> receiptContent(@PathVariable Long id) {
+        try {
+            return expense.getBytes("/receipts/" + id + "/content");
+        } catch (com.web.error.DownstreamNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            return ResponseEntity.status(e.getStatusCode()).build();
+        }
+    }
+
+    @DeleteMapping(value = "/receipts/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> removeReceipt(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.DELETE, "/receipts/" + id, null));
+    }
+
     /** EX-2b — what expenses can be tagged to on this dashboard (education | agriculture). */
     @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
@@ -89,12 +139,13 @@ public class ExpenseController {
     @GetMapping(value = "/vouchers", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> list(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
-                                       @RequestParam(required = false) String status,
+                                       @RequestParam(required = false) String status, @RequestParam(required = false) String claim,
                                        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
         StringBuilder q = new StringBuilder("/vouchers?page=").append(page).append("&size=").append(size);
         param(q, "from", from);
         param(q, "to", to);
         param(q, "status", status);
+        param(q, "claim", claim);
         return call(() -> expense.get(q.toString()));
     }
 
@@ -130,11 +181,146 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/void", body));
     }
 
+    /** EX-6b (E7) — post a waiting draft: an owner or admin (expense-service refuses a member above their limit). */
+    @PostMapping(value = "/vouchers/{id}/post", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> post(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post", null));
+    }
+
+    /** EX-6b (E7) — discard a waiting draft (its recorder, or an owner/admin). A posted expense is voided instead. */
+    @DeleteMapping(value = "/vouchers/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> discard(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.DELETE, "/vouchers/" + id, null));
+    }
+
+    /** EX-9a — past till pay-outs not yet in the books (owner/admin; expense-service enforces it). */
+    @GetMapping(value = "/history/till", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> tillHistory() {
+        return call(() -> expense.get("/history/till"));
+    }
+
+    /** EX-9a — import the ticked ones under one category; the server re-reads the list and books each once. */
+    @PostMapping(value = "/history/till/import", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> importTill(@RequestBody Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/history/till/import", body));
+    }
+
+    /** EX-9b — the farm's old expense rows not yet in the books (owner/admin; expense-service enforces it). */
+    @GetMapping(value = "/history/farm", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> farmHistory() {
+        return call(() -> expense.get("/history/farm"));
+    }
+
+    /** EX-9b — import the ticked farm rows under one category; each once. */
+    @PostMapping(value = "/history/farm/import", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> importFarm(@RequestBody Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/history/farm/import", body));
+    }
+
     /** EX-1b — send again what the books refused (after a period is reopened, say). */
     @PostMapping(value = "/vouchers/{id}/post-again", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> postAgain(@PathVariable Long id) {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
+    }
+
+    /** EX-8b — the same payee, date and amount already recorded (numbers only). */
+    @GetMapping(value = "/vouchers/duplicates", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> possibleDuplicates(@RequestParam(required = false) String date, @RequestParam(required = false) String amount,
+                                                     @RequestParam(required = false) String payee) {
+        StringBuilder q = new StringBuilder("/vouchers/duplicates?x=1");
+        param(q, "date", date);
+        param(q, "amount", amount);
+        param(q, "payee", payee);
+        return call(() -> expense.get(q.toString()));
+    }
+
+    // ── EX-8a — the expense report and its CSV (scope and rules are the service's) ──────────────────────────────
+
+    @GetMapping(value = "/reports/summary", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> reportSummary(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+                                                @RequestParam(required = false) String by) {
+        StringBuilder q = new StringBuilder("/reports/summary?x=1");
+        param(q, "from", from);
+        param(q, "to", to);
+        param(q, "by", by);
+        return call(() -> expense.get(q.toString()));
+    }
+
+    /** The CSV, with its own headers set here: a download named expenses-FROM-TO.csv, never cached. */
+    @GetMapping("/reports/expenses.csv")
+    public ResponseEntity<byte[]> reportCsv(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+        StringBuilder q = new StringBuilder("/reports/expenses.csv?x=1");
+        param(q, "from", from);
+        param(q, "to", to);
+        try {
+            ResponseEntity<byte[]> r = expense.getBytes(q.toString());
+            String name = "expenses" + (from != null && from.matches("\\d{4}-\\d{2}-\\d{2}") ? "-" + from : "")
+                    + (to != null && to.matches("\\d{4}-\\d{2}-\\d{2}") ? "-" + to : "") + ".csv";
+            return ResponseEntity.ok()
+                    .header("Content-Type", "text/csv; charset=UTF-8")
+                    .header("Content-Disposition", "attachment; filename=\"" + name + "\"")
+                    .header("Cache-Control", "private, no-store")
+                    .header("X-Content-Type-Options", "nosniff")
+                    .body(r.getBody());
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            return ResponseEntity.status(e.getStatusCode()).contentType(MediaType.APPLICATION_JSON).body(e.getResponseBodyAsByteArray());
+        }
+    }
+
+    // ── EX-7b — advances to staff. Who may give, to whom, and how much is the service's rule. ─────────────────
+
+    @GetMapping(value = "/advances", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> advances() {
+        return call(() -> expense.get("/advances"));
+    }
+
+    @GetMapping(value = "/advances/staff", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> advanceStaff() {
+        return call(() -> expense.get("/advances/staff"));
+    }
+
+    @GetMapping(value = "/advances/{userId}/movements", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> advanceMovements(@PathVariable Long userId) {
+        return call(() -> expense.get("/advances/" + userId + "/movements"));
+    }
+
+    @PostMapping(value = "/advances/{action:give|take-back}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> moveAdvance(@PathVariable String action, @RequestBody Map<String, Object> body,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        StringBuilder q = new StringBuilder("/advances/").append(action).append("?x=1");
+        param(q, "idempotencyKey", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
+    // ── EX-6 — claims: money a member paid from their own pocket. Who may decide is the service's rule. ────────
+
+    @PostMapping(value = "/claims", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> submitClaim(@RequestBody Map<String, Object> body,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        StringBuilder q = new StringBuilder("/claims?x=1");
+        param(q, "idempotencyKey", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
+    @PostMapping(value = "/claims/{id}/{action:approve|reject|withdraw}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> decideClaim(@PathVariable Long id, @PathVariable String action,
+                                              @RequestBody(required = false) Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/claims/" + id + "/" + action, body));
     }
 
     /** FP-3 — the suppliers a bill can be owed to (business-service's list, read through expense-service). */
@@ -152,6 +338,14 @@ public class ExpenseController {
         StringBuilder q = new StringBuilder("/vouchers/").append(id).append("/pay?x=1");
         param(q, "idempotencyKey", key);
         return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
+    /** FP-3b — reverse one payment of a bill (owner/admin; expense-service enforces it). */
+    @PostMapping(value = "/vouchers/{id}/payments/{paymentId}/reverse", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> reversePayment(@PathVariable Long id, @PathVariable Long paymentId,
+                                                 @RequestBody(required = false) Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/payments/" + paymentId + "/reverse", body));
     }
 
     @GetMapping(value = "/vouchers/{id}/payments", produces = MediaType.APPLICATION_JSON_VALUE)

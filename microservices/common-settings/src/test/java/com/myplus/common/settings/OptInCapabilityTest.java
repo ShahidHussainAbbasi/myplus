@@ -41,7 +41,18 @@ class OptInCapabilityTest {
 
     /** The opt-in modules, listed by hand on purpose: adding one is a decision this test must be told about. */
     private static final java.util.Set<Capability> OPT_IN =
-            java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING);
+            java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING,
+                    Capability.EXPENSE_CLAIMS,    // EX-6
+                    Capability.CLINIC);           // HMS S1: a patient register is never switched on by a deploy
+
+    @Test
+    @DisplayName("HMS S1: the clinic is opt-in, OFF for everyone, and not in FREE")
+    void clinic_is_opt_in_and_not_free() {
+        assertThat(Capability.CLINIC.code()).isEqualTo("clinic");
+        assertThat(Capability.CLINIC.defaultOn()).isFalse();
+        assertThat(Capability.isOptInKey("org.cap.clinic")).isTrue();
+        assertThat(Plan.FREE.includes(Capability.CLINIC)).isFalse();
+    }
 
     @Test
     @DisplayName("Expense management is declared opt-in, and so is nothing else but the listed modules")
@@ -93,10 +104,12 @@ class OptInCapabilityTest {
     }
 
     @Test
-    @DisplayName("no shape presets an opt-in module — not even GENERAL")
+    @DisplayName("no shape presets an opt-in module — not even GENERAL — except the clinic its own")
     void no_shape_presets_an_opt_in() {
         for (Shape s : Shape.values()) {
             for (Capability c : Capability.values()) {
+                // HC-1a — the one exception, and only for its own module: a clinic IS the clinic module.
+                if (s == Shape.CLINIC && c == Capability.CLINIC) continue;
                 if (c.optIn()) {
                     assertThat(s.includes(c)).as("%s must not preset %s", s.code(), c.code()).isFalse();
                     assertThat(s.mandates(c)).as("%s must not mandate %s", s.code(), c.code()).isFalse();
@@ -107,6 +120,26 @@ class OptInCapabilityTest {
         for (Capability c : Capability.values()) {
             if (c.defaultOn()) assertThat(Shape.GENERAL.includes(c)).as(c.code()).isTrue();
         }
+    }
+
+    @Test
+    @DisplayName("HC-1a: the clinic shape has the clinic module ON and may not switch it off; nothing else changes")
+    void the_clinic_shape_is_the_clinic_module() {
+        FakeStore store = new FakeStore();
+        store.upsert(7L, 1L, Shape.settingKey(), "clinic");
+        assertThat(svc(store).shapeFor(7L)).isEqualTo(Shape.CLINIC);
+        assertThat(svc(store).isEnabledFor(7L, Capability.CLINIC)).isTrue();
+        store.upsert(7L, 1L, Capability.CLINIC.settingKey(), "false");
+        assertThat(svc(store).isEnabledFor(7L, Capability.CLINIC)).as("the floor outranks the override").isTrue();
+        // POSITIVE CONTROL: the same override on a pharmacy is honoured, so the line above proves the floor.
+        store.upsert(8L, 1L, Shape.settingKey(), "pharmacy");
+        store.upsert(8L, 1L, Capability.CLINIC.settingKey(), "false");
+        assertThat(svc(store).isEnabledFor(8L, Capability.CLINIC)).isFalse();
+        assertThat(Shape.CLINIC.ownApplication()).isTrue();
+        for (Shape s : Shape.values()) {
+            if (s != Shape.CLINIC) assertThat(s.ownApplication()).as(s.code()).isFalse();
+        }
+        assertThat(svc(store).isEnabledFor(7L, Capability.EXPENSE_MANAGEMENT)).as("other opt-ins stay off").isFalse();
     }
 
     @Test

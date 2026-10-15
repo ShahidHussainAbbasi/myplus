@@ -70,8 +70,7 @@ public enum SaleReportGrouping {
             SaleReportGroup g = byKey.computeIfAbsent(key,
                     k -> new SaleReportGroup(k, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
 
-            g.setQuantity(g.getQuantity().add(BigDecimal.valueOf(
-                    row.getQuantity() == null ? 0d : row.getQuantity().doubleValue())));
+            g.setQuantity(g.getQuantity().add(nz(row.getQuantity())));   // NUM-1: exact, no double hop
             g.setTotal(g.getTotal().add(nz(row.getTotalAmount())));
             g.setTax(g.getTax().add(nz(row.getTaxAmount())));
 

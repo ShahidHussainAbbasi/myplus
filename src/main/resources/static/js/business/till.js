@@ -7,7 +7,6 @@
 (function (global) {
     'use strict';
 
-    function money(v) { var n = Number(v); return isNaN(n) ? '0.00' : n.toFixed(2); }
 
     global.showTill = function () {
         $('.formDiv').hide();
@@ -23,7 +22,7 @@
                 $('#tillOpenPanel').hide();
                 $('#tillOpsPanel').show();
                 $('#tillStatus').show().removeClass('alert-warning').addClass('alert-info')
-                    .text('Shift OPEN — opened ' + String(s.openedAt || '').replace('T', ' ').substring(0, 16)
+                    .text('Shift OPEN — opened ' + fmtDateTime(s.openedAt)   /* H6 */
                         + ' · float ' + money(s.openingFloat));
             } else {
                 $('#tillOpsPanel').hide();

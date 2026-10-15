@@ -236,8 +236,8 @@ return customerRepo.exists(example);
 
 	/** O7 D2d — the rep's territory: their assigned outlets plus every unassigned one. */
 	@Override
-	public List<Customer> findOutletsForRep(Long orgId, Long repUserId) {
-		return customerRepo.findOutletsForRep(orgId, repUserId);
+	public List<Customer> findOutletsForRep(Long orgId, Long repId) {   // SRA-2: a sales rep id
+		return customerRepo.findOutletsForRep(orgId, repId);
 	}
 
 	/** O7 D2d — every outlet in the org (whole-org viewers only; the controller decides who qualifies). */
@@ -260,17 +260,29 @@ return customerRepo.exists(example);
 	 */
 	@Override
 	@org.springframework.transaction.annotation.Transactional
-	public int assignOutlets(java.util.List<Long> customerIds, Long repUserId, Long orgId, Long actingUserId) {
+	public int assignOutlets(java.util.List<Long> customerIds, Long repId, Long orgId, Long actingUserId) {   // SRA-2: a sales rep id
 		if (customerIds == null || customerIds.isEmpty()) return 0;
-		return customerRepo.assignRepScoped(customerIds, repUserId, orgId, actingUserId);
+		return customerRepo.assignRepScoped(customerIds, repId, orgId, actingUserId);
 	}
 
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 
-		Customer customerObj = dto.getCustomer().getCustomerId() != null ? this.getReferenceById(dto.getCustomer().getCustomerId()) : new Customer();
-
 		AuthenticatedUser actor = requestUtil.getCurrentUser();
+
+		// HMS S4-lite — a customerId from the request is resolved INSIDE the caller's organisation. This used
+		// getReferenceById, which ignores the tenant, and then stamped the caller's organisation onto whatever row it
+		// got: a sale naming another tenant's customer id would have MOVED that customer into the caller's business.
+		// Another tenant's customer now reads as absent, the platform's anti-IDOR shape (same scope as /creditStanding).
+		Customer customerObj;
+		if (dto.getCustomer().getCustomerId() != null) {
+			Long cid = dto.getCustomer().getCustomerId();
+			customerObj = (actor == null ? java.util.Optional.<Customer>empty()
+					: customerRepo.findByIdScoped(cid, actor.getOrganizationId(), actor.getUserId()))
+					.orElseThrow(() -> new com.myplus.common.web.exception.ValidationException("Customer not found: " + cid));
+		} else {
+			customerObj = new Customer();
+		}
 
 		if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){
 

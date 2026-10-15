@@ -24,10 +24,14 @@ public class StockLevel {
     private Long productId;
 
     @Builder.Default
+    @Column(precision = 19, scale = 4)   // D14 — NUM-1
     private BigDecimal currentStock = BigDecimal.ZERO;
 
+    @Column(precision = 19, scale = 4)
     private BigDecimal minStockLevel;
+    @Column(precision = 19, scale = 4)
     private BigDecimal maxStockLevel;
+    @Column(precision = 19, scale = 4)
     private BigDecimal reorderPoint;
     private BigDecimal costPrice;
 

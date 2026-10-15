@@ -26,6 +26,22 @@ import java.util.*;
 public class AuthService {
 
     /**
+     * H3a / RW-0a — the first set a creator may ask for: none (the job's default), or the DOCTOR job for a member login.
+     * It names a JOB (permission_set.default_for), never a set: which set serves the doctor's job is the rows' choice.
+     * ("Doctor", the name an older monolith sends, is the same job.)
+     */
+    static String firstSetChecked(String firstSet, String roleChoice) {
+        String wanted = firstSet == null || firstSet.isBlank() ? null : firstSet.trim().toUpperCase(java.util.Locale.ROOT);
+        if (wanted != null && !PermissionService.JOB_DOCTOR.equals(wanted)) {
+            throw new ValidationException("Only the doctor's job can be chosen when a login is created. The owner assigns other sets.");
+        }
+        if (wanted != null && "ADMIN".equalsIgnoreCase(roleChoice == null ? "" : roleChoice.trim())) {
+            throw new ValidationException("A doctor's login is a member login, not an admin.");
+        }
+        return wanted;
+    }
+
+    /**
      * C3c — resolves the tenant's capabilities while minting a token.
      *
      * <p>Field-injected rather than a constructor argument so the several tests that build this service
@@ -66,6 +82,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
     private final OrganizationService organizationService;
+    /** HC-1a — the business type rows (V35) provisioning reads its org type and shape from. */
+    private final BusinessTypeService businessTypeService;
     private final com.myplus.auth.repository.UserLocationAccessRepository userLocationAccessRepository;
 
     @Value("${app.verification-token-expiry-hours:24}")
@@ -155,7 +173,14 @@ public class AuthService {
             username = username + "_" + UUID.randomUUID().toString().substring(0, 4);
         }
 
-        String userType = request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
+        /*
+         * HC-1a — a business type row (V35) decides the org type and the shape together. Without one, the
+         * request's own userType + shape (the API before HC-1a; still validated below exactly as it was).
+         */
+        BusinessType businessType = (request.getBusinessType() == null || request.getBusinessType().isBlank())
+                ? null : businessTypeService.forProvisioning(request.getBusinessType());
+        String userType = businessType != null ? businessType.getOrgType().toUpperCase()
+                : request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
         // Operator-provisioned tenants also get an OWNER (super user of that company).
         Set<Role> roles = new HashSet<>();
         roles.add(ownerRole());
@@ -172,7 +197,8 @@ public class AuthService {
          * slice closes. So an unrecognised value is refused, not guessed.
          */
         com.myplus.common.settings.Shape shape = null;
-        String requestedShape = request.getShape() == null ? null : request.getShape().trim();
+        String requestedShape = businessType != null ? businessType.getShape()
+                : request.getShape() == null ? null : request.getShape().trim();
         if (requestedShape != null && !requestedShape.isEmpty()) {
             for (com.myplus.common.settings.Shape candidate : com.myplus.common.settings.Shape.values()) {
                 if (candidate.code().equalsIgnoreCase(requestedShape)) shape = candidate;
@@ -224,10 +250,32 @@ public class AuthService {
     public Map<String, Object> createOrgUser(String firstName, String lastName, String email,
                                              String roleChoice, Long callerOrgId, Long callerUserId,
                                              boolean callerIsOwner, java.util.List<Long> storeIds) {
+        return createOrgUser(firstName, lastName, email, roleChoice, callerOrgId, callerUserId, callerIsOwner, storeIds, null);
+    }
+
+    /**
+     * H3a — the same, optionally naming the member's FIRST set. Only the built-in {@code Doctor} set may be named
+     * (client ruling: a registered doctor holds only clinical access — never selling or dispensing). It is NARROWER
+     * than the default Standard set, so an admin naming it gains no power; every other set stays the owner's to
+     * assign (PERM-1 ruling), and naming one is refused.
+     */
+    @Transactional
+    public Map<String, Object> createOrgUser(String firstName, String lastName, String email,
+                                             String roleChoice, Long callerOrgId, Long callerUserId,
+                                             boolean callerIsOwner, java.util.List<Long> storeIds, String firstSet) {
+        String wanted = firstSetChecked(firstSet, roleChoice);
         if (email == null || email.isBlank())
             throw new ValidationException("Email is required");
-        if (userRepository.existsByEmail(email))
+        if (userRepository.existsByEmail(email)) {
+            // TEAM-1: someone REMOVED from this business comes back by Reactivate, not by being added again
+            boolean removedHere = callerOrgId != null && userRepository.findByEmail(email)
+                    .map(u -> organizationService.membershipsOf(u.getId()).stream().anyMatch(m ->
+                            callerOrgId.equals(m.getOrganizationId()) && "INACTIVE".equalsIgnoreCase(m.getStatus())))
+                    .orElse(false);
+            if (removedHere)
+                throw new DuplicateResourceException("This person was removed from your team. Reactivate them on the Team screen instead of adding them again.");
             throw new DuplicateResourceException("Email already registered");
+        }
         String rc = (roleChoice == null ? "USER" : roleChoice.trim().toUpperCase());
         if (!rc.equals("ADMIN") && !rc.equals("USER"))
             throw new ValidationException("Role must be ADMIN or USER");
@@ -261,6 +309,7 @@ public class AuthService {
                 .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString())) // throwaway; set via reset email
+                .invitedAt(LocalDateTime.now())   // TEAM-1: "Invited" on Team until they choose their password
                 .firstName(firstName)
                 .lastName(lastName)
                 .userType(userType)
@@ -295,8 +344,10 @@ public class AuthService {
              * state. defaultSetFor picks the right built-in for the tenant's own vocabulary.
              */
             PermissionService perms = permissionServiceProvider.getObject();
-            perms.defaultSetFor(callerOrgId, "ADMIN".equals(rc))
-                    .ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
+            java.util.Optional<com.myplus.auth.entity.PermissionSet> first = wanted == null
+                    ? perms.defaultSetFor(callerOrgId, "ADMIN".equals(rc))
+                    : perms.setForJob(callerOrgId, PermissionService.JOB_DOCTOR);
+            first.ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
         } catch (Exception e) {
             log.warn("Could not place new member {} on a permission set", user.getEmail(), e);
         }
@@ -497,7 +548,9 @@ public class AuthService {
      * a bug fix — it needs its own ruling rather than being swept in here.
      */
     static boolean tradeTenant(String orgType) {
-        return "BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType);
+        // HC-1a — CLINIC: its menus are gated by clinic.* codes, so a member minted none would see no clinic screen.
+        return "BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)
+                || "CLINIC".equalsIgnoreCase(orgType);
     }
 
     /**
@@ -612,6 +665,9 @@ public class AuthService {
                 row.put("email", u.getEmail());
                 row.put("role", m.getRole());
                 row.put("enabled", u.isEnabled());
+                // TEAM-1: ACTIVE / INACTIVE (removed — reversible), and "invited" = added, no password chosen yet
+                row.put("status", m.getStatus() == null ? "ACTIVE" : m.getStatus());
+                row.put("invited", u.getInvitedAt() != null);
                 /*
                  * PERM-1 — which set this member is on, so the team table can SHOW it and change it.
                  *
@@ -637,14 +693,22 @@ public class AuthService {
         return out;
     }
 
-    @Transactional
+    /**
+     * {@code noRollbackFor}: a refused sign-in must still COMMIT what it recorded (2026-10-14). The wrong-password
+     * branch saves the failed-attempt count — and the lock at {@value #MAX_FAILED_ATTEMPTS} — and then throws; under a
+     * plain {@code @Transactional} that throw rolled the save back, so the count never left 0 and no account ever
+     * locked (proved: seven wrong passwords, then the right one got past the lock check). The other writes that now
+     * commit with a refusal are wanted too: an expired lock cleared, and the count reset after a correct password that
+     * ACCESS_REMOVED then refuses. Same idiom as the marketplace's working lockout (MKT-1e2).
+     */
+    @Transactional(noRollbackFor = com.myplus.auth.exception.SignInRefusedException.class)
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ValidationException("Invalid credentials"));
+                .orElseThrow(() -> new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.BAD_CREDENTIALS));
 
         if (!user.isAccountNonLocked()) {
             if (user.getLockTime() != null && user.getLockTime().plusMinutes(LOCK_TIME_MINUTES).isAfter(LocalDateTime.now())) {
-                throw new ValidationException("Account is locked. Try again later.");
+                throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.ACCOUNT_LOCKED);
             }
             user.setAccountNonLocked(true);
             user.setFailedLoginAttempts(0);
@@ -658,13 +722,13 @@ public class AuthService {
                 user.setLockTime(LocalDateTime.now());
             }
             userRepository.save(user);
-            throw new ValidationException("Invalid credentials");
+            throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.BAD_CREDENTIALS);
         }
 
         // Email-verification gate (slice 32): a registered-but-unverified account cannot log in. Checked
         // after the password match so we never reveal account/verification state without the credential.
         if (!user.isEnabled()) {
-            throw new ValidationException("Account not verified. Please check your email to verify your account.");
+            throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.NOT_VERIFIED);
         }
 
         if (user.isTwoFactorEnabled()) {
@@ -676,7 +740,7 @@ public class AuthService {
                         .build();
             }
             if (!twoFactorService.verifyCode(user.getTwoFactorSecret(), request.getTwoFactorCode())) {
-                throw new ValidationException("Invalid 2FA code");
+                throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.INVALID_2FA);
             }
         }
 
@@ -839,6 +903,9 @@ public class AuthService {
     public void sendPasswordResetEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        // TEAM-1: only the NEWEST link works — every older one for this person is cancelled (they piled up: one test
+        // account held 56 live links). Shopify does the same when an invitation is sent again.
+        passwordResetTokenRepository.deleteAllForUser(user.getId());
         PasswordResetToken prt = PasswordResetToken.builder()
                 .user(user)
                 .token(UUID.randomUUID().toString())
@@ -858,6 +925,7 @@ public class AuthService {
         }
         User user = prt.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setInvitedAt(null);   // TEAM-1: they chose their own password — no longer "invited"
         userRepository.save(user);
         passwordResetTokenRepository.delete(prt);
         /*
@@ -890,6 +958,12 @@ public class AuthService {
     }
 
     private Map<String, Object> buildClaims(User user) {
+        // TEAM-1: a member whose access was removed everywhere is refused — getOrCreatePrimaryOrg would otherwise
+        // create them a brand-new empty business. Here (sign-in and refresh), never in getOrCreatePrimaryOrg itself,
+        // which start-up seeding also calls.
+        if (organizationService.accessRemoved(user.getId())) {
+            throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.ACCESS_REMOVED);
+        }
         // Default active tenant: the user's primary org ("tenant #1"), auto-created on first login so
         // domain data has a home (legacy safety net — new signups create the tenant at registration).
         return buildClaims(user, organizationService.getOrCreatePrimaryOrg(user));
@@ -1048,6 +1122,8 @@ public class AuthService {
                 authorities.addAll(isOwner ? permissionService.everything(permModule)
                                            : permissionService.effectiveFor(user.getId()));
             }
+            // RW-0a: what a member holds is what their set says — nothing added here. (B2/RW-1 used to add codes in
+            // code for a business member on NO set; V24 placed every such member on their business's default set.)
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).
             /*

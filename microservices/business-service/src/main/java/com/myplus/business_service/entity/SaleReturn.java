@@ -55,7 +55,8 @@ public class SaleReturn implements Serializable {
 	@Column(name = "product_id")
 	private Long productId;
 
-	private Float quantity;
+	@Column(name = "quantity", precision = 19, scale = 4)   // D14 — NUM-1 (was FLOAT)
+	private BigDecimal quantity;
 
 	@Column(name = "reason")
 	private String reason;
@@ -98,9 +99,9 @@ public class SaleReturn implements Serializable {
 	@Column(name = "sold_unit", length = 16)
 	private String soldUnit;
 
-	/** PIECES returned (3 tablets) — not the shelf fraction. Float to match {@code Sell.soldQuantity}. */
-	@Column(name = "sold_quantity")
-	private Float soldQuantity;
+	/** PIECES returned (3 tablets) — not the shelf fraction. {@code DECIMAL(19,4)} like {@code Sell.soldQuantity} (D14). */
+	@Column(name = "sold_quantity", precision = 19, scale = 4)
+	private BigDecimal soldQuantity;
 
 	/** Price per PIECE at the time of sale. */
 	@Column(name = "sold_rate", precision = 19, scale = 2)

@@ -38,6 +38,15 @@ public interface InventoryClient {
      * {@code bpurchaseRate} by the purchase path. It is not a weighted average and it is not the GL
      * inventory balance, so whatever displays it must say which number it is.
      */
+    /** SSR-1 - this business's stock ledger per product for a period: opening, movements by type, closing. ISO dates. */
+    @GetExchange("/stock/ledger/summary")
+    java.util.Map<String, Object> getLedgerSummary(@org.springframework.web.bind.annotation.RequestParam("from") String from,
+                                                   @org.springframework.web.bind.annotation.RequestParam("to") String to);
+
+    /** SSR-0b - products whose ledger does not add up to on-hand (read-only). */
+    @GetExchange("/stock/ledger/differences")
+    java.util.List<java.util.Map<String, Object>> getLedgerDifferences();
+
     @GetExchange("/stock/summary")
     java.util.Map<String, Object> stockSummary();
 
@@ -147,4 +156,9 @@ public interface InventoryClient {
     /** FEFO batches (batch/expiry + sellable qty) a sale/dispense would draw from next (slice 54, P10). */
     @GetExchange("/stock/batches/{productId}")
     List<StockBatch> getBatches(@PathVariable Long productId);
+
+    /** STK-ALERT — low / out / expired / expiring counts + the first few of each, tenant-scoped. lowAt 0 = no business
+     *  cap (own minimums only); nearDays 0 = expiring not asked, negative = expiry not tracked. */
+    @GetExchange("/stock/alert-summary")
+    java.util.Map<String, Object> getAlertSummary(@RequestParam("lowAt") int lowAt, @RequestParam("nearDays") int nearDays);
 }

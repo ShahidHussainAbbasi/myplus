@@ -69,7 +69,7 @@ class MarginPolicyTest {
     private static SagaLine line(double net, Double cost) {
         return new SagaLine(
                 1L,                                   // productId
-                1f,                                   // quantity
+                BigDecimal.ONE,                       // quantity
                 BigDecimal.valueOf(net),              // sellRate
                 BigDecimal.ZERO,                      // discount
                 BigDecimal.valueOf(net),              // totalAmount

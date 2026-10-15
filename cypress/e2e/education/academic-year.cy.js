@@ -24,11 +24,9 @@ const rows = (body) => {
   return k ? b[k] : []
 }
 
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const addYear = (name) =>
-  post('/addAcademicYear', { name, startDateStr: '01-08-2026', endDateStr: '30-06-2027' })
+  cy.postForm('/addAcademicYear', { name, startDateStr: '01-08-2026', endDateStr: '30-06-2027' })
     .then((r) => {
       expect(parse(r.body).status, `addAcademicYear: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
     })
@@ -57,8 +55,8 @@ describe('Education — academic year & term (slice 1.1)', () => {
     const name = 'AY' + Date.now()
     addYear(name)
     findYear(name).then((y) => {
-      post('/addTerm', { academicYearId: y.id, name: 'Term 1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-10-2026' })
-      post('/addTerm', { academicYearId: y.id, name: 'Term 2', sequence: 2, startDateStr: '01-11-2026', endDateStr: '31-01-2027' })
+      cy.postForm('/addTerm', { academicYearId: y.id, name: 'Term 1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-10-2026' })
+      cy.postForm('/addTerm', { academicYearId: y.id, name: 'Term 2', sequence: 2, startDateStr: '01-11-2026', endDateStr: '31-01-2027' })
       findYear(name).then((y2) => {
         expect(y2.terms.map((t) => t.name)).to.deep.eq(['Term 1', 'Term 2'])
       })
@@ -70,12 +68,12 @@ describe('Education — academic year & term (slice 1.1)', () => {
     addYear(name)
     findYear(name).then((y) => {
       // Both terms are in the past, so without a pin the rule returns "the most recently ended".
-      post('/addTerm', { academicYearId: y.id, name: 'Past A', sequence: 1, startDateStr: '01-01-2020', endDateStr: '31-03-2020' })
-      post('/addTerm', { academicYearId: y.id, name: 'Past B', sequence: 2, startDateStr: '01-04-2020', endDateStr: '30-06-2020' })
+      cy.postForm('/addTerm', { academicYearId: y.id, name: 'Past A', sequence: 1, startDateStr: '01-01-2020', endDateStr: '31-03-2020' })
+      cy.postForm('/addTerm', { academicYearId: y.id, name: 'Past B', sequence: 2, startDateStr: '01-04-2020', endDateStr: '30-06-2020' })
 
       findYear(name).then((y2) => {
         const a = y2.terms.find((t) => t.name === 'Past A')
-        post('/pinCurrentTerm', { id: a.id }).then((r) =>
+        cy.postForm('/pinCurrentTerm', { id: a.id }).then((r) =>
           expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
 
         cy.request('/getCurrentTerm').then((r) => {
@@ -89,7 +87,7 @@ describe('Education — academic year & term (slice 1.1)', () => {
           expect(y3.terms.filter((t) => t.pinnedCurrent).map((t) => t.name)).to.deep.eq(['Past A'])
         })
 
-        post('/pinCurrentTerm', { id: a.id, pinned: 'false' })
+        cy.postForm('/pinCurrentTerm', { id: a.id, pinned: 'false' })
 
         // This used to assert getCurrentTerm() === 'Past B' — "the most recently ENDED term". That
         // assumed the two terms created above were the ONLY terms in the tenant. They are not:

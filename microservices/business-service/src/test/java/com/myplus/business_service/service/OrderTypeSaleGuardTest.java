@@ -132,7 +132,7 @@ class OrderTypeSaleGuardTest {
     private static CustomerHistoryDTO sale(String orderType, String contact) {
         SellDTO line = new SellDTO();
         line.setProductId(BURGER);
-        line.setQuantity(1f);
+        line.setQuantity(new BigDecimal("1"));
         line.setTotalAmount(new BigDecimal("350.00"));
         line.setNetAmount(new BigDecimal("350.00"));
 

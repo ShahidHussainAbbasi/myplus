@@ -63,7 +63,8 @@ public class ReservationController {
     @PostMapping("/{reservationId}/return")
     public StockReturnResponse returnStock(@PathVariable String reservationId, @RequestBody StockReturnRequest request) {
         return reservationService.returnPicks(reservationId, request.getLines(), request.isQuarantine(),
-                CurrentUser.organizationId(), CurrentUser.userId());
+                CurrentUser.organizationId(), CurrentUser.userId(),
+                request.getMovementType(), request.getSourceRef());   // SSR-0a — why, and the document
     }
 
     /**

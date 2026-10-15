@@ -27,7 +27,33 @@ public class AuthServerClient {
     @Value("${auth.server.url:http://localhost:8765}")
     private String baseUrl;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Value("${gateway.client.connect-timeout-ms:5000}")
+    private int connectTimeoutMs;
+
+    @Value("${gateway.client.read-timeout-ms:30000}")
+    private int readTimeoutMs;
+
+    /**
+     * ⚠ NOT a bare {@code new RestTemplate()} (2026-10-14, TEAM-1). That one rides HttpURLConnection, which since
+     * Spring 6.1 STREAMS the request body — and a streamed POST answered 401 cannot be read: the JDK throws
+     * "cannot retry due to server authentication, in streaming mode" instead of returning the response. auth-service
+     * answers a refused sign-in with 401 + the REASON ("access … was removed", "locked"), so every one of those
+     * reached the login page as "Invalid Credentials". The JDK HttpClient hands 401 back as an ordinary
+     * HttpClientErrorException with its body — the same client, and the same timeouts, as {@link GatewayClient}.
+     */
+    private RestTemplate restTemplate;
+
+    @jakarta.annotation.PostConstruct
+    void buildRestTemplate() {
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofMillis(connectTimeoutMs))
+                .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+                .build();
+        org.springframework.http.client.JdkClientHttpRequestFactory factory =
+                new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(java.time.Duration.ofMillis(readTimeoutMs));
+        this.restTemplate = new RestTemplate(factory);
+    }
 
     /**
      * Delegate a login. {@code captchaResponse} is the reCAPTCHA token from the form, forwarded as the

@@ -27,6 +27,7 @@ public class StockImportService {
 
     private final StockLevelRepository stockLevelRepository;
     private final StockEntryRepository stockEntryRepository;
+    private final StockLedger ledger;   // SSR-0a
 
     /**
      * ⭐ PERF-9 — returns the resulting ON-HAND, not just a count.
@@ -45,14 +46,12 @@ public class StockImportService {
         Map<Long, BigDecimal> onHand = new LinkedHashMap<>();
         for (StockImportLine l : lines) {
             if (l.getProductId() == null) continue;
-            float qty = l.getQuantity() != null ? l.getQuantity() : 0f;
+            BigDecimal add = l.getQuantity() != null ? l.getQuantity() : BigDecimal.ZERO;   // NUM-1: exact on the wire now
 
             StockLevel level = stockLevelRepository.findByProductScoped(l.getProductId(), orgId, userId)
                     .orElseGet(() -> StockLevel.builder()
                             .productId(l.getProductId()).currentStock(BigDecimal.ZERO)
                             .organizationId(orgId).userId(userId).build());
-            // U0 boundary — see ReservationService: the import contract is still Float, inventory stores exact.
-            BigDecimal add = BigDecimal.valueOf(qty);
             level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : BigDecimal.ZERO).add(add));
             if (l.getCostPrice() != null) level.setCostPrice(l.getCostPrice());
             stockLevelRepository.save(level);
@@ -74,6 +73,10 @@ public class StockImportService {
                     .organizationId(orgId).userId(userId).build();
             stockEntryRepository.save(entry);
             entryIds.add(entry.getId());   // PR-3b: the caller keeps the id of the batch it booked in
+            // SSR-0a - a purchase receipt, or a restock (sale edit/return/void, repossession) the caller names
+            ledger.record(orgId, userId, l.getProductId(), entry.getId(),
+                    StockLedger.typeOr(l.getMovementType(), com.myplus.commerce.contracts.dto.StockMovementType.RECEIPT),
+                    add, l.getPurchasePrice(), l.getSourceRef());
             created++;
         }
         return StockImportResult.builder().created(created).onHand(onHand).entryIds(entryIds).build();

@@ -38,7 +38,7 @@ public class StockAdjustment {
     @Column(nullable = false)
     private AdjustmentType adjustmentType;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 4)   // D14 — NUM-1
     private BigDecimal quantity;
 
     private String reason;

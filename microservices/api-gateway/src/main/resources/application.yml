@@ -254,6 +254,18 @@ spring:
                     name: expense-service
                     fallbackUri: forward:/fallback
                 - name: JwtAuthenticationFilter
+            # HMS S1 — the clinic (clinical-service :8098): patients, later the queue and the consultation. JWT required.
+            - id: clinical-service
+              uri: lb://clinical-service
+              predicates:
+                - Path=/api/clinic/**
+              # No StripPrefix: clinical-service controllers are mapped at the full /api/clinic/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: clinical-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
             - id: catalog-service
               uri: lb://catalog-service
               predicates:

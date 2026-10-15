@@ -63,7 +63,38 @@ public interface StockLevelRepository extends JpaRepository<StockLevel, Long> {
     @Query("SELECT sl FROM StockLevel sl WHERE sl.currentStock <= 0 AND " + SCOPE)
     List<StockLevel> findOutOfStockScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    // SYSTEM/SCHEDULED (cross-tenant): the hourly AlertService job runs with no security context.
-    @Query("SELECT sl FROM StockLevel sl WHERE sl.minStockLevel IS NOT NULL AND sl.currentStock <= sl.minStockLevel")
-    List<StockLevel> findLowStock();
+    /*
+     * STK-ALERT — low stock against the product's OWN minimum, or (no minimum) the business's cap. lowAt 0 = no cap:
+     * only products with a minimum of their own count. Out of stock (<= 0) is included; the caller counts it apart.
+     */
+    String LOW_AT = "((sl.minStockLevel IS NOT NULL AND sl.currentStock <= sl.minStockLevel) "
+            + "OR (sl.minStockLevel IS NULL AND :lowAt > 0 AND sl.currentStock <= :lowAt))";
+
+    @Query("SELECT COUNT(sl) FROM StockLevel sl WHERE " + LOW_AT + " AND " + SCOPE)
+    long countLowAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT COUNT(sl) FROM StockLevel sl WHERE " + LOW_AT + " AND sl.currentStock <= 0 AND " + SCOPE)
+    long countOutAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT sl FROM StockLevel sl WHERE " + LOW_AT + " AND " + SCOPE + " ORDER BY sl.currentStock ASC, sl.productId ASC")
+    List<StockLevel> findLowAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId,
+                                     @Param("userId") Long userId, org.springframework.data.domain.Pageable page);
+
+    // ALERT-RETIRE (2026-10-10): findLowStock() — the cross-tenant scan of the retired hourly AlertService — is gone.
+    // Low stock is answered live and per tenant by countLowAtScoped / findLowAtScoped (STK-ALERT).
+
+    // ── SSR-0b ledger cut-over (StockLedgerCutover) — SYSTEM, cross-tenant by design: runs with no user ──
+    /** Stock levels not yet cut over to the ledger (no OPENING row), oldest first. */
+    @Query("SELECT sl.id FROM StockLevel sl WHERE sl.organizationId IS NOT NULL AND NOT EXISTS ("
+         + "SELECT 1 FROM StockMovement m WHERE m.organizationId = sl.organizationId AND m.productId = sl.productId "
+         + "AND m.movementType = 'OPENING') ORDER BY sl.id")
+    java.util.List<Long> findIdsWithoutOpening(org.springframework.data.domain.Pageable page);
+
+    /** The level row LOCKED for the rest of the transaction: every stock change updates it, so they wait. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT sl FROM StockLevel sl WHERE sl.id = :id")
+    java.util.Optional<StockLevel> lockById(@Param("id") Long id);
+
+    @Query("SELECT COUNT(sl) FROM StockLevel sl WHERE sl.organizationId IS NULL")
+    long countWithoutOrganization();
 }

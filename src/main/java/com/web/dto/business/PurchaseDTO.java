@@ -54,11 +54,11 @@ public class PurchaseDTO implements Serializable {
 //	@Getter@Setter
 //	private Float pdiscount=0F;
 
-	private Float totalAmount;
+	private java.math.BigDecimal totalAmount;
 
-	private Float netAmount;
+	private java.math.BigDecimal netAmount;
 
-	private Float purchaseExpense;
+	private java.math.BigDecimal purchaseExpense;
 
 	private String purchaseExpenseDesc;
 
@@ -69,7 +69,7 @@ public class PurchaseDTO implements Serializable {
 	private String updated;
 
 	@ValidateEmpty
-	private Float quantity;
+	private java.math.BigDecimal quantity;
 
 	private StockDTO stock;
 

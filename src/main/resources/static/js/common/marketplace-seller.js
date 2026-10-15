@@ -181,10 +181,6 @@
 	};
 	var matchedProducts = {};
 
-	function money(v) {
-		var n = Number(v || 0);
-		return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-	}
 
 	function mktOffersLoad() {
 		return $.ajax({ url: ctx() + 'mkt/myOffers?size=100', dataType: 'json' }).done(function (res) {
@@ -641,7 +637,7 @@
 			var $lt = $('#mktLedgerTable tbody').empty();
 			(v.entries || []).forEach(function (e) {
 				$('<tr class="mkt-entry"></tr>').attr('data-entry-type', e.entryType)
-					.append($('<td></td>').text((e.effectiveAt || '').substring(0, 10)))
+					.append($('<td></td>').text(fmtDate(e.effectiveAt)   /* H6: the viewer's day */))
 					.append($('<td></td>').text(e.entryType).append(e.memo ? $('<div class="text-muted" style="font-size:12px"></div>').text(e.memo) : null))
 					.append($('<td></td>').text(e.ref || ''))
 					.append($('<td class="text-right"></td>').text(Number(e.credit) ? money(e.credit) : ''))

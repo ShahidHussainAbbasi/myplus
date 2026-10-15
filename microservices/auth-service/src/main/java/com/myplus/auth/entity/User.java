@@ -59,6 +59,10 @@ public class User {
     @Builder.Default
     private boolean demo = false;
 
+    /** TEAM-1 (V30) — set when an owner adds this person on Team; cleared once they choose their own password. */
+    @Column(name = "invited_at")
+    private LocalDateTime invitedAt;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

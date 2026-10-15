@@ -33,7 +33,8 @@ public class PrescriptionService {
 
     private final PrescriptionRepository prescriptionRepo;
     private final PrescriptionItemRepository itemRepo;
-    private final PartyBridgeService partyBridgeService;   // P3: link the patient to the shared party master
+    private final PartyBridgeService partyBridgeService;
+    private final StoreScope branches;   // H4: the caller's pharmacy branches   // P3: link the patient to the shared party master
 
     @Transactional
     public PrescriptionDTO create(PrescriptionDTO dto, Long orgId, Long userId) {
@@ -56,6 +57,16 @@ public class PrescriptionService {
                 throw new ValidationException(which + " needs a quantity greater than zero");
         }
 
+        // HMS S3b-1: a doctor's Submit carries "enc-<id>". The same key again (a retry, a double click, a lost reply)
+        // is the SAME prescription — returned, never a second one for the pharmacy to dispense twice.
+        String externalRef = dto.getExternalRef() == null || dto.getExternalRef().isBlank() ? null : dto.getExternalRef().trim();
+        if (externalRef != null) {
+            if (externalRef.length() > 64) throw new ValidationException("The prescription reference is too long");
+            java.util.Optional<Prescription> already = prescriptionRepo.findByOrganizationIdAndExternalRef(orgId, externalRef);
+            if (already.isPresent()) return toDTO(already.get());
+        }
+        boolean fromDoctor = externalRef != null;
+
         LocalDate prescribed = dto.getPrescribedDate() != null ? dto.getPrescribedDate() : TenantClock.today();
         if (dto.getValidUntil() != null && dto.getValidUntil().isBefore(prescribed))
             throw new ValidationException("'Valid until' cannot be before the prescribed date");
@@ -70,6 +81,14 @@ public class PrescriptionService {
                 .diagnosis(dto.getDiagnosis())
                 .notes(dto.getNotes())
                 .status(Prescription.Status.PENDING)
+                // the source is DERIVED (a doctor's Submit is the one that carries an external reference), never read
+                // from the form; the clinic's person id is taken only from that path, so the token search finds it now
+                .source(fromDoctor ? Prescription.SOURCE_DOCTOR : Prescription.SOURCE_COUNTER)
+                .externalRef(externalRef)
+                .tokenLabel(fromDoctor ? trimTo(dto.getTokenLabel(), 16) : null)
+                .encounterId(fromDoctor ? dto.getEncounterId() : null)
+                .partyId(fromDoctor ? dto.getPartyId() : null)
+                .storeId(fromDoctor ? dto.getStoreId() : null)   // H4: routed to the doctor's linked branch
                 .organizationId(orgId)
                 .userId(userId)
                 .build();
@@ -91,11 +110,44 @@ public class PrescriptionService {
         return toDTO(p);
     }
 
+    /** HMS S3b-1 — the permission that lets a caller submit a doctor's prescription (clinical-service's CONSULT). */
+    public static final String CLINIC_CONSULT = "clinic.consult";
+    /** H3b — dispensing, changing and cancelling a prescription (PrescriptionController's @PreAuthorize names it too). */
+    public static final String RX_DISPENSE = "rx.dispense";
+    /** RW-0c — every permission code this service names; checked against auth's catalogue at start-up. */
+    public static final java.util.List<String> CODES_NAMED = java.util.List.of(CLINIC_CONSULT, RX_DISPENSE);
+
+    /**
+     * Only the doctor's Submit may carry a visit reference: without this, the counter form (which relays its body as
+     * is) could post an {@code externalRef} and have a script shown as "From the doctor", tied to any person id.
+     */
+    public static void assertMayClaimVisit(PrescriptionDTO dto, boolean callerCanConsult) {
+        boolean claims = dto != null && dto.getExternalRef() != null && !dto.getExternalRef().isBlank();
+        if (claims && !callerCanConsult) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only a doctor's Submit from the clinic can record a prescription for a visit.");
+        }
+    }
+
+    private static String trimTo(String s, int max) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.trim();
+        return t.length() > max ? t.substring(0, max) : t;
+    }
+
     /** Default page size for the prescriptions list — the screen shows recent scripts, not the whole history. */
     public static final int DEFAULT_LIMIT = 200;
 
     // Annotated on BOTH entry points: this delegates by self-invocation, which bypasses the proxy, so the
     // annotation on the 3-arg overload alone would never apply to a call that arrives here.
+    /** RW-4b — prescriptions still to fill: PENDING and PARTIALLY_DISPENSED, in the caller's branches (one COUNT). */
+    @Transactional(readOnly = true)
+    public long countWaiting(Long orgId, Long userId) {
+        return prescriptionRepo.countScopedByStatus(orgId, userId, branches.seesAll(), branches.stores(),
+                java.util.List.of(com.myplus.pharma.entity.Prescription.Status.PENDING,
+                        com.myplus.pharma.entity.Prescription.Status.PARTIALLY_DISPENSED));
+    }
+
     @Transactional(readOnly = true)
     public List<PrescriptionDTO> list(Long orgId, Long userId) {
         return list(orgId, userId, DEFAULT_LIMIT);
@@ -108,13 +160,39 @@ public class PrescriptionService {
     @Transactional(readOnly = true)
     public List<PrescriptionDTO> list(Long orgId, Long userId, int limit) {
         int size = limit <= 0 ? DEFAULT_LIMIT : Math.min(limit, 1000);
-        List<Prescription> page = prescriptionRepo.findScoped(orgId, userId, PageRequest.of(0, size));
+        List<Prescription> page = prescriptionRepo.findScoped(orgId, userId, branches.seesAll(), branches.stores(), PageRequest.of(0, size));
         if (page.isEmpty()) return List.of();
 
         Map<Long, List<PrescriptionItem>> itemsByRx = itemsFor(page.stream().map(Prescription::getId).toList());
         return page.stream()
                 .map(p -> toDTO(p, itemsByRx.getOrDefault(p.getId(), List.of())))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * HMS S4-lite — the pharmacist's search: by person ({@code partyId}, resolved upstream from a clinic token, MRN or
+     * phone) or by text (name, phone, doctor); neither = the newest. One page; {@code hasMore} comes from reading one
+     * row past the page, so there is no count query.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> search(Long orgId, Long userId, String q, Long partyId, int page, int size) {
+        int s = size <= 0 ? 25 : Math.min(size, 100);
+        int pg = Math.max(page, 0);
+        PageRequest pr = PageRequest.of(pg, s + 1);
+        String text = q == null ? "" : q.trim();
+        List<Prescription> rows = partyId != null ? prescriptionRepo.findByPartyScoped(orgId, userId, branches.seesAll(), branches.stores(), partyId, pr)
+                : text.isEmpty() ? prescriptionRepo.findScoped(orgId, userId, branches.seesAll(), branches.stores(), PageRequest.of(pg, s + 1))
+                : prescriptionRepo.searchScoped(orgId, userId, branches.seesAll(), branches.stores(), text, pr);
+        boolean more = rows.size() > s;
+        List<Prescription> pageRows = more ? rows.subList(0, s) : rows;
+        Map<Long, List<PrescriptionItem>> itemsByRx = pageRows.isEmpty() ? Map.of()
+                : itemsFor(pageRows.stream().map(Prescription::getId).toList());
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("items", pageRows.stream().map(p -> toDTO(p, itemsByRx.getOrDefault(p.getId(), List.of()))).toList());
+        out.put("page", pg);
+        out.put("size", s);
+        out.put("hasMore", more);
+        return out;
     }
 
     /** One query for the whole page's items, grouped by prescription id. */
@@ -127,7 +205,7 @@ public class PrescriptionService {
 
     @Transactional(readOnly = true)
     public PrescriptionDTO get(Long id, Long orgId, Long userId) {
-        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId)
+        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId).filter(x -> branches.canAccess(x.getStoreId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
         return toDTO(p);
     }
@@ -139,7 +217,7 @@ public class PrescriptionService {
      */
     @Transactional
     public PrescriptionDTO cancel(Long id, Long orgId, Long userId) {
-        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId)
+        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId).filter(x -> branches.canAccess(x.getStoreId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
         if (p.getStatus() == Prescription.Status.FULLY_DISPENSED)
             throw new ValidationException("A fully dispensed prescription cannot be cancelled");
@@ -182,6 +260,11 @@ public class PrescriptionService {
         d.setNotes(p.getNotes());
         d.setStatus(displayStatus(p));
         d.setPartyId(p.getPartyId());   // P3: shared party master id
+        d.setSource(p.getSource());
+        d.setTokenLabel(p.getTokenLabel());
+        d.setEncounterId(p.getEncounterId());
+        d.setExternalRef(p.getExternalRef());
+        d.setStoreId(p.getStoreId());
         d.setCreatedAt(p.getCreatedAt());
         d.setItems(items.stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();

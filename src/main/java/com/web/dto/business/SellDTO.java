@@ -37,7 +37,7 @@ public class SellDTO implements Serializable {
 
 	// private String customerName;
 
-	private Float quantity=1F;
+	private java.math.BigDecimal quantity = java.math.BigDecimal.ONE;
 
 	/*
 	 * U2 - a broken pack. Design: microservices/docs/slices/u2-loose-sale-arithmetic.md
@@ -57,7 +57,7 @@ public class SellDTO implements Serializable {
 	 */
 	private String soldUnit;
 
-	private Float soldQuantity;
+	private java.math.BigDecimal soldQuantity;
 
 	/**
 	 * SER-3 — the serial / IMEI of each unit sold on this line.
@@ -81,7 +81,7 @@ public class SellDTO implements Serializable {
 	 * and a field missing from it is dropped between the browser and business-service without any error.
 	 * A quantity, so it follows {@code quantity}'s {@code Float}.
 	 */
-	private Float bonusQuantity;
+	private java.math.BigDecimal bonusQuantity;
 
 	/**
 	 * The rate this line actually SOLD at — the cashier's price, which may override the catalog price.
@@ -102,13 +102,13 @@ public class SellDTO implements Serializable {
 	/** PR-3c — the batch the cashier chose for this line (stock_entries id); null = FEFO. Relayed, never decided here. */
 	private Long stockEntryId;
 
-	private Float totalAmount=0.0F;
+	private java.math.BigDecimal totalAmount = java.math.BigDecimal.ZERO;
 
-	private Float netAmount=0.0F;
+	private java.math.BigDecimal netAmount = java.math.BigDecimal.ZERO;
 
-	private Float srp=0.0F;
+	private java.math.BigDecimal srp = java.math.BigDecimal.ZERO;
 	
-	private Float itemStock=0.0F;
+	private java.math.BigDecimal itemStock = java.math.BigDecimal.ZERO;
 
 	private String dated;
 

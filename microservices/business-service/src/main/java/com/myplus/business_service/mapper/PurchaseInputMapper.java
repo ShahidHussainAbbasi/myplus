@@ -15,6 +15,7 @@ public interface PurchaseInputMapper extends InputDates {
     @Mapping(target = "bpurchaseDiscount", ignore = true)
     @Mapping(target = "bpurchaseDiscountType", ignore = true)
     @Mapping(target = "bpurchaseRate", ignore = true)
+    @Mapping(target = "billDate", ignore = true)   // H6 C3b: stamped by Purchase.stampBillDate() from dated, never from the form
     @Mapping(target = "bsellDiscount", ignore = true)
     @Mapping(target = "bsellDiscountType", ignore = true)
     @Mapping(target = "bsellRate", ignore = true)

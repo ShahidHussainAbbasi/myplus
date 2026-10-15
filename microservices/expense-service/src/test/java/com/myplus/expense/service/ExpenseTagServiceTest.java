@@ -86,4 +86,22 @@ class ExpenseTagServiceTest {
         assertThatThrownBy(() -> svc().confirm("SUPPLIER", 42L)).isInstanceOf(ValidationException.class);
         assertThat(svc().options("business")).isEmpty();
     }
+
+    @Test @DisplayName("⭐ EX-8e — branch names: a school's from education (SCHOOL), a shop's from business (STORE); nothing else is a branch")
+    void branchNames() {
+        assertThat(svc().branchNames()).containsOnly(
+                org.assertj.core.api.Assertions.entry(1L, "Main Campus"), org.assertj.core.api.Assertions.entry(3L, "not a supplier"));
+    }
+
+    @Test @DisplayName("EX-8e — a module that cannot answer names nothing; the other still does (the report then shows a number)")
+    void branchNamesBestEffort() {
+        ExpenseTagClient down = () -> { throw new IllegalStateException("down"); };
+        ExpenseTagService s = new ExpenseTagService(down, () -> List.of(), () -> List.of(new ExpenseTagView("STORE", 3L, "Saddar")));
+        assertThat(s.branchNames()).containsOnly(org.assertj.core.api.Assertions.entry(3L, "Saddar"));
+    }
+
+    @Test @DisplayName("⭐ EX-8e — a STORE row names a branch only: it is never confirmed as a line tag")
+    void storeIsNeverALineTag() {
+        assertThatThrownBy(() -> svc().confirm("STORE", 3L)).isInstanceOf(ValidationException.class);
+    }
 }

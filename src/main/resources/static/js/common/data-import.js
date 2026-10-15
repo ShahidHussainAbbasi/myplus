@@ -205,8 +205,10 @@
 		if (typeof global.uiDialogStyles === 'function') { global.uiDialogStyles(); }
 
 		$('body').append(html);
-		// .is-open is what fades the backdrop in; without it the panel stays fully transparent.
-		global.requestAnimationFrame(function () { $('#importPanel').addClass('is-open'); });
+		// .is-open is what fades the backdrop in; without it the panel stays fully transparent. uiDialogReveal adds it
+		// without waiting for an animation frame (paused while the tab is hidden — the panel then never appeared).
+		if (typeof global.uiDialogReveal === 'function') { global.uiDialogReveal(document.getElementById('importPanel')); }
+		else { $('#importPanel').addClass('is-open'); }
 
 		$('#importCancel').on('click', closePanel);
 		$(document).on('keydown.importPanel', function (e) { if (e.key === 'Escape') { closePanel(); } });

@@ -25,8 +25,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const postJson = (url, body) =>
   cy.request({ method: 'POST', url, body, failOnStatusCode: false })
@@ -49,7 +47,7 @@ const history = (yearId) =>
 const undoAll = (yearId) =>
   history(yearId).then((r) => {
     const applied = rows(r.body).filter((p) => p.status === 'APPLIED')
-    applied.forEach((p) => post('/undoPromotion', { id: p.id }))
+    applied.forEach((p) => cy.postForm('/undoPromotion', { id: p.id }))
   })
 
 const fixture = {}
@@ -175,7 +173,7 @@ describe('Education — promotion (slice 1.6)', () => {
         })
 
         // Undo restores the class AND keeps the row.
-        post('/undoPromotion', { id: rec.id }).then((u) => {
+        cy.postForm('/undoPromotion', { id: rec.id }).then((u) => {
           expect(parse(u.body).status, JSON.stringify(u.body)).to.eq('SUCCESS')
         })
         history(fixture.yearId).then((h2) => {
@@ -204,7 +202,7 @@ describe('Education — promotion (slice 1.6)', () => {
         const rec = rows(h.body).find((p) => p.enrollNo === target.enrollNo && p.status === 'APPLIED')
         expect(rec, '"kept back" and "never got to" must be distinguishable next year').to.exist
         expect(rec.outcome).to.eq('RETAINED')
-        post('/undoPromotion', { id: rec.id })
+        cy.postForm('/undoPromotion', { id: rec.id })
       })
     })
   })
@@ -224,7 +222,7 @@ describe('Education — promotion (slice 1.6)', () => {
       history(fixture.yearId).then((h) => {
         const rec = rows(h.body).find((p) => p.enrollNo === target.enrollNo && p.status === 'APPLIED')
         expect(rec.overridden, 'the fact a human intervened is itself data').to.eq(true)
-        post('/undoPromotion', { id: rec.id })
+        cy.postForm('/undoPromotion', { id: rec.id })
       })
     })
   })
@@ -241,7 +239,7 @@ describe('Education — promotion (slice 1.6)', () => {
       const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
       expect(refused, 'rewriting a whole class requires ADMIN_PRIVILEGE').to.eq(true)
     })
-    post('/undoPromotion', { id: 1 }).then((r) => {
+    cy.postForm('/undoPromotion', { id: 1 }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
       expect(refused).to.eq(true)
@@ -249,7 +247,7 @@ describe('Education — promotion (slice 1.6)', () => {
   })
 
   it('another tenant’s promotion is invisible by id', () => {
-    post('/undoPromotion', { id: 999999 }).then((r) => {
+    cy.postForm('/undoPromotion', { id: 999999 }).then((r) => {
       const b = parse(r.body)
       expect(b.status, 'an id outside the tenant resolves to NOT_FOUND, never a silent success')
         .to.not.eq('SUCCESS')

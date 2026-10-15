@@ -71,7 +71,8 @@ class ProductPickerWritersTest {
     void setUp() {
         TestTenant.authenticate(ORG, USER);
         service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));
+                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class),
+                org.mockito.Mockito.mock(SkuAllocator.class));
     }
 
     @AfterEach
@@ -209,6 +210,10 @@ class ProductPickerWritersTest {
         ProductImportSpec spec = new ProductImportSpec();
         ReflectionTestUtils.setField(spec, "productRepository", productRepository);
         ReflectionTestUtils.setField(spec, "events", events);
+        // SKU-AUTO-2 — persist() fills blank SKUs from the counter inside a transaction
+        ReflectionTestUtils.setField(spec, "skuAllocator", org.mockito.Mockito.mock(SkuAllocator.class));
+        ReflectionTestUtils.setField(spec, "transactionManager",
+                org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
         ReflectionTestUtils.setField(spec, "priceHistory", org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));   // PR-1
         when(productRepository.saveAll(any())).thenAnswer(i -> i.getArgument(0));
 

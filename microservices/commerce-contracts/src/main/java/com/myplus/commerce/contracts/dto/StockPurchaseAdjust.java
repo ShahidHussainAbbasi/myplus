@@ -19,12 +19,27 @@ import java.time.LocalDate;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class StockPurchaseAdjust {
     private Long productId;
+    /** SSR-0a — PURCHASE_EDIT (absent) or PURCHASE_RETURN ({@link StockMovementType}), and the bill number. */
+    private String movementType;
+    private String sourceRef;
     private String batchNo;
-    private Float delta;              // newQty − oldQty (may be negative)
+    private BigDecimal delta;         // newQty − oldQty (may be negative) — NUM-1: exact, was Float
     private LocalDate expiryDate;     // optional — update the batch's expiry too
     private BigDecimal purchasePrice; // optional — update the batch's cost too
     /** PR-3b — optional: the batch (stock_entries.id) this purchase booked in, and the price it now sells at. Applied
      *  even when the quantity did not change — an edit that only corrects the S/U rate must still re-price its batch. */
     private Long stockEntryId;
     private BigDecimal sellPrice;
+    /**
+     * TP-3 — what the edited bill now says about ITS batch, applied to {@link #stockEntryId} only (never to a batch found
+     * by number, which another bill can share) and whatever the delta, zero included. Before this an edit that kept the
+     * quantity never reached the batch: a corrected expiry, batch number or cost stayed old on it (owner.pharma@,
+     * bill 3106: expiry 2027-09-09 on the bill, 2027-10-09 on its batch).
+     *
+     * <p>{@code paidTotal}: NOT read by inventory and no longer sent (TP-5) — inventory re-derives the batch's cost from its
+     * own billed units (paidTotal ÷ purchasePrice), because the bill's rate × quantity is wrong after a return. Kept so a
+     * caller built against 2026-10-10's contract still deserialises.
+     */
+    private String newBatchNo;
+    private BigDecimal paidTotal;
 }

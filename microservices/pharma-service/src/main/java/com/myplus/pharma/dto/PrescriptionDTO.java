@@ -21,6 +21,11 @@ public class PrescriptionDTO {
     private String notes;
     private String status;
     private Long partyId;   // P3: shared party/contact master id
+    private String source;        // HMS S3b-1: DOCTOR | COUNTER (set by the server, never trusted from a counter form)
+    private String tokenLabel;    // the clinic token, for a doctor's prescription
+    private Long encounterId;
+    private String externalRef;   // "enc-<id>": the idempotency key of a doctor's Submit
+    private Long storeId;         // H4: the branch a doctor's prescription is routed to (null = every branch)
     private LocalDateTime createdAt;
     private List<PrescriptionItemDTO> items = new ArrayList<>();
 

@@ -60,7 +60,7 @@ const SECTIONS = {
   },
   pricemode: {
     dir: 'price-mode', anchor: 'pricemode', number: Number(process.env.TB_NUMBER || 27), prefix: 'prm',
-    order: ['P1', 'P2', 'P3', 'P4', 'P5', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'R1', 'X1', 'S1', 'S2', 'S3', 'T1', 'T2', 'T3', 'T4', 'T5'],
+    order: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'R1', 'X1', 'S1', 'S2', 'S3', 'S4', 'T1', 'T2', 'T3', 'T4', 'T5'],
     title: 'Selling price from purchases: Latest, Keep, markup, Per batch and Approval (PR-1 to PR-4)',
     spec: 'cypress/e2e/docs/price-mode-guide.cy.js',
     notes: [
@@ -100,6 +100,73 @@ const SECTIONS = {
         month, three invoices) — they now create what they need.`],
       ['amber', 'Money moves', `V1–V3 sell, buy and return on <code>owner.lifecycle@myplus.com</code>, the sacrificial business. V5–V6 run
         on <code>owner.mobile@myplus.com</code>, the shop the serial feature belongs to; V6 resets its setting on screen.`],
+    ],
+  },
+  teamsignin: {
+    dir: 'team-signin', anchor: 'teamsignin', number: Number(process.env.TB_NUMBER || 29), prefix: 'tsi',
+    order: ['T1', 'T2', 'T3', 'T4', 'T5', 'L1'],
+    title: 'A team member after you add them: invite, remove, reactivate, sign-in and lockout',
+    spec: 'cypress/e2e/docs/team-signin-guide-screens.cy.js',
+    notes: [
+      ['red', '⚠ What was broken (TEAM-1 / LOCK-1, fixed 13–14 Oct)', `An owner could add a member but <strong>never see who had
+        not set a password, resend the invitation, or remove anyone</strong>. A member removed by hand was told <strong>“Invalid
+        Credentials”</strong> — the real reason was lost twice on the way (an HTTP client that could not read a 401 body, then
+        string-matching on English text). And <strong>the account lock never engaged</strong>: five wrong passwords were saved and
+        rolled back by the refusal itself, so a password could be guessed without limit.`],
+      ['blue', 'What changed', `Team shows <strong>Invited / Active / Removed</strong>, with Resend, Remove (a reason is required)
+        and Reactivate. Removing is reversible and deletes nothing. Sign-in refusals now travel as codes
+        (<code>ACCESS_REMOVED</code>, <code>ACCOUNT_LOCKED</code>…) and the login page shows each in your language.`],
+      ['amber', 'Use throwaway members only', `Every case adds its own member (<code>t1.&lt;run&gt;@myplus.test</code> —
+        <code>.test</code> never delivers) on <code>owner.pharma@myplus.com</code> and removes it at the end. Never try L1 on a
+        shared demo account: it locks that account for 30 minutes.`],
+    ],
+  },
+  fixes1014: {
+    dir: 'fixes-1014', anchor: 'fixes1014', number: Number(process.env.TB_NUMBER || 30), prefix: 'f14',
+    order: ['R1', 'B1', 'N1'],
+    title: 'Walked on 14 Oct: a return in tablets, a bill keyed twice, a school notice’s record',
+    spec: 'cypress/e2e/docs/fixes-1014-guide-screens.cy.js',
+    notes: [
+      ['blue', 'What this section is', `Three fixes whose automated checks went green on 14 Oct (U13, DOC-INT, notifications Part A),
+        walked on the real screens. N1’s record has no screen yet, so its reading step is the console command shown — the run executed
+        that same command.`],
+      ['amber', 'Shared settings are pinned', `R1 and B1 run on <code>demo.business@myplus.com</code>, whose tax and loose markup are
+        changed by other tests and people. The run switches tax off and the markup to 0 for its own steps, and puts both back after.`],
+      ['red', '⚠ Found while recording', `The <strong>confirm dialog could stay invisible</strong> when the window was not in front
+        (its fade waited for an animation frame the browser pauses) — fixed 14 Oct. The <strong>System Alerts</strong> screen still
+        reports through the browser’s own message box, in English only.`],
+    ],
+  },
+  sra: {
+    dir: 'sra', anchor: 'sra', number: Number(process.env.TB_NUMBER || 29), prefix: 'sra',
+    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3'],
+    title: 'Sales by rep and area: City / Area, sales reps, territory, and the rep on every invoice (SRA-1, SRA-2, SRA-3)',
+    spec: 'cypress/e2e/docs/sra-guide-screens.cy.js',
+    notes: [
+      ['red', '⚠ What was broken (found while building SRA-1 / SRA-2, fixed 14 Oct)', `<strong>Another business could take
+        over a customer or a supplier by id</strong> — an edit carrying a foreign id saved that record under the caller's
+        business. <strong>Editing a customer wiped City, CNIC and the licence</strong> (or copied the previous customer's),
+        <strong>moved a grouped branch off its company's credit limit</strong>, and <strong>unassigned an outlet from its
+        rep</strong>. And <strong>the territory gate was red from 16 Sep</strong>: every territory decision asked the permission
+        set's “Sees: All” <em>row</em> scope, so a booker whose set saw all rows was never narrowed and could assign outlets.
+        <strong>An order invoiced at dispatch named the DISPATCHER as “Booked By”</strong> and credited no rep (fixed 15 Oct, SRA-3).`],
+      ['blue', 'What is new', `<strong>City and Area</strong> come from the business's own list; <strong>+ New city / + New
+        area</strong> open a small form over the customer or supplier form (the purchase form's “+ New product” pattern) and come
+        back selected. A <strong>sales rep</strong> is a person on the business's list, with or without a login; a customer has a
+        <strong>usual rep</strong>; a rep whose login is linked sees their own outlets plus every unassigned one. Managing reps
+        is the “Add and change sales reps” permission — owners and admins have it.`],
+      ['amber', 'Proven by the automated gates, no screen to walk', `Importing customers with an <code>area</code> column
+        (“1 area created (1st Sector)”), another business's area, rep or outlet refused, the takeover by id refused, a branch kept
+        on its company's credit account, an outlet kept with its rep after an edit, one login not two reps, a rep refused at the
+        server when changing a usual rep or managing reps: <code>sra-areas.cy.js</code> 9/9, <code>sra-reps.cy.js</code> 6/6,
+        <code>territory-assignment.cy.js</code> 8/8, <code>territory-screen.cy.js</code> 5/5 — 14 Oct. SRA-3 (15 Oct): a counter
+        sale has no rep (COUNTER); a foreign rep id is refused, never credited to nobody; a rep cannot book in a colleague's name
+        (their choice is dropped); correcting the rep on an edit needs “Add and change sales reps” and is written to the audit
+        trail; a rep never learns which colleague covers a shop; an online order is PORTAL (unit test <code>SalesRepAttributionTest</code>, written, not yet run) — <code>sra-rep-on-sale.cy.js</code>
+        6/6 and the 21-spec sale / keyboard / order regression 192/192.`],
+      ['amber', 'Clean-up', `Every name carries the run's stamp. The run deactivates its reps, returns its shops to the shared
+        pool and <strong>unlinks the booker's login</strong> from its rep — a linked booker narrows every booking test. The C-cases'
+        sales and dispatched orders have their invoices voided.`],
     ],
   },
 }

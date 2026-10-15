@@ -265,6 +265,11 @@ public class PurchaseController {
 			// policy=block — surface the reason verbatim instead of the generic handler's "unexpected error".
 			LOGGER.warn("addPurchase rejected (credit limit): {}", blocked.getMessage());
 			return new GenericResponse("ERROR", blocked.getMessage());
+		} catch (com.myplus.business_service.service.BusinessRuleException rule) {
+			// EXP-REQ (and every other business rule on a new bill, e.g. SER-2's serials): a refusal written for the
+			// shopkeeper, nothing written. It used to fall to the generic handler below and read "unexpected error".
+			LOGGER.warn("addPurchase rejected: {}", rule.getMessage());
+			return new GenericResponse("FAILED", rule.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");
@@ -313,7 +318,7 @@ public class PurchaseController {
 			if (appUtil.isEmptyOrNull(pid) || appUtil.isEmptyOrNull(qty))
 				return new GenericResponse("FAILED", "Purchase and quantity are required.");
 			java.util.Map<String, Object> result = purchaseService.purchaseReturn(
-					Long.valueOf(pid.trim()), Float.valueOf(qty.trim()), request.getParameter("reason"));
+					Long.valueOf(pid.trim()), new java.math.BigDecimal(qty.trim()), request.getParameter("reason"));   // NUM-1: the typed figure, exactly
 			// B2B-P3c (#1): name the debit note so the operator can quote it to the supplier.
 			Object dbn = result != null ? result.get("debitNoteNo") : null;
 			return new GenericResponse("SUCCESS",
@@ -347,7 +352,7 @@ public class PurchaseController {
 				.documentType("DEBIT_NOTE")
 				.documentNo(r.getDebitNoteNo())
 				.referenceNo(r.getPurchaseInvoiceNo())
-				.dated(r.getDated() != null ? r.getDated().toLocalDate().toString() : null)
+				.dated(r.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(r.getDated()).toString() : null)
 				.partyName(venderName)
 				.reason(r.getReason())
 				.totalAmount(r.getAmount())
@@ -411,8 +416,8 @@ public class PurchaseController {
 			java.time.LocalDate toD = appUtil.toLocalDateOrNull(toStr);
 			List<com.myplus.business_service.entity.PurchaseReturn> rows =
 					purchaseReturnRepo.findDebitNotesFiltered(orgId(), userId(), venderId, productId,
-							fromD == null ? null : fromD.atStartOfDay(),
-							toD == null ? null : appUtil.endOfDay(toD.atStartOfDay()));
+							com.myplus.common.security.time.BusinessDay.start(fromD),   // H6 C3: the business's days
+							com.myplus.common.security.time.BusinessDay.end(toD));
 
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
 					rows.stream().map(com.myplus.business_service.entity.PurchaseReturn::getProductId)

@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -110,7 +111,8 @@ public class Purchase implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
-	private Float quantity;
+	@Column(name = "quantity", precision = 19, scale = 4)   // D14 — NUM-1 (was FLOAT)
+	private BigDecimal quantity;
 
 	/**
 	 * #17 P2 — FREE units received on top of the billed quantity ("buy 10, get 1").
@@ -120,8 +122,8 @@ public class Purchase implements Serializable {
 	 *
 	 * <p>Null on every purchase that carried no bonus, which is most of them.
 	 */
-	@Column(name = "bonus_quantity")
-	private Float bonusQuantity;
+	@Column(name = "bonus_quantity", precision = 19, scale = 4)
+	private BigDecimal bonusQuantity;
 
 	/**
 	 * #17 P2 — what was actually PAID for this line, so cost can be allocated across the units RECEIVED.
@@ -144,8 +146,8 @@ public class Purchase implements Serializable {
 	 * Units that actually entered stock = billed + free. The single definition, so goods-in, the return
 	 * clawback and any report cannot each compute it differently.
 	 */
-	public float receivedQuantity() {
-		return (quantity != null ? quantity : 0f) + (bonusQuantity != null ? bonusQuantity : 0f);
+	public BigDecimal receivedQuantity() {   // NUM-1: exact (was float)
+		return (quantity != null ? quantity : BigDecimal.ZERO).add(bonusQuantity != null ? bonusQuantity : BigDecimal.ZERO);
 	}
 
 //	@Column(name = "purchase_rate")
@@ -198,8 +200,8 @@ public class Purchase implements Serializable {
 	@Column(name = "doc_type", nullable = false, length = 16)
 	private String docType = com.myplus.business_service.service.OpeningBalanceService.DOC_SALE;
 
-	@Column(name = "purchase_expense")
-	private Float purchaseExpense;
+	@Column(name = "purchase_expense", precision = 19, scale = 2)   // money (D14); unused — every row NULL
+	private BigDecimal purchaseExpense;
 
 	@Column(name = "purchase_expense_desc")
 	private String purchaseExpenseDesc;
@@ -208,6 +210,16 @@ public class Purchase implements Serializable {
 
 	@Column(updatable=false)
 	private LocalDateTime dated;
+
+	/**
+	 * H6 C3b — the BILL's date: a calendar day, never shifted by any zone (client ruling 2026-10-11; Salesforce Date /
+	 * Odoo fields.Date). {@code dated} stays the recorded instant (UTC). Every accounting reader of a purchase — the
+	 * payables document date sent to finance, aging, statements, the period lock, payment allocation — reads THIS.
+	 * Stamped once, on first save, by {@link #stampBillDate()}: the business day of {@code dated} (a typed bill date is
+	 * held as that day's UTC midnight, so it keeps its typed day). Back-filled for existing rows by V81.
+	 */
+	@Column(name = "bill_date")
+	private LocalDate billDate;
 
 	private LocalDateTime updated;
 
@@ -231,4 +243,20 @@ public class Purchase implements Serializable {
 		return serialVersionUID;
 	}
 
+
+	/**
+	 * H6 C3b — the bill's ACCOUNTING day: bill_date, or (a row saved before V81 ran, or with no date) the business day
+	 * of {@code dated}. Every accounting reader uses this. Deliberately not named getX — not a mapped/serialised property.
+	 */
+	public LocalDate billDay() {
+		return billDate != null ? billDate : com.myplus.common.security.time.BusinessDay.of(dated);
+	}
+
+	/** H6 C3b — every save path (11 of them) gets a bill date without having to remember it: stamp at write. */
+	@PrePersist
+	void stampBillDate() {
+		if (billDate == null) {
+			billDate = com.myplus.common.security.time.BusinessDay.of(dated != null ? dated : LocalDateTime.now());
+		}
+	}
 }

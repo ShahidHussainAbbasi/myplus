@@ -17,6 +17,11 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
     show-sql: false
     open-in-view: false
+  # EX-5 — a receipt is at most 6 MB (the screen shrinks photos far below that before sending)
+  servlet:
+    multipart:
+      max-file-size: 6MB
+      max-request-size: 7MB
   flyway:
     # A new service: Flyway owns the schema from V1 on an empty database (STANDARDS D1). No baseline.
     baseline-on-migrate: false
@@ -25,6 +30,9 @@ spring:
 expense:
   outbox:
     relay-delay-ms: 15000
+  # EX-5 — where receipts are kept (a Docker volume in the stack; S3 later, behind the ReceiptStore port)
+  receipts:
+    dir: ${EXPENSE_RECEIPTS_DIR:/data/receipts}
 
 eureka:
   client:

@@ -38,7 +38,10 @@ describe('P3 — appointment proxies to appointment-service', () => {
       },
     }).then((res) => {
       expect(res.status).to.eq(200)
-      expect(res.body.error, 'no RegisterFailed error').to.not.eq('RegisterFailed')
+      // /registerHospital and /registerDoctor answer a GenericResponse whose SUCCESS sentence sits in `status` and whose
+      // failure puts "RegisterFailed" in `message` — `error` is ALWAYS null, so `error !== 'RegisterFailed'` passed for
+      // every outcome (found by HMS S2-11, 2026-10-10). Assert the success sentence itself.
+      expect(res.body.status, JSON.stringify(res.body)).to.match(/Hospital registered successfully/)
     })
   })
 
@@ -59,7 +62,7 @@ describe('P3 — appointment proxies to appointment-service', () => {
         },
       }).then((dres) => {
         expect(dres.status).to.eq(200)
-        expect(dres.body.error).to.not.eq('RegisterFailed')
+        expect(dres.body.status, JSON.stringify(dres.body)).to.match(/Doctor registered successfully/)
       })
 
       // 3) resolve the doctor id via the proxy, then book a public appointment
@@ -69,11 +72,14 @@ describe('P3 — appointment proxies to appointment-service', () => {
 
         cy.request({
           method: 'POST', url: '/appointmentReq', form: true,
-          body: { hospitalId, doctorId, name: patientName, mobile: '03009998888', address: 'Patient St', email: `p${stamp}@test.com` },
+          body: { hospitalId, doctorId, name: patientName, mobile: '03' + String(stamp).slice(-9), address: 'Patient St', email: `p${stamp}@test.com` },
         }).then((bres) => {
           expect(bres.status).to.eq(200)
           // success message carries the appointment token text
-          expect(JSON.stringify(bres.body)).to.match(/appointment number|registered/i)
+          // Each run books its OWN phone: since HMS B-07 a new name on a known phone is refused (one patient per
+          // phone), and the old /registered/i check would have passed on that refusal's "already registered" too.
+          expect(bres.body.status, JSON.stringify(bres.body)).to.eq('SUCCESS')
+          expect(bres.body.message).to.match(/appointment number \d+ is registered/i)
         })
 
         // 4) the org-scoped list comes back from appointment-service (not myplusdb)

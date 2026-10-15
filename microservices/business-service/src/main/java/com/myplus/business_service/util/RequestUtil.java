@@ -66,4 +66,25 @@ public class RequestUtil {
     public boolean isOwnerSuper() {
         return com.myplus.common.security.LocationScope.isOwnerSuper();
     }
+
+    /** The authorities that hold EVERY permission code — the same set as the monolith's MenuAccess / PermissionInterceptor. */
+    private static final java.util.Set<String> HOLDS_ALL =
+            java.util.Set.of("ROLE_OWNER", "SUPER_PRIVILEGE", "ADMIN_PRIVILEGE", "ADMIN_ROLE");
+
+    /**
+     * SRA-2 — does the caller hold permission {@code code} (a PERM-1 code riding the token's privileges claim)? The
+     * owner, an administrator and the platform roles hold every code. Data, not a role name: which members hold a code
+     * is the owner's permission set.
+     *
+     * <p>⚠ NOT {@link #callerSeesWholeOrg()}. That answers "which ROWS may this person see" (the set's Sees: Own/All
+     * scope); this answers "may this person do THIS". The territory rule used the first for the second, so a member
+     * whose set had scope ALL could assign territories and was never narrowed to their own outlets (D6a red gate).
+     */
+    public boolean holds(String code) {
+        return CurrentUser.get()
+                .filter(u -> u.getAuthorities() != null)
+                .map(u -> u.getAuthorities().stream().anyMatch(a ->
+                        HOLDS_ALL.contains(a.getAuthority()) || code.equals(a.getAuthority())))
+                .orElse(false);
+    }
 }

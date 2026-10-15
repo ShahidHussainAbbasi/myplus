@@ -25,8 +25,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -71,7 +69,7 @@ describe('Education — guardian portal (slice 3.1)', () => {
         // Seed a guardian WITH an email, plus a child linked to it. `addStudent` falls back to the
         // caller's active branch for schoolId, so an owner session needs no branch lookup.
         const tag = `CY_GP_${Date.now()}`
-        post('/addGuardian', {
+        cy.postForm('/addGuardian', {
           name: tag, email: `${tag}@example.test`.toLowerCase(),
           cnic: `CN${Date.now()}`, status: 'ACTIVE',
         }).then((r) => ok(r, 'seed a guardian with an email'))
@@ -80,7 +78,7 @@ describe('Education — guardian portal (slice 3.1)', () => {
           const g = rows(g2.body).find((x) => x.name === tag)
           expect(g, 'the seeded guardian exists').to.exist
           const enrollNo = `EN${Date.now()}`
-          post('/addStudent', {
+          cy.postForm('/addStudent', {
             name: `${tag}_S`, enrollNo, status: 'ACTIVE', guardianId: g.id,
           }).then((r) => ok(r, 'seed a child for that guardian'))
           fx.mine = { enrollNo, guardianId: g.id }
@@ -98,7 +96,7 @@ describe('Education — guardian portal (slice 3.1)', () => {
       // This spec is about 3.1's ACCESS GRANT, not 3.1b's account, and the grant succeeds either way; the
       // access row is asserted immediately below. Narrowed to this one call so a PARTIAL anywhere else in
       // this spec still fails loudly.
-      post('/invitePortalAccess', { guardianId: fx.mine.guardianId }).then((r) => {
+      cy.postForm('/invitePortalAccess', { guardianId: fx.mine.guardianId }).then((r) => {
         const b = parse(r.body)
         expect(b.status, `invite the guardian: ${JSON.stringify(b).slice(0, 300)}`)
           .to.be.oneOf(['SUCCESS', 'PARTIAL'])
@@ -117,7 +115,7 @@ describe('Education — guardian portal (slice 3.1)', () => {
 
   after(() => {
     cy.loginAsEduOwner()
-    if (fx.access) post('/revokePortalAccess', { id: fx.access.id })
+    if (fx.access) cy.postForm('/revokePortalAccess', { id: fx.access.id })
     setConfig('edu.portal.enabled', 'false')
   })
 
@@ -134,7 +132,7 @@ describe('Education — guardian portal (slice 3.1)', () => {
 
   it('a teacher cannot grant portal access — ADMIN tier', () => {
     cy.loginAsTeacherA()
-    post('/invitePortalAccess', { guardianId: fx.mine.guardianId }).then((r) => {
+    cy.postForm('/invitePortalAccess', { guardianId: fx.mine.guardianId }).then((r) => {
       const b = parse(r.body)
       // PARTIAL had to be added here, and it is a FIX, not bookkeeping: this read "status !== 'SUCCESS'",
       // which was a sound refusal check while SUCCESS was the only successful value. Slice 3.1b introduced
@@ -216,7 +214,7 @@ describe('Education — guardian portal (slice 3.1)', () => {
   })
 
   it('revoking access keeps the record and stops the login', () => {
-    post('/revokePortalAccess', { id: fx.access.id }).then((r) => ok(r, 'revoke'))
+    cy.postForm('/revokePortalAccess', { id: fx.access.id }).then((r) => ok(r, 'revoke'))
     cy.request('/getPortalAccess').then((r) => {
       const a = rows(r.body).find((x) => x.guardianId === fx.mine.guardianId)
       expect(a, 'the row is KEPT — "who used to be able to read this" is what an investigation needs')
@@ -224,11 +222,11 @@ describe('Education — guardian portal (slice 3.1)', () => {
       expect(a.status).to.eq('REVOKED')
     })
     // Re-invite so the after() hook and any re-run start from a known state.
-    post('/invitePortalAccess', { guardianId: fx.mine.guardianId })
+    cy.postForm('/invitePortalAccess', { guardianId: fx.mine.guardianId })
   })
 
   it('another tenant’s access row is invisible by id', () => {
-    post('/revokePortalAccess', { id: 999999 }).then((r) => {
+    cy.postForm('/revokePortalAccess', { id: 999999 }).then((r) => {
       expect(parse(r.body).status, 'an id outside the tenant never silently succeeds').to.not.eq('SUCCESS')
     })
   })

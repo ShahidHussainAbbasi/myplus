@@ -40,7 +40,11 @@
         'roll-40': { label: 'Roll · 40 × 25 mm', cols: 1, rows: 1, w: '40mm',   h: '25mm' }
     };
 
-    var stickers = [];   // [{barcode, productId, soldUnit, quantity, productName, unitText, price}]
+    // Every printable row: U7 stickers AND (SKU-AUTO-3) products with no manufacturer barcode, whose SKU is the code.
+    // [{key, kind, barcode, productId, soldUnit, quantity, productName, unitText, price}] — key 's:<id>' / 'p:<id>',
+    // because a sticker id and a product id can be the same number.
+    var stickers = [];
+    var MAX_SHOWN = 200;   // thousands of products may lack a barcode; a table of thousands is PERF-1's lesson
 
     function t(key, fallback) {
         return (typeof global.t === 'function' && global.t(key) !== key) ? global.t(key) : fallback;
@@ -73,6 +77,7 @@
                 stickers = rows.map(function (b) {
                     var p = products[String(b.productId)] || {};
                     return {
+                        key: 's:' + b.id, kind: 'sticker',
                         id: b.id, barcode: b.barcode, productId: b.productId,
                         soldUnit: b.soldUnit, quantity: b.quantity,
                         productName: p.name || ('#' + b.productId),
@@ -82,10 +87,35 @@
                         price: p.sellingPrice
                     };
                 });
+                /*
+                 * SKU-AUTO-3 — a product whose goods carry no manufacturer barcode gets a shelf label of its own SKU:
+                 * the till's scan resolves a SKU exactly as it does a barcode, so the printed code sells one of it.
+                 * A product WITH a barcode is left out — its pack already carries a code the scanner reads.
+                 */
+                Object.keys(products).forEach(function (id) {
+                    var p = products[id];
+                    var sku = $.trim(p.sku == null ? '' : String(p.sku));
+                    var bc = $.trim(p.barcode == null ? '' : String(p.barcode));
+                    if (!sku || bc) return;
+                    stickers.push({
+                        key: 'p:' + p.id, kind: 'product', id: p.id, barcode: sku, productId: p.id,
+                        soldUnit: 'PACK', quantity: 1, productName: p.name || ('#' + p.id),
+                        unitText: '1 ' + (p.unit || t('ui.js.pack', 'Pack')), price: p.sellingPrice
+                    });
+                });
                 render();
             }).fail(render);
         }).fail(function () {
             $('#lblBody').html('<tr><td colspan="5">' + t('ui.js.couldNotLoadStickers') + '</td></tr>');
+        });
+    }
+
+    /** The rows the search box lets through — name or code, case-insensitive. */
+    function matching() {
+        var q = $.trim(String($('#lblSearch').val() || '')).toLowerCase();
+        if (!q) return stickers;
+        return stickers.filter(function (s) {
+            return String(s.productName).toLowerCase().indexOf(q) >= 0 || String(s.barcode).toLowerCase().indexOf(q) >= 0;
         });
     }
 
@@ -97,14 +127,20 @@
             $('#lblPrint').prop('disabled', true);
             return;
         }
-        var html = stickers.map(function (s) {
-            return '<tr>'
-                + '<td><input type="checkbox" class="lbl-pick" data-id="' + s.id + '"></td>'
+        var hits = matching();
+        var shown = hits.slice(0, MAX_SHOWN);
+        $('#lblMore').text(hits.length > shown.length
+            ? t('ui.js.lblMore', 'Showing {0} of {1} - type a name or code to narrow.')
+                .replace('{0}', shown.length).replace('{1}', hits.length)
+            : '').toggle(hits.length > shown.length);
+        var html = shown.map(function (s) {
+            return '<tr data-kind="' + s.kind + '">'
+                + '<td><input type="checkbox" class="lbl-pick" data-id="' + escHtml(s.key) + '"></td>'
                 + '<td>' + escHtml(String(s.barcode)) + '</td>'
                 + '<td>' + escHtml(String(s.productName)) + '</td>'
                 + '<td>' + escHtml(String(s.unitText)) + '</td>'
                 + '<td><input type="number" min="1" step="1" value="1" class="form-control lbl-qty" '
-                + 'data-id="' + s.id + '" style="max-width:90px"></td>'
+                + 'data-id="' + escHtml(s.key) + '" style="max-width:90px"></td>'
                 + '</tr>';
         }).join('');
         $('#lblBody').html(html);
@@ -116,7 +152,7 @@
         var picked = [];
         $('.lbl-pick:checked').each(function () {
             var id = $(this).data('id');
-            var s = stickers.filter(function (x) { return String(x.id) === String(id); })[0];
+            var s = stickers.filter(function (x) { return x.key === String(id); })[0];
             if (!s) return;
             var qty = Number($('.lbl-qty[data-id="' + id + '"]').val()) || 1;
             picked.push({ sticker: s, copies: Math.max(1, Math.floor(qty)) });
@@ -128,6 +164,9 @@
         // Nothing selected prints nothing — the same rule as U11's Apply button.
         $('#lblPrint').prop('disabled', selected().length === 0);
     }
+
+    /** SKU-AUTO-3 — the search box re-renders from what is loaded; no request per keystroke. */
+    global.filterLabels = function () { render(); };
 
     global.selectAllLabels = function (on) {
         $('.lbl-pick').prop('checked', !!on);
@@ -191,10 +230,10 @@
      * means a printer this layout does not suit is not a dead end.
      */
     global.exportLabelsCsv = function () {
-        var rows = [['barcode', 'product', 'soldUnit', 'quantity', 'price']];
+        var rows = [['barcode', 'product', 'soldUnit', 'quantity', 'price', 'kind']];
         stickers.forEach(function (s) {
             rows.push([s.barcode, s.productName, s.soldUnit, s.quantity,
-                s.price == null ? '' : s.price]);
+                s.price == null ? '' : s.price, s.kind]);
         });
         var csv = rows.map(function (r) {
             return r.map(function (c) {

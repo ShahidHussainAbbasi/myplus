@@ -40,12 +40,14 @@ public class DoctorController {
     @ResponseBody
     public String loadDoctorDetails(@RequestParam Long doctorId) {
         try {
-            Map<String, Object> resp = appointment.getMap("/doctors/" + doctorId);
+            // P-BOOK-1: the public doctor (public fields only), anonymously through the gateway's open route.
+            // Every value is ESCAPED: this HTML lands on a public page, and the text is typed by tenants.
+            Map<String, Object> resp = appointment.getPublic("/public/doctors/" + doctorId);
             Map<String, Object> d = (Map<String, Object>) resp.get("data");
             StringBuffer sb = new StringBuffer();
-            sb.append("<p id='schedule'>Days From : " + str(d.get("dayFrom")) + " To " + str(d.get("dayTo")) + " <br/>");
-            sb.append("Time From : " + str(d.get("timeIn")) + " To " + str(d.get("timeOut")) + " <br/>");
-            sb.append("Specialist : " + str(d.get("speciality")) + " </p>");
+            sb.append("<p id='schedule'>Days From : " + esc(d.get("dayFrom")) + " To " + esc(d.get("dayTo")) + " <br/>");
+            sb.append("Time From : " + esc(d.get("timeIn")) + " To " + esc(d.get("timeOut")) + " <br/>");
+            sb.append("Specialist : " + esc(d.get("speciality")) + " </p>");
             return sb.toString();
         } catch (Exception e) {
             LOGGER.error("loadDoctorDetails failed", e);
@@ -60,11 +62,12 @@ public class DoctorController {
         StringBuffer sb = new StringBuffer();
         sb.append("<option value=''> Select Doctor </option>");
         try {
-            Map<String, Object> resp = appointment.getMap("/doctors?hospitalId=" + hospitalId);
+            // P-BOOK-1: the venue's doctors (public fields, its own organisation only), through the open route
+            Map<String, Object> resp = appointment.getPublic("/public/venues/" + hospitalId + "/doctors");
             List<Map<String, Object>> doctors = (List<Map<String, Object>>) resp.get("data");
             if (doctors != null) {
                 for (Map<String, Object> d : doctors) {
-                    sb.append("<option value='" + str(d.get("id")) + "'>" + str(d.get("name")) + "</option>");
+                    sb.append("<option value='" + esc(d.get("id")) + "'>" + esc(d.get("name")) + "</option>");
                 }
             }
         } catch (Exception e) {
@@ -122,6 +125,11 @@ public class DoctorController {
         model.addAttribute("hospitals", hospitalMap);
         return "doctor";
     }
+    /** P-BOOK-1 — HTML-escaped text for the public page (tenant-typed names never become markup). */
+    static String esc(Object o) {
+        return org.springframework.web.util.HtmlUtils.htmlEscape(o == null ? "" : String.valueOf(o));
+    }
+
 
     private static String str(Object o) {
         return o == null ? "" : String.valueOf(o);

@@ -27,7 +27,7 @@ class BoxConversionTest {
         PurchaseDTO d = new PurchaseDTO();
         d.setPurchaseUnit(unit);
         d.setPacksPerBox(packsPerBox);
-        d.setQuantity(qty);
+        d.setQuantity(new BigDecimal(Float.toString(qty)));   // NUM-1
         StockDTO st = new StockDTO();
         st.setBpurchaseRate(new BigDecimal(rate));
         st.setBsellRate(new BigDecimal("150.00"));
@@ -44,13 +44,13 @@ class BoxConversionTest {
 
         PurchaseService.convertBoxesToPacks(d);
 
-        assertThat(d.getQuantity()).as("100 packs on the shelf").isEqualTo(100f);
+        assertThat(d.getQuantity()).as("100 packs on the shelf").isEqualByComparingTo("100");
         assertThat(d.getStock().getBpurchaseRate()).as("cost per PACK — the number COGS reads")
                 .isEqualByComparingTo("100.00");
 
         // The bill is unchanged: 10 x 1000 and 100 x 100 are the same money. If this ever stops holding,
         // the conversion has invented or destroyed value.
-        assertThat(d.getStock().getBpurchaseRate().multiply(BigDecimal.valueOf(d.getQuantity())))
+        assertThat(d.getStock().getBpurchaseRate().multiply(d.getQuantity()))
                 .as("what the supplier charged").isEqualByComparingTo("10000.00");
     }
 
@@ -89,7 +89,7 @@ class BoxConversionTest {
 
         PurchaseService.convertBoxesToPacks(d);
 
-        assertThat(d.getQuantity()).isEqualTo(10f);
+        assertThat(d.getQuantity()).isEqualByComparingTo("10");
         assertThat(d.getStock().getBpurchaseRate()).isEqualByComparingTo("100.00");
         assertThat(d.getPurchaseUnit()).isNull();
     }
@@ -101,7 +101,7 @@ class BoxConversionTest {
 
         PurchaseService.convertBoxesToPacks(d);
 
-        assertThat(d.getQuantity()).as("10 packs, not 100").isEqualTo(10f);
+        assertThat(d.getQuantity()).as("10 packs, not 100").isEqualByComparingTo("10");
         assertThat(d.getStock().getBpurchaseRate()).isEqualByComparingTo("100.00");
     }
 
@@ -117,7 +117,7 @@ class BoxConversionTest {
 
         PurchaseService.convertBoxesToPacks(d);
 
-        assertThat(d.getQuantity()).isEqualTo(3f);
+        assertThat(d.getQuantity()).isEqualByComparingTo("3");
         assertThat(d.getStock().getBpurchaseRate()).isEqualByComparingTo("333.34");
 
         // Cost recovered across the packs is never LESS than what was paid.

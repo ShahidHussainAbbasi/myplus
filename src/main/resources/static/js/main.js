@@ -99,6 +99,46 @@ function resetGlobalError(){
     $(".error-list").html("");
 }
 
+/**
+ * MONEY-2 — a money figure for the screen: always two decimals ("100" → "100.00"; float noise from adding
+ * "2988.4500000000003" → "2988.45"). A value WRITTEN with more than two decimals (a rate the cashier typed as 33.333)
+ * is shown as written: rounding it on screen would show a price the line was not charged at. Blank stays blank; a
+ * value that is not a number passes through unchanged. Display only — never feed its result back into arithmetic.
+ */
+/**
+ * DRY D2 — THE money formatter for every screen (client rulings 2026-10-11): DISPLAY ONLY.
+ *   - a blank / missing / non-numeric amount shows BLANK ('') — "not set" is not "zero" (0 shows 0.00);
+ *   - thousand separators always: 1,234.50 (Latin digits, like every other number on the screens);
+ *   - two decimals; a value written with 3–4 decimals (a loose-unit price, 33.333) is shown as written, grouped —
+ *     rounding it on screen would show a price the line was not charged at. More than 4 is float noise
+ *     ("2988.4500000000003") and is rounded; -0 shows 0.00.
+ * Never feed its result back into an input or arithmetic — that is round2(). Exceptions with their own documented
+ * style: printed documents (receipt.js number system), the public storefront's "Rs." label, whole-number education fees.
+ */
+var MONEY_FMT = (typeof Intl !== 'undefined')
+    ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+function groupDigits(intPart) { return String(intPart).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function money(v) {
+    if (v === null || v === undefined || v === '') return '';
+    var s = String(v).trim(), n = Number(s.replace(/,/g, ''));
+    if (s === '' || !isFinite(n)) return '';
+    var dot = s.indexOf('.');
+    var decimals = dot >= 0 ? s.length - dot - 1 : 0;
+    if (typeof v !== 'number' && decimals > 2 && decimals <= 4) {
+        var neg = s.charAt(0) === '-', body = neg ? s.slice(1) : s, d = body.indexOf('.');
+        return (neg ? '-' : '') + groupDigits(body.slice(0, d).replace(/,/g, '')) + body.slice(d);
+    }
+    var r = (Math.round(n * 100) / 100) || 0;   // || 0: never show -0.00
+    return MONEY_FMT ? MONEY_FMT.format(r) : groupDigits(Math.trunc(r)) + (r.toFixed(2).slice(-3));
+}
+/** Kept for its 6 callers: the same formatter. */
+function money2(v) { return money(v); }
+/** DRY D2 — an amount rounded to 2 decimals as a NUMBER: for inputs and arithmetic, never grouped. NaN/blank → 0. */
+function round2(v) {
+    var n = Number(String(v == null ? '' : v).replace(/,/g, ''));
+    return isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
 function showFormError(msg) {
     var el = document.getElementById('globalError');
     if (el) {
@@ -354,7 +394,9 @@ var initDates = function(){
 	for(var i=0; i<dateTimeInputs.length;i++){
 		if(!dateTimeInputs[i].value) dateTimeInputs[i].value= moment().format('DD-MM-YYYY HH:mm:ss');
 	}
-	var dateInputs = $('.datePicker');
+	// EXP-ENTRY — a date box marked data-no-default is never filled with today. The purchase EXPIRY was: 565 of 579 bills
+	// with an expiry carried the bill's own date, so the batch sold first and counted as expired the next day.
+	var dateInputs = $('.datePicker').not('[data-no-default]');
 	for(var i=0; i<dateInputs.length;i++){
 		if(!dateInputs[i].value) dateInputs[i].value= moment().format('DD-MM-YYYY');
 	}
@@ -604,6 +646,11 @@ $(document).ready(function() {
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
 					if (isSelectMode && $("#sellCustomerDD").val()) customer.customerId = Number($("#sellCustomerDD").val());
+					// HMS S4-lite: a dispense names the PATIENT'S customer by id even when this user cannot see it in the
+					// list (reception made it) — the name alone would make a duplicate. The server checks the organisation.
+					if (!customer.customerId && window.dispensingPrescriptionId && window.dispensingCustomerId) {
+						customer.customerId = window.dispensingCustomerId;
+					}
 					var customerHistory = {"customer":customer, "sales":data};
 					/*
 					 * RST-R2a — how this sale is served. Sent ONLY when the chooser is on screen and a type
@@ -640,6 +687,10 @@ $(document).ready(function() {
 					// prescription-only medicine through the server-side sell guard; the post-sale dispense call
 					// then reconciles what was actually sold against what was prescribed.
 					if (window.dispensingPrescriptionId) customerHistory.prescriptionId = window.dispensingPrescriptionId;
+					// SRA-3: the sales rep who took this order (0 = none / a counter sale). Sent only when the picker is on the
+					// page; the server decides the credit (a booker who IS a rep is credited themselves). Twin field on the
+					// monolith's CustomerHistoryDTO, or the proxy drops it.
+					if ($('#sellRepId').length) customerHistory.repId = Number($('#sellRepId').val() || 0);
 					// INST-1: a handset sold on terms carries its plan with the sale, so the schedule is
 					// written in the same act that creates the receivable it structures. Null on every
 					// ordinary sale. Like tradeDiscount above, this needs its twin field on BOTH
@@ -797,6 +848,45 @@ $(document).ready(function() {
 						return false;
 					}
 					$("#purchasePurchaseRate").css('border-color','');
+
+					/*
+					 * EXP-ENTRY — an expiry of TODAY OR EARLIER is asked about before it is saved. Such a batch counts as
+					 * expired (not sellable) and, sold first-expiry-first, it is the first one taken. Asked, not refused:
+					 * stock can arrive already expired (to return to the supplier). "Today" is the shop's own day — this
+					 * browser's clock, the same day TZ-2 sends the server. The answer covers THIS date on THIS product,
+					 * once: it is consumed by the save it allowed.
+					 */
+					var $exp = $('#purchaseExpiry'), expV = $.trim($exp.val() || '');
+					// EXP-REQ — where expiry is tracked, blank is refused unless the product is marked "No expiry".
+					if (!expV && typeof purchaseExpiryRequired === 'function' && purchaseExpiryRequired()) {
+						$exp.css('border-color', 'red');
+						showFormError(t('ui.js.expiryRequired'));
+						if (typeof focusInvalid === 'function') focusInvalid($exp[0]); else $exp.focus();
+						return false;
+					}
+					$exp.css('border-color', '');
+					if (expV && $exp.is(':visible') && typeof uiConfirm === 'function') {
+						var expM = moment(expV, ['DD-MM-YYYY', 'YYYY-MM-DD'], true);
+						var ackKey = expV + '|' + pItem;
+						if (expM.isValid() && !expM.isAfter(moment(), 'day')) {
+							if (window._purchaseExpiryAck !== ackKey) {
+								uiConfirm({
+									title: t('ui.js.expiryPastTitle'),
+									message: t('ui.js.expiryPastMsg', expV),
+									confirmText: t('ui.js.expiryPastSave'),
+									tone: 'warning'
+								}).then(function (yes) {
+									// After the dialog's own focus return (confirm-dialog.js gives focus back to its opener
+									// 160 ms after closing), or that would put the operator back on Save, not on the date.
+									if (yes !== true) { setTimeout(function () { $exp.focus(); }, 200); return; }
+									window._purchaseExpiryAck = ackKey;
+									$('#addPurchase').click();   // programmatic: keeps any "add another" intent
+								});
+								return false;
+							}
+							window._purchaseExpiryAck = null;   // consumed by this save
+						}
+					}
 				}
 				validateForm();
 			    if(formValidated){

@@ -88,6 +88,9 @@ Start-Log
 
 $composeArgs = if ($Profile -eq 'pos') { @() } else { @('--profile', $Profile) }
 
+# DEV vs PROD (DEV-ENV-1, 2026-10-12): nothing to do here. A dev PC's .env names docker-compose.dev.yml in
+# COMPOSE_FILE, which compose reads by itself - so this script and a `docker compose up` by hand get the same result.
+
 # Print something IMMEDIATELY. If this banner does not appear, the script never started (execution
 # policy, wrong directory, a typo in the name) - that is a different problem from a slow step.
 Write-Host ""
@@ -138,7 +141,8 @@ for ($i = 0; $i -lt $sorted.Count; $i += 5) {
 
 # WHICH .env - there are five env-ish files in this repo and only ONE reaches compose.
 #
-#   microservices/.env         <- THE ONE. Compose auto-loads `.env` from the project directory.
+#   microservices/.env         <- THE ONE. Compose auto-loads `.env` from the project directory. On a dev PC it
+#                                 also names docker-compose.dev.yml in COMPOSE_FILE (DEV-ENV-1).
 #   microservices/.env.local   <- read by start-all.ps1 (bare JAR runs). Compose IGNORES it.
 #   microservices/.env.example    template, not read
 #   <repo-root>/.env.local     <- the MONOLITH's persistence.properties / mail / recaptcha
@@ -592,6 +596,7 @@ $schemaOf = @{
     'finance-service'   = @{ db = 'myplusdb_finance';   v = 4  }
     'party-service'     = @{ db = 'myplusdb_party';     v = 3  }
     'expense-service'   = @{ db = 'myplusdb_expense';   v = 1  }
+    'clinical-service'  = @{ db = 'myplusdb_clinical';  v = 1  }
 }
 if ($Profile -ne 'pos') { $schemaOf['pharma-service'] = @{ db = 'myplusdb_pharma'; v = 6 } }
 

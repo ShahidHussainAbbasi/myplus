@@ -24,8 +24,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -93,7 +91,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     cy.then(() => {
       // Dated far beyond any other spec's evenings: the guardian portal offers the OPEN evening with the LATEST
       // date, so a leftover open evening dated later than this one used to take its place (4 Oct, SCHED-2).
-      post('/saveMeetingEvent', { title: TAG + ' Evening', eventDateStr: '15-06-2999' })
+      cy.postForm('/saveMeetingEvent', { title: TAG + ' Evening', eventDateStr: '15-06-2999' })
         .then((r) => { fx.eventId = ok(r, 'create the evening').object.id })
     })
   })
@@ -104,14 +102,14 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     // CLOSE this run's evening. Every run creates its own, so leaving it OPEN bought nothing — and every run
     // left one more open evening on the school's Parents' evenings screen (SCHED-2 review, 2026-10-04).
     // Closing stops new bookings only; it deletes nothing, and no other spec relies on an open evening.
-    if (fx.eventId) post('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' })
+    if (fx.eventId) cy.postForm('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' })
   })
 
   // ── staff: publishing ───────────────────────────────────────────────────────────────────────────
 
   it("staff publish a teacher's slots, and the times come back with the teacher's NAME", () => {
     cy.loginAsEduOwner()
-    post('/publishMeetingSlots', {
+    cy.postForm('/publishMeetingSlots', {
       eventId: fx.eventId, staffId: fx.staffId,
       from: FROM, to: TO, minutes: 10,
     }).then((r) => {
@@ -130,7 +128,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
 
   it('re-publishing the SAME window creates nothing — extending an evening adds only the new part', () => {
     cy.loginAsEduOwner()
-    post('/publishMeetingSlots', {
+    cy.postForm('/publishMeetingSlots', {
       eventId: fx.eventId, staffId: fx.staffId,
       from: FROM, to: TO, minutes: 10,
     }).then((r) => {
@@ -155,12 +153,12 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     cy.loginAsEduOwner()
     ;[1, 2, 3].forEach((k) => {
       const { from, to } = windowAt(k, 4)   // four hours, its own block — never this run's first evening
-      post('/publishMeetingSlots', { eventId: fx.eventId, staffId: fx.staffId, from, to, minutes: 5 }).then((r) => {
+      cy.postForm('/publishMeetingSlots', { eventId: fx.eventId, staffId: fx.staffId, from, to, minutes: 5 }).then((r) => {
         const b = ok(r, `publish evening ${k}`)
         expect(b.object.created, 'four hours in five-minute slots').to.eq(48)
         expect(r.duration, `evening ${k} answered in ${r.duration} ms — the client gives up at 3000`).to.be.lessThan(2500)
       })
-      post('/publishMeetingSlots', { eventId: fx.eventId, staffId: fx.staffId, from, to, minutes: 5 }).then((r) => {
+      cy.postForm('/publishMeetingSlots', { eventId: fx.eventId, staffId: fx.staffId, from, to, minutes: 5 }).then((r) => {
         const b = ok(r, `re-publish evening ${k}`)
         expect(b.object.created, 'nothing doubled').to.eq(0)
         expect(b.object.alreadyExisted, 'every slot reported as already there').to.eq(48)
@@ -204,7 +202,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
       expect((b.object.slots || []).length, 'with its slots').to.be.greaterThan(0)
     })
     cy.then(() => {
-      post('/portal/meetings/book', { slotId: fx.slotId }).then((r) => {
+      cy.postForm('/portal/meetings/book', { slotId: fx.slotId }).then((r) => {
         const b = ok(r, 'book a slot')
         expect(b.object.alreadyBooked, 'the first booking is a real one').to.eq(false)
         expect(b.object.bookingId, 'and it has an id').to.exist
@@ -216,7 +214,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     // Asserted through the API rather than the button, because a UI guard is not an authorisation: the
     // guarantee has to hold for a caller that never sees the button (2.2's lesson).
     cy.loginAsPortalGuardian()
-    post('/portal/meetings/book', { slotId: fx.slotId }).then((r) => {
+    cy.postForm('/portal/meetings/book', { slotId: fx.slotId }).then((r) => {
       const b = ok(r, 'book the same slot again')
       expect(b.object.alreadyBooked, 'the second click is idempotent, not an error').to.eq(true)
     })
@@ -231,7 +229,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     cy.loginAsEduOwner()
     // A second guardian, seeded rather than hoped for.
     const other = TAG + ' Other'
-    post('/addGuardian', { name: other, email: `cyme${Date.now()}@myplus.com`, cnic: 'CM' + Date.now(), status: 'ACTIVE' })
+    cy.postForm('/addGuardian', { name: other, email: `cyme${Date.now()}@myplus.com`, cnic: 'CM' + Date.now(), status: 'ACTIVE' })
       .then((r) => ok(r, 'seed a second guardian'))
     cy.request('/getUserGuardian').then((r) => {
       const g = rows(r.body).find((x) => x.name === other)
@@ -253,7 +251,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
 
   it('a CLOSED evening refuses new bookings — and does NOT cancel the ones already made', () => {
     cy.loginAsEduOwner()
-    post('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' })
+    cy.postForm('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' })
       .then((r) => ok(r, 'close booking'))
 
     cy.loginAsPortalGuardian()
@@ -273,14 +271,14 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     })
 
     cy.loginAsEduOwner()
-    post('/setMeetingEventStatus', { id: fx.eventId, status: 'OPEN' })
+    cy.postForm('/setMeetingEventStatus', { id: fx.eventId, status: 'OPEN' })
   })
 
   // ── privilege ───────────────────────────────────────────────────────────────────────────────────
 
   it('a teacher cannot publish slots or open/close an evening — ADMIN tier', () => {
     cy.loginAsTeacherA()
-    post('/publishMeetingSlots', {
+    cy.postForm('/publishMeetingSlots', {
       eventId: fx.eventId, staffId: fx.staffId,
       from: FROM, to: TO, minutes: 10,
     }).then((r) => {
@@ -288,7 +286,7 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
       const refused = r.status === 403 || !(b && ['SUCCESS', 'PARTIAL'].includes(b.status))
       expect(refused, "committing every teacher's evening is a policy act, not teacher work").to.eq(true)
     })
-    post('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' }).then((r) => {
+    cy.postForm('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || !(b && ['SUCCESS', 'PARTIAL'].includes(b.status))
       expect(refused, 'and neither is opening or closing booking').to.eq(true)

@@ -37,9 +37,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Invalid credentials", 401));
     }
 
+    /** A refused sign-in: its own status, its stable code in {@code reason} (clients branch on that, not the text). */
+    @ExceptionHandler(SignInRefusedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSignInRefused(SignInRefusedException ex) {
+        SignInRefusal r = ex.refusal();
+        return ResponseEntity.status(r.status()).body(ApiResponse.refused(r.name(), r.defaultMessage(), r.status().value()));
+    }
+
     @ExceptionHandler(CaptchaInvalidException.class)
     public ResponseEntity<ApiResponse<Void>> handleCaptchaInvalid(CaptchaInvalidException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("Captcha verification failed", 400));
+        SignInRefusal r = SignInRefusal.CAPTCHA_FAILED;
+        return ResponseEntity.status(r.status()).body(ApiResponse.refused(r.name(), r.defaultMessage(), r.status().value()));
     }
 
     @ExceptionHandler(CaptchaUnavailableException.class)

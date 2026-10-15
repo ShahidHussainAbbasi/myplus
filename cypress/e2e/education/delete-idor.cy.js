@@ -141,8 +141,6 @@ describe('Security EDU-IDOR-2: a tenant cannot edit, re-file or link another ten
   const victim = { student: `${tag}_pupil`, grade: `${tag}_class`, vehicle: `${tag}_bus` }
   const ids = {}
 
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
   const status = (r) => (r.body && r.body.status) || `HTTP ${r.status}`
   // A list helper must FAIL LOUDLY on a non-list -- an empty array from a 403 would make "not there" pass.
   const list = (url) => cy.request(url).then((r) => {
@@ -158,11 +156,11 @@ describe('Security EDU-IDOR-2: a tenant cannot edit, re-file or link another ten
       expect(schools.length, 'the victim tenant has a school to aim at').to.be.greaterThan(0)
       ids.victimSchool = schools[0].id
     })
-    post('/addGrade', { name: victim.grade, status: 'ACTIVE' })
+    cy.postForm('/addGrade', { name: victim.grade, status: 'ACTIVE' })
       .then((r) => expect(status(r), 'victim class created').to.eq('SUCCESS'))
-    post('/addVehicle', { name: victim.vehicle, number: victim.vehicle, status: 'ACTIVE' })
+    cy.postForm('/addVehicle', { name: victim.vehicle, number: victim.vehicle, status: 'ACTIVE' })
       .then((r) => expect(status(r), 'victim vehicle created').to.eq('SUCCESS'))
-    post('/addStudent', { name: victim.student, enrollNo: `EN${uniq()}`, status: 'ACTIVE' })
+    cy.postForm('/addStudent', { name: victim.student, enrollNo: `EN${uniq()}`, status: 'ACTIVE' })
       .then((r) => expect(status(r), 'victim student created').to.eq('SUCCESS'))
     byName('/getUserGrade', victim.grade).then((g) => { expect(g, 'victim class listed').to.exist; ids.grade = g.id })
     byName('/getUserVehicle', victim.vehicle, 'number').then((v) => { expect(v, 'victim vehicle listed').to.exist; ids.vehicle = v.id })
@@ -174,15 +172,15 @@ describe('Security EDU-IDOR-2: a tenant cannot edit, re-file or link another ten
     const sweep = () => {
       list('/getUserStudent').then((all) => {
         const mine = all.filter((x) => String(x.name || '').startsWith(tag)).map((x) => x.id)
-        if (mine.length) post('/deleteStudent', { checked: mine.join(',') })
+        if (mine.length) cy.postForm('/deleteStudent', { checked: mine.join(',') })
       })
       list('/getUserGrade').then((all) => {
         const mine = all.filter((x) => String(x.name || '').startsWith(tag)).map((x) => x.id)
-        if (mine.length) post('/deleteGrade', { checked: mine.join(',') })
+        if (mine.length) cy.postForm('/deleteGrade', { checked: mine.join(',') })
       })
       list('/getUserVehicle').then((all) => {
         const mine = all.filter((x) => String(x.number || x.name || '').startsWith(tag)).map((x) => x.id)
-        if (mine.length) post('/deleteVehicle', { checked: mine.join(',') })
+        if (mine.length) cy.postForm('/deleteVehicle', { checked: mine.join(',') })
       })
     }
     cy.loginAsEduOwner(); sweep()
@@ -191,7 +189,7 @@ describe('Security EDU-IDOR-2: a tenant cannot edit, re-file or link another ten
 
   const attack = (url, body, expected) => {
     cy.loginAsEduOwner()
-    cy.then(() => post(url, body(ids)).then((r) => {
+    cy.then(() => cy.postForm(url, body(ids)).then((r) => {
       expect(status(r), `${url} ${JSON.stringify(body(ids))} must be refused`).to.eq(expected)
     }))
   }
@@ -232,16 +230,16 @@ describe('Security EDU-IDOR-2: a tenant cannot edit, re-file or link another ten
 
   it('CONTROL: the attacker\'s OWN student and class still save and link (a deny-all guard fails here)', () => {
     cy.loginAsEduOwner()
-    post('/addGrade', { name: `${tag}_own_class`, status: 'ACTIVE' })
+    cy.postForm('/addGrade', { name: `${tag}_own_class`, status: 'ACTIVE' })
       .then((r) => expect(status(r), 'own class created').to.eq('SUCCESS'))
     byName('/getUserGrade', `${tag}_own_class`).then((g) => {
       expect(g, 'own class listed').to.exist
-      post('/addStudent', { name: `${tag}_own_pupil`, gradeId: g.id, status: 'ACTIVE' })
+      cy.postForm('/addStudent', { name: `${tag}_own_pupil`, gradeId: g.id, status: 'ACTIVE' })
         .then((r) => expect(status(r), 'own pupil on own class').to.eq('SUCCESS'))
     })
     byName('/getUserStudent', `${tag}_own_pupil`).then((s) => {
       expect(s, 'own pupil listed').to.exist
-      post('/addStudent', { id: s.id, name: `${tag}_own_pupil_renamed`, status: 'ACTIVE' })
+      cy.postForm('/addStudent', { id: s.id, name: `${tag}_own_pupil_renamed`, status: 'ACTIVE' })
         .then((r) => expect(status(r), 'own pupil edited').to.eq('SUCCESS'))
     })
     byName('/getUserStudent', `${tag}_own_pupil_renamed`).then((s) => expect(s, 'the edit landed').to.exist)

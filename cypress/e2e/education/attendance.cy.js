@@ -84,8 +84,6 @@ describe('Education — attendance uniqueness (V28)', () => {
     const k = Object.keys(b).find((x) => Array.isArray(b[x]))
     return k ? b[k] : []
   }
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
   const S = Date.now()
   const TAG = 'CyAU' + S
@@ -94,7 +92,7 @@ describe('Education — attendance uniqueness (V28)', () => {
 
   before(() => {
     cy.loginAsEduOwner()
-    post('/addGrade', { name: TAG + ' Class', fee: 0 })
+    cy.postForm('/addGrade', { name: TAG + ' Class', fee: 0 })
       .then((r) => expect(JSON.stringify(r.body), 'seed a class').to.match(/SUCCESS/))
     // /getUserGrade returns JSON; /getUserGrades returns <option> HTML for a dropdown. Every other spec
     // uses the JSON one, and so does this — scraping the markup for an id is how a renamed element
@@ -106,7 +104,7 @@ describe('Education — attendance uniqueness (V28)', () => {
     })
     cy.then(() => {
       fx.en = TAG + 'S'
-      post('/addStudent', { name: fx.en, enrollNo: fx.en, status: 'ACTIVE', gradeId: fx.gradeId })
+      cy.postForm('/addStudent', { name: fx.en, enrollNo: fx.en, status: 'ACTIVE', gradeId: fx.gradeId })
         .then((r) => expect(JSON.stringify(r.body), 'seed a student').to.match(/SUCCESS/))
     })
   })

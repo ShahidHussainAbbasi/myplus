@@ -50,7 +50,7 @@ const manufacturers = () =>
 
 /** A monolith write that must really happen — a refusal here would make every later assertion meaningless. */
 const post = (url, body) =>
-  cy.request({ method: 'POST', url, headers: { 'Content-Type': 'application/json' }, body, failOnStatusCode: false })
+  cy.postJson(url, body)   // DRY D3: the shared request; this helper adds the must-succeed check
     .then((r) => {
       expect(r.body && r.body.success, `${url} must succeed: ${JSON.stringify(r.body).slice(0, 300)}`).to.eq(true)
       return r

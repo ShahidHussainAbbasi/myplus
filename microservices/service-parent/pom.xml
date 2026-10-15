@@ -49,5 +49,15 @@
       <groupId>io.opentelemetry.instrumentation</groupId>
       <artifactId>opentelemetry-spring-boot-starter</artifactId>
     </dependency>
+    <!-- Lets bootstrap.yml's spring.cloud.config.retry wait for config-server instead of starting
+         without it (fail-fast). Versions managed by the Spring Boot parent. -->
+    <dependency>
+      <groupId>org.springframework.retry</groupId>
+      <artifactId>spring-retry</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-aop</artifactId>
+    </dependency>
   </dependencies>
 </project>

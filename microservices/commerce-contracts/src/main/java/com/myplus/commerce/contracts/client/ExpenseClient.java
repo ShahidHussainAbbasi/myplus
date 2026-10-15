@@ -29,4 +29,12 @@ public interface ExpenseClient {
     @PostExchange("/internal/expense/bills/{id}/apply")
     java.util.Map<String, Object> applyToBill(@org.springframework.web.bind.annotation.PathVariable("id") Long billId,
             @RequestBody com.myplus.commerce.contracts.dto.BillApplyRequest request);
+
+    /** E11 — what the caller's tenant's bills owe in the books: {"open": n, "count": n}. */
+    @org.springframework.web.service.annotation.GetExchange("/internal/expense/payables/summary")
+    java.util.Map<String, Object> payablesSummary();
+
+    /** E11 — re-send every bill of the caller's tenant to finance's subledger: {"queued": n}. */
+    @PostExchange("/internal/expense/payables/resend")
+    java.util.Map<String, Object> resendPayables();
 }

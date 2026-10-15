@@ -39,6 +39,7 @@ public class ProductService {
     private final CatalogRefsCache refsCache;
     // PR-1 — every selling-price change, written in the change's own transaction.
     private final com.myplus.catalog.repository.ProductPriceHistoryRepository priceHistory;
+    private final SkuAllocator skuAllocator;   // SKU-AUTO — a blank SKU is filled with the next 12-digit code
 
     /** This org's tax-code rates by id (one query) — so building refs never does a per-product lookup. */
     private java.util.Map<Long, BigDecimal> orgCodeRates() {
@@ -185,6 +186,9 @@ public class ProductService {
         p.setUserId(userId);
         p.setIdempotencyKey(key);     // stamped HERE, not in fromDto: an update must never move the key
         if (p.getCreatedBy() == null) p.setCreatedBy(userId);
+        // SKU-AUTO — every product gets a SKU: a blank one takes the next 12-digit code. Last, right before the insert:
+        // the counter row stays locked until commit (allocate LATE).
+        if (p.getSku() == null) p.setSku(skuAllocator.next(orgId, userId));
         /*
          * saveAndFlush, deliberately: the INSERT must hit the database while we are still inside this method so
          * the unique-index violation surfaces as a DataIntegrityViolationException the controller can replay.
@@ -288,15 +292,20 @@ public class ProductService {
         if (dto.getVersion() != null && !dto.getVersion().equals(p.getVersion())) {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Product.class, id);
         }
-        // Same rule as create: a blank sku is "cleared", not a duplicate. Clearing the code on an
-        // existing product must be allowed, so only a real, CHANGED value is checked.
+        // Same rule as create: only a real, CHANGED value can be a duplicate. SKU-AUTO: a blank one is not a
+        // clear any more — every product keeps a SKU (below).
         String sku = normalize(dto.getSku());
+        String skuBefore = p.getSku();
         if (sku != null && !sku.equals(p.getSku())
                 && productRepository.existsBySkuScoped(sku, CurrentUser.organizationId(), CurrentUser.userId())) {
             throw new DuplicateResourceException("Product SKU already exists: " + sku);
         }
         java.math.BigDecimal priceBefore = p.getSellingPrice();   // PR-1 — read before the form overwrites it
         fromDto(dto, p);
+        // SKU-AUTO — a box left blank keeps the code the product had; a product that never had one gets the next code.
+        if (p.getSku() == null) {
+            p.setSku(skuBefore != null ? skuBefore : skuAllocator.next(p.getOrganizationId(), p.getUserId()));
+        }
         /*
          * saveAndFlush, not save: Hibernate increments the version when it FLUSHES, and a plain save() on a managed
          * entity defers that to commit — after toDto has already run. The response would then carry the OLD
@@ -499,13 +508,46 @@ public class ProductService {
     @Transactional
     public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(Long id, Boolean requiresSerial,
                                                                            Boolean tracksBatch) {
+        return updateTrackingFlags(id, requiresSerial, tracksBatch, null);
+    }
+
+    /**
+     * SSR-0c — a purchase names the product's supplier: kept only when the product has none yet (its FIRST purchase).
+     * A later purchase from another supplier changes nothing. Returns whether it was set.
+     */
+    @Transactional
+    public boolean stampMainSupplier(Long id, Long supplierId) {
+        if (supplierId == null) return false;
+        Product p = getEntity(id);
+        if (p.getMainSupplierId() != null) return false;
+        p.setMainSupplierId(supplierId);
+        productRepository.save(p);
+        return true;
+    }
+
+    /** SSR-0c — the owner's choice on the product form; {@code null} clears it. */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ProductRef setMainSupplier(Long id, Long supplierId) {
+        Product p = getEntity(id);
+        p.setMainSupplierId(supplierId);
+        productRepository.save(p);
+        return toRef(p, orgCodeRates());
+    }
+
+    /** EXP-REQ — as above, plus the "No expiry" exemption, which only a business tracking expiry may set. */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(Long id, Boolean requiresSerial,
+                                                                           Boolean tracksBatch, Boolean noExpiry) {
         Product p = getEntity(id);
         requireCapability(requiresSerial, "serialTracking",
                 "Serial / IMEI tracking is not switched on for your business.");
         requireCapability(tracksBatch, "batchTracking",
                 "Batch tracking is not switched on for your business.");
+        requireCapability(noExpiry, "expiryTracking",
+                "Expiry tracking is not switched on for your business.");
         if (requiresSerial != null) p.setRequiresSerial(requiresSerial);
         if (tracksBatch != null) p.setTracksBatch(tracksBatch);
+        if (noExpiry != null) p.setNoExpiry(noExpiry);
         productRepository.save(p);
         changed(p);   // CACHE-1 — the cached picker row carries requiresSerial (the till asks for serials from it)
         return toRef(p, orgCodeRates());
@@ -612,6 +654,9 @@ public class ProductService {
                 // sell and purchase paths already hold this ref and must not call catalog again to decide.
                 .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
+                .noExpiry(Boolean.TRUE.equals(p.getNoExpiry()))   // EXP-REQ
+                .mainSupplierId(p.getMainSupplierId())   // SSR-0c
+                .lastPurchaseRate(p.getLastPurchaseRate())   // SSR-1 - the TP
                 // U1: carried on the ref the sale already fetches, so no extra call at checkout.
                 .packSize(p.getPackSize())
                 .looseUnit(p.getLooseUnit())
@@ -668,6 +713,8 @@ public class ProductService {
                 // reads a ref that happens to come from the wrong path.
                 .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
+                .noExpiry(Boolean.TRUE.equals(p.getNoExpiry()))   // EXP-REQ
+                .mainSupplierId(p.getMainSupplierId())   // SSR-0c
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
                 // DUP-1 — the caller's own key, echoed so a replay is distinguishable from a fresh insert.

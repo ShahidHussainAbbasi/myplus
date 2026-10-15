@@ -111,6 +111,26 @@ public class TeamController {
         }
     }
 
+    // ── TEAM-1 (2026-10-13): resend an invitation, remove (reversible), reactivate — pass-throughs; auth decides ──
+    @RequestMapping(value = "/team/users/{id}/resend-invite", method = RequestMethod.POST)
+    @ResponseBody
+    public Object resendInvite(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        return relay("/api/auth/org/users/" + id + "/resend-invite", HttpMethod.POST, null, "resend the invitation");
+    }
+
+    @RequestMapping(value = "/team/users/{id}/remove", method = RequestMethod.POST)
+    @ResponseBody
+    public Object removeMember(@org.springframework.web.bind.annotation.PathVariable Long id,
+                               @RequestBody(required = false) Map<String, Object> body) {
+        return relay("/api/auth/org/users/" + id + "/remove", HttpMethod.POST, body, "remove this person");
+    }
+
+    @RequestMapping(value = "/team/users/{id}/reactivate", method = RequestMethod.POST)
+    @ResponseBody
+    public Object reactivateMember(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        return relay("/api/auth/org/users/" + id + "/reactivate", HttpMethod.POST, null, "reactivate this person");
+    }
+
     @RequestMapping(value = "/team/users", method = RequestMethod.POST)
     @ResponseBody
     public Object createTeamUser(@RequestBody Map<String, Object> body) {   // Object: storeIds is an array

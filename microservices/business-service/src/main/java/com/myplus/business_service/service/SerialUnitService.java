@@ -109,7 +109,7 @@ public class SerialUnitService {
      *         purchase is saved, so nothing needs unpicking.
      */
     public List<String> validateForPurchase(String serials, boolean requiresSerial,
-                                            float quantity, Long orgId) {
+                                            java.math.BigDecimal quantity, Long orgId) {
         List<String> clean = split(serials);
 
         // Nothing supplied and nothing required: the overwhelmingly common case, and it does no work at all.
@@ -148,7 +148,7 @@ public class SerialUnitService {
          * is unaccounted for, and the shop would never find out which — the register would simply be short.
          */
         if (requiresSerial) {
-            int expected = Math.round(quantity);
+            int expected = wholeUnits(quantity);   // NUM-1: was Math.round(float)
             if (expected > 0 && clean.size() != expected) {
                 throw new ValidationException("This purchase is for " + expected + " unit(s) but "
                         + clean.size() + " serial number(s) were entered.");
@@ -253,7 +253,7 @@ public class SerialUnitService {
      */
     @Transactional
     public int reconcileForPurchase(Long purchaseId, Long productId, String serials, boolean requiresSerial,
-                                    float quantity, String conditionGrade, AuthenticatedUser user) {
+                                    java.math.BigDecimal quantity, String conditionGrade, AuthenticatedUser user) {
         Long orgId = user.getOrganizationId();
         List<String> submitted = split(serials);
         List<SerialUnit> existing = serialUnitRepo.findByPurchase(orgId, purchaseId);
@@ -283,7 +283,7 @@ public class SerialUnitService {
         }
 
         if (requiresSerial) {
-            int expected = Math.round(quantity);
+            int expected = wholeUnits(quantity);   // NUM-1: was Math.round(float)
             if (expected > 0 && wanted.size() != expected) {
                 throw new ValidationException("This purchase is for " + expected + " unit(s) but "
                         + wanted.size() + " serial number(s) were entered.");
@@ -363,7 +363,7 @@ public class SerialUnitService {
      * @throws ValidationException with an operator-readable reason — every one of these happens before the
      *         sale commits, so the cashier can fix it with the customer still standing there.
      */
-    public List<String> validateForSale(String serials, boolean requiresSerial, float quantity,
+    public List<String> validateForSale(String serials, boolean requiresSerial, java.math.BigDecimal quantity,
                                         Long productId, Long orgId) {
         List<String> clean = split(serials);
 
@@ -385,7 +385,7 @@ public class SerialUnitService {
         }
 
         if (requiresSerial) {
-            int expected = Math.round(quantity);
+            int expected = wholeUnits(quantity);   // NUM-1: was Math.round(float)
             if (expected > 0 && clean.size() != expected) {
                 throw new ValidationException("This line is for " + expected + " unit(s) but "
                         + clean.size() + " serial number(s) were entered.");
@@ -486,7 +486,7 @@ public class SerialUnitService {
      */
     @Transactional
     public List<String> restoreForReturn(Long orgId, String invoiceNo, Long productId,
-                                         String serials, float returnQty) {
+                                         String serials, java.math.BigDecimal returnQty) {
         List<String> restored = new ArrayList<>();
         List<SerialUnit> sold = soldOn(orgId, invoiceNo, productId);
         if (sold.isEmpty()) return restored;                  // not a tracked line — nothing to put back
@@ -511,12 +511,12 @@ public class SerialUnitService {
                 }
                 coming.add(match);
             }
-            int expected = Math.round(returnQty);
+            int expected = wholeUnits(returnQty);
             if (expected > 0 && coming.size() != expected) {
                 throw new ValidationException("This return is for " + expected + " unit(s) but "
                         + coming.size() + " serial number(s) were entered.");
             }
-        } else if (Math.round(returnQty) == sold.size()) {
+        } else if (wholeUnits(returnQty) == sold.size()) {
             coming = sold;                                    // the whole line — no ambiguity to resolve
         } else {
             throw new ValidationException("This invoice sold " + sold.size()
@@ -574,5 +574,10 @@ public class SerialUnitService {
         String g = grade.trim().toUpperCase();
         if (SerialUnit.USED.equals(g) || SerialUnit.REFURBISHED.equals(g)) return g;
         return SerialUnit.NEW;
+    }
+
+    /** How many serial numbers a quantity calls for: rounded half up, as {@code Math.round(float)} did (NUM-1). */
+    private static int wholeUnits(java.math.BigDecimal q) {
+        return q == null ? 0 : q.setScale(0, java.math.RoundingMode.HALF_UP).intValue();
     }
 }

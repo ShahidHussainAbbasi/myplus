@@ -49,7 +49,7 @@ const packProduct = (name) =>
       expect(pr.body.status, '/getUserProduct envelope').to.eq('SUCCESS')
       const p = list(pr.body).find((x) => x.name === name)
       expect(p, 'the product was stored and is readable back').to.exist
-      return p
+      return cy.markNoExpiry(p.id, name).then(() => p)   // EXP-REQ (4818b0bd): a fixture product has no expiry, or demo.business refuses its purchase
     })
   })
 

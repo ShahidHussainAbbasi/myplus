@@ -47,6 +47,10 @@
     </th:block>
 
     <th:block th:fragment="header-js">
+        <!-- DRY D1: the ONE HTML escaper (escHtml), loaded first and once for every page. Dependency-free by design.
+             It used to be included page by page at the bottom (8 pages), so a header script such as grid-loading.js
+             could not rely on it and carried an escaper of its own; two header pages had none at all. -->
+        <script th:src="@{/js/common/dom-safe.js}"></script>
         <!-- Translated strings for the module scripts, from the SAME bundle Thymeleaf renders the
              markup with (see JsMessageSource + LocaleInterceptor). th:inline="javascript" escapes
              the values, so translated copy cannot inject script. Must precede i18n.js. -->
@@ -99,6 +103,9 @@
         <script th:src="@{/jQExp/buttons.print.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap.min.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-datepicker.min.js}"></script>
+        <!-- H6: ONE formatter for every time a person sees — the viewer's zone, via Intl (fmtDateTime / fmtDate /
+             fmtTime / typedToServer). Before main.js and every module script that renders a time. -->
+        <script th:src="@{/js/common/datetime.js}"></script>
         <script th:src="@{/js/main.js}"></script>
         <!-- PERF-2: the ONE hole content-hash versioning cannot close by itself.
              Every asset URL in this app is a Thymeleaf @{...} link, and ResourceUrlEncodingFilter rewrites
@@ -242,6 +249,44 @@
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                    <!--
+                      STK-ALERT — what an owner should act on: expired batches, batches expiring soon, low stock (against the
+                      business cap in Configuration → Stock alerts, or the product's own minimum). Owner/admin only; filled
+                      by /js/common/stock-alerts.js, which only the business dashboard loads, and kept hidden while every
+                      count is zero — so every other page, and every other role, shows nothing.
+                    -->
+                    <li id="stockAlertNav" style="display:none;position:relative;align-items:center;padding:9px 4px"
+                        sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')">
+                        <button type="button" id="stockAlertBtn" class="sa-btn" aria-haspopup="true" aria-expanded="false"
+                                aria-controls="stockAlertPanel">
+                            <span class="glyphicon glyphicon-alert" aria-hidden="true"></span>
+                            <span class="sa-badge sa-red" data-sa="expired" hidden></span>
+                            <span class="sa-badge sa-amber" data-sa="expiring" hidden></span>
+                            <span class="sa-badge sa-red" data-sa="low" hidden></span>
+                        </button>
+                        <div id="stockAlertPanel" class="sa-panel" role="region" hidden></div>
+                    </li>
+                    <!-- RW-3 (2026-10-12): the workspace switcher, only for someone with more than one job (decision D4). The
+                         list is the session copy taken at sign-in (WorkspaceService) — no service call per page. It reuses
+                         the language switcher's dropdown (lang-switch CSS + JS) rather than a second dropdown component. -->
+                    <li th:if="${#authorization.expression('isAuthenticated()') and #lists.size(@workspaces.mine()) > 1}"
+                        style="display:flex;align-items:center;padding:9px 4px">
+                        <div class="lang-switch ws-switch" id="wsSwitch">
+                            <button type="button" class="lang-switch__btn" onclick="langSwitchToggle(event)"
+                                    aria-haspopup="true" aria-expanded="false" th:attr="aria-label=#{ui.ws.switch}">
+                                <span class="glyphicon glyphicon-th-large" aria-hidden="true"></span>
+                                <span class="lang-switch__current" th:text="#{ui.ws.switch}">Workspace</span>
+                                <span class="lang-switch__caret glyphicon glyphicon-chevron-down" aria-hidden="true"></span>
+                            </button>
+                            <ul class="lang-switch__menu" role="menu">
+                                <li th:each="w : ${@workspaces.mine()}">
+                                    <a role="menuitem" th:href="@{${w.url}}" th:attr="data-ws=${w.key}"
+                                       th:text="${#messages.msgOrNull(w.label) != null ? #messages.msg(w.label) : w.key}">Workspace</a>
+                                </li>
+                                <li><a role="menuitem" th:href="@{/workspaces}" th:text="#{ui.ws.all}">All workspaces</a></li>
+                            </ul>
+                        </div>
+                    </li>
                     <li style="display:flex;align-items:center;padding:9px 4px">
                         <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
                     </li>

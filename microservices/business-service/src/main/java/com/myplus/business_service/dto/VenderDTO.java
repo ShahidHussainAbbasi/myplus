@@ -63,6 +63,7 @@ public class VenderDTO implements Serializable {
 	private Long partyId;               // P1: shared party/contact master id
 	private String cnicNtn;             // DR-1 (D5): optional CNIC / NTN — the strongest partner match key
 	private Boolean alsoCustomer;       // DR-2: this supplier's partner is also one of our customers (computed on read)
+	private Long areaId;                // SRA-1: save — null keeps the stored area, 0 clears it, else an area of THIS business
 	private String datedStr;
 	private String updatedStr;
 

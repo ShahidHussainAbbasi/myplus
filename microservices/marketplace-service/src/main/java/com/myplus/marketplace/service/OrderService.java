@@ -161,6 +161,9 @@ public class OrderService {
                 // O7 D2: who took it. The name is stamped, not resolved later — see Order.bookedByName.
                 .bookedByUserId(userId)
                 .bookedByName(bookedByName)
+                // SRA-3: the rep the office chose for a PAPER order (0 / absent = none). Checked against the business's
+                // rep list when the order is invoiced; a rep who booked signed in is credited by their login there.
+                .repId(dto.getRepId() == null || dto.getRepId() == 0L ? null : dto.getRepId())
                 .total(lineTotal(dto.getItems()))     // indicative only — the invoice is priced at dispatch
                 .items(toItems(dto.getItems()))
                 .source("FIELD")                      // POS | STOREFRONT | FIELD — how the order was taken
@@ -269,7 +272,7 @@ public class OrderService {
                 if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) continue;
                 lines.add(com.myplus.commerce.contracts.dto.SaleRecordRequest.Line.builder()
                         .productId(item.getProductId())
-                        .quantity(item.getQuantity().floatValue())
+                        .quantity(java.math.BigDecimal.valueOf(item.getQuantity()))
                         .unitPrice(item.getPrice())
                         .discount(item.getDiscount())
                         .build());
@@ -522,6 +525,14 @@ public class OrderService {
         if (dto.getPromisedDate() != null && !dto.getPromisedDate().equals(o.getPromisedDate())) {
             changes.add(change("promisedDate", str(o.getPromisedDate()), str(dto.getPromisedDate())));
             o.setPromisedDate(dto.getPromisedDate());
+        }
+        // SRA-3: the rep of a paper order may be corrected under review (0 = none), recorded like any other change.
+        if (dto.getRepId() != null) {
+            Long wanted = dto.getRepId() == 0L ? null : dto.getRepId();
+            if (!java.util.Objects.equals(wanted, o.getRepId())) {
+                changes.add(change("rep", str(o.getRepId()), str(wanted)));
+                o.setRepId(wanted);
+            }
         }
     }
 
@@ -949,7 +960,7 @@ public class OrderService {
         for (MarketplaceSaleLine l : sale.lines()) {
             lines.add(SaleRecordRequest.Line.builder()
                     .productId(l.productId())
-                    .quantity((float) l.quantity())
+                    .quantity(java.math.BigDecimal.valueOf(l.quantity()))
                     .unitPrice(l.unitPrice())                             // the marketplace price (the sale honours a sell rate)
                     .description(l.productName())
                     .serials(l.serials() == null || l.serials().isEmpty() ? null : String.join(",", l.serials()))
@@ -1157,7 +1168,7 @@ public class OrderService {
                 if (l.getProductId() == null || l.getQuantity() == null || l.getQuantity() <= 0) continue;
                 lines.add(SaleRecordRequest.Line.builder()
                         .productId(l.getProductId())
-                        .quantity(l.getQuantity().floatValue())
+                        .quantity(java.math.BigDecimal.valueOf(l.getQuantity()))
                         .unitPrice(l.getPrice())
                         .build());
             }
@@ -1561,7 +1572,7 @@ public class OrderService {
                 com.myplus.commerce.contracts.dto.SaleReturnRequest.builder()
                         .invoiceNo(o.getInvoiceNo()).reason(reason).quarantine(quarantine)
                         .lines(List.of(com.myplus.commerce.contracts.dto.SaleReturnLine.builder()
-                                .productId(productId).quantity((float) quantity).build()))
+                                .productId(productId).quantity(java.math.BigDecimal.valueOf(quantity)).build()))
                         .build()));
         int sold = o.getItems().stream().filter(i -> productId.equals(i.getProductId()))
                 .mapToInt(i -> i.getQuantity() == null ? 0 : i.getQuantity().intValue()).sum();
@@ -1643,7 +1654,7 @@ public class OrderService {
         List<StockReturnLine> lines = new ArrayList<>();
         for (OrderItem it : o.getItems()) {
             if (it.getProductId() == null || it.getQuantity() == null || it.getQuantity() <= 0) continue;
-            lines.add(new StockReturnLine(it.getProductId(), it.getQuantity().floatValue()));
+            lines.add(new StockReturnLine(it.getProductId(), java.math.BigDecimal.valueOf(it.getQuantity())));   // NUM-1
         }
         if (lines.isEmpty()) return;
         try {
@@ -1739,6 +1750,7 @@ public class OrderService {
         d.setRejectionReason(o.getRejectionReason());   // O7 D1 — the booker's only route to fixing it
         d.setBookedByUserId(o.getBookedByUserId());     // O7 D2 — attribution
         d.setBookedByName(o.getBookedByName());
+        d.setRepId(o.getRepId());                        // SRA-3 — the rep the office chose (paper orders)
         d.setCustomerId(o.getCustomerId());             // O7 D2c — which trade account this bills
         d.setShippingAddress(o.getShippingAddress());
         d.setReturnReason(o.getReturnReason());

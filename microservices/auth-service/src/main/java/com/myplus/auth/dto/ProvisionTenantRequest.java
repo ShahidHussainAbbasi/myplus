@@ -43,7 +43,16 @@ public class ProvisionTenantRequest {
      * <p>An optional field with a {@code general} default is a field that gets skipped, and the defect returns
      * for the next customer. Xero and QuickBooks both make this required at company setup, for the same
      * reason: "everything on" is never the right answer for a real business.
+     *
+     * <p>HC-1a — still mandatory, now enforced in {@code AuthService.provisionTenant}: it may come from
+     * {@link #businessType} instead, which is how the console sends it.
      */
-    @NotBlank
     private String shape;
+
+    /**
+     * HC-1a — the business type key (V35 {@code business_type}, e.g. {@code hospital_clinic}). When present it
+     * decides the tenant's org type AND shape, and {@link #userType} / {@link #shape} are ignored: one key from the
+     * screen, so a clinic org type can never be paired with a shop shape.
+     */
+    private String businessType;
 }

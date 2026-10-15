@@ -31,6 +31,10 @@ public class SagaSaleWriter {
     private final PaymentService paymentService;
     private final com.myplus.business_service.repository.CashierShiftRepo cashierShiftRepo;
     private final com.myplus.business_service.repository.SellBatchRepo sellBatchRepo;   // B2B-P3b-2 (#4)
+    private final SalesRepAttribution repAttribution;                                   // SRA-3: who is credited
+    private final SalesRepService salesReps;                                            // SRA-3: an edit's correction
+    private final com.myplus.business_service.util.RequestUtil requestUtil;             // SRA-3: rep.manage
+    private final AuditService auditService;                                            // SRA-3: a corrected rep is recorded
 
     private static java.math.BigDecimal nz(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 
@@ -43,6 +47,11 @@ public class SagaSaleWriter {
         Customer customer;
         try {
             customer = customerService.saveUpdateCustomer(dto);   // declares checked Exception
+        } catch (com.myplus.common.web.exception.ValidationException refused) {
+            // HMS S4-lite — a REFUSAL (e.g. "Customer not found": another organisation's customer id) passes through
+            // as itself, so the till says why. SagaSellService still releases the stock hold on it, exactly as for
+            // any write failure; wrapping it made the cashier read "An unexpected error occurred".
+            throw refused;
         } catch (Exception e) {
             throw new RuntimeException("Failed to save customer for sale", e);
         }
@@ -159,6 +168,12 @@ public class SagaSaleWriter {
         // person's name would have to come from auth-service, which is precisely the print-path dependency
         // this stamp exists to avoid. If a proper display name is wanted on the document, the right fix is
         // to add it to the JWT claims so it arrives with the request, not to look it up while printing.
+        stampRep(ch, dto, user, replaceLines);
+        // SRA-3 / D1: an order invoiced at dispatch is KEYED BY whoever typed the order in — not whoever dispatched it.
+        // Server-only (InternalSalesController sets it from the order; @JsonIgnore keeps it out of any browser request).
+        if (!replaceLines && dto.getKeyedByName() != null && !dto.getKeyedByName().isBlank())
+            ch.setBookedByName(dto.getKeyedByName().trim());
+
         if (!replaceLines && ch.getBookedByName() == null && user.getEmail() != null) {
             /*
              * THE NAME, not the address.
@@ -276,6 +291,52 @@ public class SagaSaleWriter {
      * <p>Picks are matched on product id, and a line split across several batches yields several rows --
      * which is the whole reason this is a child table rather than a column.
      */
+    /**
+     * SRA-3 — the REP and the source, decided by {@link SalesRepAttribution} and STAMPED (the name too).
+     *
+     * <p>A NEW sale: on the till the booker is the signed-in cashier and may choose a rep (the Rep picker); from an
+     * order the booker is the order's login and the chosen rep is the office's, both set server-side by
+     * InternalSalesController — a dispatcher who manages reps does not get to re-credit a rep's order.
+     *
+     * <p>An EDIT keeps what was stamped. Only a holder of rep.manage may change it — commission follows this field —
+     * and the change is written to the audit trail with both names.
+     */
+    private void stampRep(CustomerHistory ch, CustomerHistoryDTO dto, AuthenticatedUser user, boolean replaceLines) {
+        if (!replaceLines) {
+            boolean fromOrder = dto.getAttributionUserId() != null || dto.getRecordChannel() != null;
+            Long booker = fromOrder ? dto.getAttributionUserId() : user.getUserId();
+            // An order's rep id was chosen by a manager — marketplace drops it from anyone else (dropRepUnlessManager) —
+            // so it may override the booker's own rep; at the till it is the signed-in cashier's permission that counts.
+            boolean mayManage = fromOrder ? (dto.getRepId() != null && dto.getRepId() != 0L) : requestUtil.holds("rep.manage");
+            SalesRepAttribution.Credit credit = repAttribution.decide(user.getOrganizationId(), booker, dto.getRepId(),
+                    mayManage, fromOrder ? dto.getRecordChannel() : null);
+            ch.setRepId(credit.repId());
+            ch.setRepName(credit.repName());
+            ch.setSaleSource(credit.source());
+            return;
+        }
+        if (dto.getRepId() == null) return;                       // the edit did not touch the rep
+        Long wanted = dto.getRepId() == 0L ? null : dto.getRepId();
+        if (java.util.Objects.equals(wanted, ch.getRepId())) return;
+        if (!requestUtil.holds("rep.manage"))
+            throw new com.myplus.common.web.exception.ValidationException(
+                    "You are not allowed to change who is credited with a sale.");
+        String before = ch.getRepName() == null ? "none" : ch.getRepName();
+        if (wanted == null) {
+            ch.setRepId(null);
+            ch.setRepName(null);
+        } else {
+            com.myplus.business_service.entity.SalesRep r = salesReps.inOrg(wanted, user.getOrganizationId())
+                    .orElseThrow(() -> new com.myplus.common.web.exception.ValidationException(
+                            "That sales rep was not found. Choose the rep again."));
+            ch.setRepId(r.getId());
+            ch.setRepName(r.getName());
+            ch.setSaleSource(SalesRepAttribution.REP_PAPER);
+        }
+        auditService.record("SALE_REP_CHANGE", "INVOICE", ch.getInvoiceNo(), null,
+                before + " -> " + (ch.getRepName() == null ? "none" : ch.getRepName()));
+    }
+
     void recordBatches(Sell sell, SagaLine line, int lineIndex, java.util.List<com.myplus.commerce.contracts.dto.StockPick> picks, AuthenticatedUser user) {
         if (picks == null || picks.isEmpty() || sell == null || sell.getSellId() == null) return;
         try {

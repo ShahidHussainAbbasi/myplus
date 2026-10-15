@@ -22,8 +22,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 const postJson = (url, body) =>
   cy.request({ method: 'POST', url, body, failOnStatusCode: false })
 
@@ -67,7 +65,7 @@ describe('Education — homework (slice 2.4)', () => {
     cy.then(() => {
       if (fx.students.length > 0) return
       const en = TAG + '-S1'
-      post('/addStudent', { name: TAG + ' Pupil', enrollNo: en, gradeId: fx.subject.gradeId })
+      cy.postForm('/addStudent', { name: TAG + ' Pupil', enrollNo: en, gradeId: fx.subject.gradeId })
         .then((r) => ok(r, 'seed a student into the subject’s class'))
       cy.request('/getUserStudent').then((r2) => {
         fx.students = rows(r2.body).filter((s) => s.gradeId === fx.subject.gradeId && s.enrollNo)
@@ -78,7 +76,7 @@ describe('Education — homework (slice 2.4)', () => {
     })
     // Our own task, out of 20 so the grading path is exercised.
     cy.then(() => {
-      post('/saveHomework', {
+      cy.postForm('/saveHomework', {
         subjectId: fx.subject.id, title: TAG + ' Fractions', dueOn: DUE, maxMarks: 20
       }).then((r) => ok(r, 'set homework'))
       cy.request('/getHomework').then((r) => {
@@ -107,13 +105,13 @@ describe('Education — homework (slice 2.4)', () => {
           postJson('/saveSubmissionBulk', { homeworkId: fx.homework.id, rows: clearing })
         }
       })
-      cy.then(() => post('/deleteHomework', { id: fx.homework.id }))
+      cy.then(() => cy.postForm('/deleteHomework', { id: fx.homework.id }))
       // Only the student THIS spec created — never one the org already had.
       cy.then(() => {
         if (!fx.seededEnrollNo) return
         cy.request('/getUserStudent').then((r) => {
           const mine = rows(r.body).find((s) => s.enrollNo === fx.seededEnrollNo)
-          if (mine) post('/deleteStudent', { checked: mine.id })
+          if (mine) cy.postForm('/deleteStudent', { checked: mine.id })
         })
       })
     })
@@ -206,7 +204,7 @@ describe('Education — homework (slice 2.4)', () => {
     })
 
     // D5 — late is DERIVED. Moving the deadline must change it; a stored flag could not.
-    post('/saveHomework', {
+    cy.postForm('/saveHomework', {
       id: fx.homework.id, subjectId: fx.subject.id, title: TAG + ' Fractions',
       dueOn: '2026-09-18', maxMarks: 20
     }).then((r) => ok(r, 'extend the deadline'))
@@ -215,7 +213,7 @@ describe('Education — homework (slice 2.4)', () => {
       expect(row.late, 'the same submission is now on time').to.eq(false)
     })
     // Put the deadline back so later cases read the original fixture.
-    post('/saveHomework', {
+    cy.postForm('/saveHomework', {
       id: fx.homework.id, subjectId: fx.subject.id, title: TAG + ' Fractions',
       dueOn: DUE, maxMarks: 20
     })
@@ -255,7 +253,7 @@ describe('Education — homework (slice 2.4)', () => {
   })
 
   it('homework with graded work cannot be deleted', () => {
-    post('/deleteHomework', { id: fx.homework.id }).then((r) => {
+    cy.postForm('/deleteHomework', { id: fx.homework.id }).then((r) => {
       const b = parse(r.body)
       // A grade is a teacher's judgement of a child's work; losing it to a mis-click is unrecoverable.
       expect(b.status, 'refused while anything is graded').to.eq('FAILED')

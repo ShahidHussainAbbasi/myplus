@@ -121,7 +121,7 @@ class PurchasePerBatchTest {
         when(inventoryClient.importStock(any())).thenReturn(StockImportResult.builder().created(1).entryIds(List.of(777L)).build());
         Purchase p = bill("250.00", "210.00");
         PurchaseDTO dto = new PurchaseDTO();
-        dto.setQuantity(10f);
+        dto.setQuantity(new BigDecimal("10"));
 
         service.pushPurchaseToInventory(p, dto, USER);
 

@@ -15,13 +15,11 @@
 describe('Pharmacy — prescription-only enforcement', () => {
   beforeEach(() => { cy.loginAsPharma() })
 
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url: url, body: body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   // Sell one unit, optionally declaring a prescription. Same payload shape the other pharmacy sell specs use
   // (insurance-copay / quarantine-register) so a failure here means the guard, not the request.
   const sell = (productId, name, prescriptionId) =>
-    post('/addSell', {
+    cy.postJson('/addSell', {
       customer: { name: 'Walkin_' + Date.now(), contact: '0300RX', paidAmount: 10, dueAmount: 0 },
       sales: [{ productId: productId, quantity: 1, sellRate: 10, totalAmount: 10, netAmount: 10 }],
       tenders: [{ method: 'CASH', amount: 10, reference: '' }],
@@ -33,7 +31,7 @@ describe('Pharmacy — prescription-only enforcement', () => {
     const name = 'RxOnly_' + Date.now()
     cy.seedProduct({ name: name, sku: 'RX' + Date.now(), unit: 'tablet', stock: 30 }).then(({ productId }) => {
       // flag it prescription-only (goes to the catalog master via pharma → catalog)
-      post('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: false })
+      cy.postJson('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: false })
         .then((r) => expect(r.body.success, JSON.stringify(r.body)).to.eq(true))
 
       sell(productId, name).then((r) => {
@@ -46,9 +44,9 @@ describe('Pharmacy — prescription-only enforcement', () => {
   it('the same medicine sells when the sale declares a prescription', () => {
     const name = 'RxOk_' + Date.now()
     cy.seedProduct({ name: name, sku: 'RK' + Date.now(), unit: 'tablet', stock: 30 }).then(({ productId }) => {
-      post('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: false })
+      cy.postJson('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: false })
 
-      post('/addPrescription', { patientName: 'RxPat_' + Date.now(),
+      cy.postJson('/addPrescription', { patientName: 'RxPat_' + Date.now(),
         items: [{ productId: productId, medicineName: name, quantity: 5 }] }).then((r) => {
         const rxId = r.body.data.id
         sell(productId, name, rxId).then((s) => {
@@ -71,10 +69,10 @@ describe('Pharmacy — prescription-only enforcement', () => {
   it('clearing the flag lets the medicine sell again (catalog is the source of truth)', () => {
     const name = 'RxClear_' + Date.now()
     cy.seedProduct({ name: name, sku: 'RC' + Date.now(), unit: 'tablet', stock: 30 }).then(({ productId }) => {
-      post('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: false })
+      cy.postJson('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: false })
       sell(productId, name).then((r) => expect(r.body.status).to.not.eq('SUCCESS'))
 
-      post('/saveClinical', { productId: productId, medicineName: name, rxRequired: false, controlledSubstance: false })
+      cy.postJson('/saveClinical', { productId: productId, medicineName: name, rxRequired: false, controlledSubstance: false })
       sell(productId, name).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
     })
   })
@@ -82,7 +80,7 @@ describe('Pharmacy — prescription-only enforcement', () => {
   it('the flag round-trips through the Clinical screen from catalog', () => {
     const name = 'RxList_' + Date.now()
     cy.seedProduct({ name: name, sku: 'RL' + Date.now(), unit: 'tablet', stock: 5 }).then(({ productId }) => {
-      post('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: true })
+      cy.postJson('/saveClinical', { productId: productId, medicineName: name, rxRequired: true, controlledSubstance: true })
       cy.request('/getClinical').then((r) => {
         const row = (r.body.data || []).find((c) => c.productId === productId)
         expect(row, 'the flagged medicine is listed').to.exist

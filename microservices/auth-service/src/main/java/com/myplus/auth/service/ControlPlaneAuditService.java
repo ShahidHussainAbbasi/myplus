@@ -51,6 +51,11 @@ public class ControlPlaneAuditService extends AuditEmitter<AuditOutbox> {
     public static final String STATUS_CHANGE = "STATUS_CHANGE";
     public static final String SHAPE_CHANGE = "SHAPE_CHANGE";
     public static final String CAPABILITY_TOGGLE = "CAPABILITY_TOGGLE";
+    /** TEAM-1 — an owner / admin acting on a team member. */
+    public static final String MEMBER_REMOVE = "MEMBER_REMOVE";
+    public static final String MEMBER_REACTIVATE = "MEMBER_REACTIVATE";
+    public static final String INVITE_RESEND = "INVITE_RESEND";
+    public static final String ENTITY_MEMBER = "MEMBER";
 
     public static final String ENTITY_CAPABILITY = "CAPABILITY";
     public static final String ENTITY_ORGANIZATION = "ORGANIZATION";

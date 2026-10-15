@@ -26,7 +26,9 @@ public interface InputDates {
         try {
             return RenderZone.fromDisplay(LocalDateTime.parse(v, DATE_TIME));
         } catch (DateTimeParseException dateOnly) {
-            return RenderZone.fromDisplay(LocalDate.parse(v, DATE).atStartOfDay());
+            // H6 (client ruling 2026-10-11): a typed DAY is a calendar day, never shifted by a zone — kept exactly as
+            // stored before (midnight) until C3 gives it its own DATE column. Only a typed date-TIME is an instant.
+            return LocalDate.parse(v, DATE).atStartOfDay();
         }
     }
 }

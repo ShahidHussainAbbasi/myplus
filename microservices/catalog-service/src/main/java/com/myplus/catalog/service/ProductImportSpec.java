@@ -90,6 +90,9 @@ public class ProductImportSpec implements ImportSpec<Product> {
     @Autowired private CategoryRepository categoryRepository;
     // PR-1 — an imported product's opening price is the first row of its price history, as a created one's is.
     @Autowired private com.myplus.catalog.repository.ProductPriceHistoryRepository priceHistory;
+    // SKU-AUTO-2 — a blank SKU takes the next 12-digit code; the counter needs a transaction (allocate LATE, inside it).
+    @Autowired private SkuAllocator skuAllocator;
+    @Autowired private org.springframework.transaction.PlatformTransactionManager transactionManager;
     // CACHE-1 — imported products must appear in the next picker read (see persist()).
     @Autowired private org.springframework.context.ApplicationEventPublisher events;
 
@@ -151,6 +154,19 @@ public class ProductImportSpec implements ImportSpec<Product> {
             if (keys.contains(trimmed)) hit.add(trimmed);
         }
         return hit;
+    }
+
+    /** SKU-AUTO-2 — a SKU is unique per business (V26's index): a row claiming one another product holds is an ERROR. */
+    @Override
+    public List<String> uniqueColumns() {
+        return List.of(SKU);
+    }
+
+    /** Which of these SKUs the business already holds — ONE batched read (served by uq_products_org_sku). */
+    @Override
+    public Set<String> existingValues(String column, Long orgId, Long userId, Set<String> values) {
+        if (!SKU.equals(column) || values.isEmpty()) return Set.of();
+        return new HashSet<>(productRepository.existingSkusScoped(new ArrayList<>(values), orgId, userId));
     }
 
     @Override
@@ -270,7 +286,15 @@ public class ProductImportSpec implements ImportSpec<Product> {
 
     @Override
     public int persist(List<Product> batch) {
-        List<Product> rows = productRepository.saveAll(batch);
+        // SKU-AUTO-2 — every imported product gets a SKU, as on the form: a blank one takes the next code. The codes
+        // and the rows commit together (one transaction), so a failed save burns no numbers.
+        List<Product> rows = new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .execute(status -> {
+                    for (Product p : batch) {
+                        if (p.getSku() == null) p.setSku(skuAllocator.next(p.getOrganizationId(), p.getUserId()));
+                    }
+                    return productRepository.saveAll(batch);
+                });
         int saved = rows.size();
         // PR-1 — one opening row per priced product. Import only CREATES (an existing name is refused), so "old" is null.
         List<com.myplus.catalog.entity.ProductPriceHistory> opening = new java.util.ArrayList<>();

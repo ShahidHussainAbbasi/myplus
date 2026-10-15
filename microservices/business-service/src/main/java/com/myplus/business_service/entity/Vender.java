@@ -122,6 +122,10 @@ public class Vender implements Serializable {
 	@Column(name = "cnic_ntn", length = 32)
 	private String cnicNtn;
 
+	/** SRA-1 (V82) — the AREA this supplier is filed under (the area carries its city). Null = not filed yet. */
+	@Column(name = "area_id")
+	private Long areaId;
+
 	@Column(name = "description")
 	private String description;
 

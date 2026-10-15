@@ -31,7 +31,8 @@ package com.myplus.common.settings;
  * the GENERAL preset and the business-type change all read one fact instead of three lists that drift.
  *
  * <p>An opt-in module is the owner's decision, not a property of the kind of business: no {@link Shape}
- * presets one, and a business-type change never clears one (see {@link #isOptInKey}).
+ * presets one, and a business-type change never clears one (see {@link #isOptInKey}). The one exception is a shape
+ * whose module IS the business — {@link Shape#CLINIC} presets and floors {@link #CLINIC} (HC-1a).
  */
 public enum Capability {
 
@@ -181,6 +182,18 @@ public enum Capability {
                     + "profit and loss. Off until you switch it on.", true),
 
     /**
+     * EX-6 — expense claims: a member records what they paid from their own pocket; an owner or admin approves it,
+     * and the business owes it back (2300 Employee Reimbursement Payable) until it is reimbursed (EX-7).
+     *
+     * <h3>Opt-in, and NOT in {@link Plan#FREE}</h3>
+     * A workflow with its own approvals; meaningless without {@link #EXPENSE_MANAGEMENT}. FREE's bar ("without it,
+     * can the shop complete a sale?" — EntitlementCeilingTest) is not met, so FREE leaves it out, as Xero tiers it.
+     */
+    EXPENSE_CLAIMS("expenseClaims", "Expense claims",
+            "Staff record what they paid from their own pocket; an owner or admin approves it and the business owes "
+                    + "it back. Needs Expense management. Off until you switch it on.", true),
+
+    /**
      * MKT-0a — sell this business's stock on the MaxTheService marketplace, as one of several sellers of the same
      * product. See microservices/docs/marketplace-multiseller-design.md.
      *
@@ -198,7 +211,20 @@ public enum Capability {
      */
     MARKETPLACE_SELLING("marketplaceSelling", "Sell on the MaxTheService marketplace",
             "List your products beside other sellers on the MaxTheService marketplace. MaxTheService approves "
-                    + "your seller account first. Off until you switch it on.", true);
+                    + "your seller account first. Off until you switch it on.", true),
+
+    /**
+     * HMS S1 — a clinic's front desk: patients registered by phone with a medical record number, who are also the
+     * pharmacy's customers. clinical-service refuses every write without it. See
+     * microservices/docs/hms-phase1-design.md.
+     *
+     * <h3>Opt-in</h3>
+     * A whole module holding patient data. Default ON would put a patient register in front of every shop on the
+     * deploy. Not in {@link Plan#FREE}: a shop completes a sale without it.
+     */
+    CLINIC("clinic", "Clinic reception and patients",
+            "Register patients by phone at the front desk; each gets a medical record number and is also your "
+                    + "pharmacy customer. Off until you switch it on.", true);
 
     private final String code;
     private final String label;

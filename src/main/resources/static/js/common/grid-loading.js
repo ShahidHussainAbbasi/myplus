@@ -48,11 +48,9 @@
             ? global.t(key) : fallback;
     }
 
-    function esc(s) {
-        return String(s).replace(/[&<>"]/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-        });
-    }
+    // DRY D1: the shared escaper (common/dom-safe.js, loaded first in the header) — this file had its own, which did
+    // not escape the apostrophe.
+    function esc(s) { return global.escHtml(s); }
 
     /**
      * The skeleton markup. A status region carrying REAL text (visually hidden), so a screen reader hears

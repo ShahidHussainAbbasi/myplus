@@ -46,6 +46,7 @@ public class StockService {
     private final StockAdjustmentRepository stockAdjustmentRepository;
     private final StockTransferRepository stockTransferRepository;
     private final CatalogClient catalogClient;
+    private final StockLedger ledger;   // SSR-0a - every change of on-hand is recorded, in the same transaction
 
     /** Confirm the product exists in catalog before stock first enters inventory for it (anti-orphan).
      *  A 404 means "no such product"; other failures (catalog down) propagate — we don't mask them.
@@ -92,7 +93,11 @@ public class StockService {
                 .organizationId(orgId)
                 .userId(userId)
                 .build();
-        return stockEntryRepository.save(entry);
+        StockEntry saved = stockEntryRepository.save(entry);
+        // SSR-0a - stock entered with no bill (opening stock on the product screen, seeding)
+        ledger.record(orgId, userId, dto.getProductId(), saved.getId(), com.myplus.commerce.contracts.dto.StockMovementType.MANUAL_RECEIPT,
+                in(dto.getQuantity()), dto.getPurchasePrice(), null);
+        return saved;
     }
 
     /**
@@ -134,7 +139,8 @@ public class StockService {
         // Route through applyStockDelta so a product-screen +/− adjust moves the BATCHES too (not just the scalar
         // on-hand) — keeping master data consistent no matter which side edited it.
         BigDecimal delta = dto.getAdjustmentType() == StockAdjustment.AdjustmentType.INCREASE ? qty : qty.negate();
-        BigDecimal newOnHand = applyStockDelta(dto.getProductId(), delta, null, null, null, orgId, userId);
+        BigDecimal newOnHand = applyStockDelta(dto.getProductId(), delta, null, null, null, orgId, userId, null,
+                com.myplus.commerce.contracts.dto.StockMovementType.ADJUSTMENT, saved.getId() == null ? null : "ADJ-" + saved.getId());
 
         // ⭐ PERF-9 — the write answers with the on-hand it produced, so the screen does not read it back.
         return StockAdjustmentView.of(saved, out(newOnHand), false);
@@ -291,14 +297,50 @@ public class StockService {
          * Before the delta, and whatever the delta: an edit that only corrects the S/U rate has a delta of 0, which
          * applyStockDelta returns on at once. Scoped: another tenant's id is not found, never written.
          */
-        if (adj.getStockEntryId() != null && adj.getSellPrice() != null && adj.getSellPrice().signum() > 0) {
-            stockEntryRepository.findById(adj.getStockEntryId())
-                    .filter(e -> java.util.Objects.equals(e.getOrganizationId(), CurrentUser.organizationId())
-                            && java.util.Objects.equals(e.getProductId(), adj.getProductId()))
-                    .ifPresent(e -> { e.setSellPrice(adj.getSellPrice()); stockEntryRepository.save(e); });
+        StockEntry own = adj.getStockEntryId() == null ? null : stockEntryRepository.findById(adj.getStockEntryId())
+                .filter(e -> java.util.Objects.equals(e.getOrganizationId(), CurrentUser.organizationId())
+                        && java.util.Objects.equals(e.getProductId(), adj.getProductId()))
+                .orElse(null);
+        if (own != null) {
+            if (adj.getSellPrice() != null && adj.getSellPrice().signum() > 0) own.setSellPrice(adj.getSellPrice());
+            applyBillFacts(own, adj);
+            stockEntryRepository.save(own);
         }
-        return out(applyStockDelta(adj.getProductId(), in(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),
-                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId()));
+        return out(applyStockDelta(adj.getProductId(), nz(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),   // NUM-1: delta is BigDecimal
+                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId(), own,
+                StockLedger.typeOr(adj.getMovementType(), com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE_EDIT), adj.getSourceRef()));
+    }
+
+    /**
+     * TP-3 — what the edited bill now says about its OWN batch: expiry, batch number, cost. Only ever on the batch found by
+     * id: by number, another bill's batch can match. Absent fields leave it as it is.
+     *
+     * <p>Consumption costs a unit at paidTotal ÷ receivedQuantity (COGS-1), so both are re-derived HERE from the batch's
+     * own figures, never taken from the bill: the units this delivery BILLED are paidTotal ÷ purchasePrice (a return
+     * takes units off the batch and leaves both untouched; bonus units are in receivedQuantity, not billed). After the
+     * edit: billed + delta units at the new rate, received + delta. A bill-side figure (rate × the bill's quantity) was
+     * wrong after a return — 100 × 8 over 10 received = 80 a unit for goods that cost 100 (TP-5, 2026-10-10).
+     * A batch missing any of the figures (none after V12's backfill) keeps costing from its unit price: untouched.
+     *
+     * <p>Units already sold keep the cost they were sold at (recorded on the sale); the remaining units cost the
+     * corrected figure from now on. Package-private and static so the rule is tested without a database.
+     */
+    static void applyBillFacts(StockEntry e, com.myplus.commerce.contracts.dto.StockPurchaseAdjust adj) {
+        if (adj.getExpiryDate() != null) e.setExpiryDate(adj.getExpiryDate());
+        if (adj.getNewBatchNo() != null && !adj.getNewBatchNo().isBlank()) e.setBatchNo(adj.getNewBatchNo().trim());
+        BigDecimal oldRate = e.getPurchasePrice();
+        BigDecimal newRate = adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0 ? adj.getPurchasePrice() : oldRate;
+        BigDecimal delta = nz(adj.getDelta());
+        if (e.getPaidTotal() != null && e.getReceivedQuantity() != null && oldRate != null && oldRate.signum() > 0
+                && newRate != null && (delta.signum() != 0 || newRate.compareTo(oldRate) != 0)) {
+            BigDecimal billed = e.getPaidTotal().divide(oldRate, 6, java.math.RoundingMode.HALF_UP).add(delta);
+            BigDecimal received = e.getReceivedQuantity().add(delta);
+            if (billed.signum() >= 0 && received.signum() > 0) {
+                e.setPaidTotal(billed.multiply(newRate).setScale(2, java.math.RoundingMode.HALF_UP));
+                e.setReceivedQuantity(received);
+            }
+        }
+        if (adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0) e.setPurchasePrice(adj.getPurchasePrice());
     }
 
     /** Single source of truth for a signed stock correction: apply {@code delta} to a product's BATCHES and its
@@ -306,15 +348,19 @@ public class StockService {
      *  it (a purchase/sale edit, or a product-screen +/− adjust). INCREASE grows the named lot or adds a fresh
      *  batch; DECREASE draws down the named lot first, then newest-first across the product's other lots, guarded
      *  by unreserved availability so sold/held stock is never removed. Returns the new on-hand. */
+    /** As above; {@code known} = the caller's own batch, found by id (TP-3) — used instead of a search by number.
+     * SSR-0a: {@code movementType}/{@code sourceRef} say why. The ledger row records the change ACTUALLY applied to
+     * on-hand (the level is clamped at zero), so SUM(ledger) stays equal to stock_levels.current_stock. */
     private BigDecimal applyStockDelta(Long productId, BigDecimal delta, String batchNo, java.time.LocalDate expiry,
-                                  java.math.BigDecimal price, Long orgId, Long userId) {
+                                  java.math.BigDecimal price, Long orgId, Long userId, StockEntry known,
+                                  String movementType, String sourceRef) {
         StockLevel level = levelFor(productId, orgId, userId);
         BigDecimal curLevel = nz(level.getCurrentStock());
         if (delta.signum() == 0) return curLevel;
 
-        // Find the caller's OWN batch when a batchNo is given (so its exact lot is adjusted).
-        StockEntry exact = null;
-        if (batchNo != null && !batchNo.isBlank()) {
+        // Find the caller's OWN batch: by id when the caller knows it, else by batchNo (so its exact lot is adjusted).
+        StockEntry exact = known;
+        if (exact == null && batchNo != null && !batchNo.isBlank()) {
             List<StockEntry> matches = stockEntryRepository.findByProductAndBatchScoped(productId, batchNo, orgId, userId);
             if (!matches.isEmpty()) exact = matches.get(0);
         }
@@ -362,6 +408,9 @@ public class StockService {
         BigDecimal newLevel = curLevel.add(delta).max(BigDecimal.ZERO);
         level.setCurrentStock(newLevel);
         stockLevelRepository.save(level);
+        ledger.record(orgId, userId, productId, exact == null ? null : exact.getId(), movementType,
+                newLevel.subtract(curLevel), price != null ? price : (exact == null ? null : exact.getPurchasePrice()),
+                sourceRef);
         return newLevel;
     }
 
@@ -375,17 +424,19 @@ public class StockService {
     /**
      * U0 BOUNDARY — exact storage in, Float out.
      *
-     * <p>{@code StockDTOs} and {@code InventoryClient} still speak {@code Float}, and U0 deliberately leaves
-     * that alone: converging the contract is a six-service change with its own regression surface, and this
-     * slice is already the one that can break working code. What inventory STORES is exact; what it publishes
-     * is unchanged, so no caller sees a different number today.
+     * <p>NUM-1 (2026-10-14) converged the WRITE contracts (import, return, purchase adjust) to {@code BigDecimal}.
+     * The READ side ({@code StockDTOs}, the stock-level reads of {@code InventoryClient}) still speaks {@code Float}
+     * — NUM-1b. Note the old claim here, "what inventory STORES is exact", was not true: the in() edge widened a
+     * Float through double, and the DECIMAL(38,2) columns then rounded (0.075 of a box stored as 0.08).
      */
     private static Float out(BigDecimal v) { return v == null ? 0f : v.floatValue(); }
 
     /** The other direction: a Float arriving from the wire becomes exact before it touches stock.
      *  Package-visible for BLK-5: StockAdjustmentService validates and replays with the SAME conversion the write
      *  uses, so the two can never disagree about what quantity a request asked for. */
-    static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : BigDecimal.valueOf(f); }
+    // NUM-1: through the float's shortest decimal string — BigDecimal.valueOf(Float) widens via double and is NOT exact
+    // (0.075f -> 0.07500000298). Still needed for inventory's own Float DTOs until NUM-1b converts them.
+    static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : new BigDecimal(Float.toString(f)); }
 
     /** Quarantine register (slice 58): the org's non-sellable returned lots. */
     public java.util.Map<String, Object> listQuarantine() {
@@ -442,6 +493,57 @@ public class StockService {
 
     public Page<StockEntry> getHistory(Long productId, Pageable pageable) {
         return stockEntryRepository.findByProductScoped(productId, CurrentUser.organizationId(), CurrentUser.userId(), pageable);
+    }
+
+    /**
+     * STK-ALERT — what an owner should act on, for the header badge: low stock (own minimum, else the business cap
+     * {@code lowAt}; 0 = no cap), out of stock, expired batches still holding stock, and batches expiring within
+     * {@code nearDays} (0 = not asked; negative = expiry not tracked, both expiry figures skipped). Counts plus the
+     * first {@code ALERT_LIST} of each, most urgent first. Tenant-scoped like every read here.
+     */
+    public java.util.Map<String, Object> alertSummary(int lowAt, int nearDays) {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        BigDecimal cap = BigDecimal.valueOf(Math.max(0, lowAt));
+        var top = org.springframework.data.domain.PageRequest.of(0, ALERT_LIST);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("low", stockLevelRepository.countLowAtScoped(cap, orgId, userId));
+        out.put("out", stockLevelRepository.countOutAtScoped(cap, orgId, userId));
+        java.util.List<java.util.Map<String, Object>> low = new java.util.ArrayList<>();
+        for (StockLevel sl : stockLevelRepository.findLowAtScoped(cap, orgId, userId, top)) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("productId", sl.getProductId());
+            m.put("onHand", sl.getCurrentStock());
+            m.put("min", sl.getMinStockLevel() != null ? sl.getMinStockLevel() : cap);
+            low.add(m);
+        }
+        out.put("lowItems", low);
+        if (nearDays >= 0) {
+            LocalDate today = TenantClock.today();
+            out.put("expired", stockEntryRepository.countExpiryWindowScoped(LocalDate.of(1900, 1, 1), today, orgId, userId));
+            out.put("expiredItems", batchItems(stockEntryRepository.findExpiryWindowScoped(LocalDate.of(1900, 1, 1), today, orgId, userId, top)));
+            if (nearDays > 0) {
+                LocalDate before = today.plusDays(nearDays);
+                out.put("expiring", stockEntryRepository.countExpiryWindowScoped(today, before, orgId, userId));
+                out.put("expiringItems", batchItems(stockEntryRepository.findExpiryWindowScoped(today, before, orgId, userId, top)));
+            }
+        }
+        return out;
+    }
+
+    static final int ALERT_LIST = 10;
+
+    private static java.util.List<java.util.Map<String, Object>> batchItems(List<StockEntry> entries) {
+        java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (StockEntry e : entries) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("productId", e.getProductId());
+            m.put("batchNo", e.getBatchNo());
+            m.put("expiryDate", e.getExpiryDate() != null ? e.getExpiryDate().toString() : null);
+            m.put("quantity", e.getQuantity());
+            out.add(m);
+        }
+        return out;
     }
 
     public StockSummaryDTO getSummary() {

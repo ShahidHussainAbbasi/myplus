@@ -1,5 +1,6 @@
 package com.myplus.business_service.service;
 
+import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,7 +79,7 @@ class SerialUnitReconcileTest {
                 .thenReturn(new ArrayList<>(List.of(unit("123ASD", SerialUnit.IN_STOCK, null))));
         when(serialUnitRepo.findLive(eq(ORG), eq("123ASX"))).thenReturn(Optional.empty());
 
-        int held = service.reconcileForPurchase(PURCHASE, PRODUCT, "123ASX", true, 1f, "NEW", user);
+        int held = service.reconcileForPurchase(PURCHASE, PRODUCT, "123ASX", true, new BigDecimal("1"), "NEW", user);
 
         assertThat(held).isEqualTo(1);
 
@@ -105,7 +106,7 @@ class SerialUnitReconcileTest {
                 .thenReturn(new ArrayList<>(List.of(unit("AAA", SerialUnit.IN_STOCK, null),
                                                     unit("BBB", SerialUnit.IN_STOCK, null))));
 
-        service.reconcileForPurchase(PURCHASE, PRODUCT, "AAA, BBB", true, 2f, "NEW", user);
+        service.reconcileForPurchase(PURCHASE, PRODUCT, "AAA, BBB", true, new BigDecimal("2"), "NEW", user);
 
         verify(serialUnitRepo, never()).deleteAll(any());
         verify(serialUnitRepo, never()).saveAll(any());
@@ -124,7 +125,7 @@ class SerialUnitReconcileTest {
                 .thenReturn(new ArrayList<>(List.of(unit("SOLDONE", SerialUnit.SOLD, "INV-000084"))));
 
         assertThatThrownBy(() ->
-                service.reconcileForPurchase(PURCHASE, PRODUCT, "OTHER", true, 1f, "NEW", user))
+                service.reconcileForPurchase(PURCHASE, PRODUCT, "OTHER", true, new BigDecimal("1"), "NEW", user))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("SOLDONE")
                 .hasMessageContaining("INV-000084");
@@ -139,7 +140,7 @@ class SerialUnitReconcileTest {
         when(serialUnitRepo.findByPurchase(ORG, PURCHASE)).thenReturn(new ArrayList<>());
 
         assertThatThrownBy(() ->
-                service.reconcileForPurchase(PURCHASE, PRODUCT, "AAA, BBB", true, 3f, "NEW", user))
+                service.reconcileForPurchase(PURCHASE, PRODUCT, "AAA, BBB", true, new BigDecimal("3"), "NEW", user))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("3 unit(s)")
                 .hasMessageContaining("2 serial");
@@ -153,7 +154,7 @@ class SerialUnitReconcileTest {
                 .thenReturn(Optional.of(unit("DUP", SerialUnit.IN_STOCK, null)));
 
         assertThatThrownBy(() ->
-                service.reconcileForPurchase(PURCHASE, PRODUCT, "DUP", true, 1f, "NEW", user))
+                service.reconcileForPurchase(PURCHASE, PRODUCT, "DUP", true, new BigDecimal("1"), "NEW", user))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("already in stock");
     }
@@ -163,7 +164,7 @@ class SerialUnitReconcileTest {
     void edit_is_inert_for_untracked_products() {
         when(serialUnitRepo.findByPurchase(ORG, PURCHASE)).thenReturn(new ArrayList<>());
 
-        assertThat(service.reconcileForPurchase(PURCHASE, PRODUCT, null, false, 5f, null, user)).isZero();
+        assertThat(service.reconcileForPurchase(PURCHASE, PRODUCT, null, false, new BigDecimal("5"), null, user)).isZero();
 
         // Not even the capability is consulted: a shop that does not track serials must not pay for the
         // feature on every purchase edit it makes.
@@ -179,7 +180,7 @@ class SerialUnitReconcileTest {
                 .thenReturn(List.of(unit("AAA", SerialUnit.SOLD, "INV-000084")));
         when(serialUnitRepo.markReturned(eq(ORG), eq("AAA"), any())).thenReturn(1);
 
-        assertThat(service.restoreForReturn(ORG, "INV-000084", PRODUCT, null, 1f))
+        assertThat(service.restoreForReturn(ORG, "INV-000084", PRODUCT, null, new BigDecimal("1")))
                 .containsExactly("AAA");
     }
 
@@ -195,7 +196,7 @@ class SerialUnitReconcileTest {
                 .thenReturn(List.of(unit("AAA", SerialUnit.SOLD, "INV-000084"),
                                     unit("BBB", SerialUnit.SOLD, "INV-000084")));
 
-        assertThatThrownBy(() -> service.restoreForReturn(ORG, "INV-000084", PRODUCT, null, 1f))
+        assertThatThrownBy(() -> service.restoreForReturn(ORG, "INV-000084", PRODUCT, null, new BigDecimal("1")))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("2 serial-tracked unit(s)");
 
@@ -208,7 +209,7 @@ class SerialUnitReconcileTest {
         when(serialUnitRepo.findBySaleInvoice(ORG, "INV-000084"))
                 .thenReturn(List.of(unit("AAA", SerialUnit.SOLD, "INV-000084")));
 
-        assertThatThrownBy(() -> service.restoreForReturn(ORG, "INV-000084", PRODUCT, "ZZZ", 1f))
+        assertThatThrownBy(() -> service.restoreForReturn(ORG, "INV-000084", PRODUCT, "ZZZ", new BigDecimal("1")))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("was not sold on invoice INV-000084");
     }
@@ -218,7 +219,7 @@ class SerialUnitReconcileTest {
     void return_is_inert_for_untracked_lines() {
         when(serialUnitRepo.findBySaleInvoice(ORG, "INV-000090")).thenReturn(List.of());
 
-        assertThat(service.restoreForReturn(ORG, "INV-000090", PRODUCT, null, 3f)).isEmpty();
+        assertThat(service.restoreForReturn(ORG, "INV-000090", PRODUCT, null, new BigDecimal("3"))).isEmpty();
         verify(serialUnitRepo, never()).markReturned(anyLong(), anyString(), any());
     }
 

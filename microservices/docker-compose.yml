@@ -20,10 +20,11 @@
 #   docker compose --profile pharmacy up -d --build  # POS + pharma-service (a pharmacy IS POS + clinical)
 #   docker compose --profile full up -d --build      # every module
 #
-# The eight vertical services (education, welfare, agriculture, pharma, marketplace, campaign,
-# analytics, appointment) carry `profiles: ["full"]`, so a bare `up` starts the POS subset:
+# The seven vertical services (education, welfare, agriculture, pharma, marketplace, campaign,
+# appointment) carry `profiles: ["full"]`, so a bare `up` starts the POS subset:
 # mysql, redis, eureka, config, gateway, auth, notification, catalog, inventory, business, finance,
-# audit, party, monolith. MEASURED 2026-08-05: 10.75 GB of mem_limit vs 16.75 GB for the full stack.
+# audit, party, analytics, monolith. (AN-1, 2026-10-09: analytics joined the subset — the P&L on every
+# dashboard shows its 12-month trend; analytics down only blanks that trend, never the P&L.) MEASURED 2026-08-05: 10.75 GB of mem_limit vs 16.75 GB for the full stack.
 # Those are CEILINGS. Measured idle RSS is far lower — the whole 21-container full stack sat at 7.5 GB —
 # but ceilings are what the OOM killer works against once anything is under load.
 #
@@ -513,6 +514,35 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
+    # EX-5 — receipts are evidence: on their own named volume, kept across rebuilds (back it up with the database)
+    volumes:
+      - expense-receipts:/data/receipts
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
+  # HMS S1 — the clinic (docs/hms-phase1-design.md). In the default set, like expense: the capability is opt-in per
+  # tenant, so running it changes nothing for a business that has not switched the clinic on.
+  clinical-service:
+    build: ./clinical-service
+    container_name: myplus-clinical
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 640m
+    expose:
+      - "8098"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8098/actuator/health/readiness"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      <<: *db-env
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
     networks: [myplus-net]
     depends_on:
       mysql:
@@ -737,7 +767,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
-    profiles: ["full"]
+    # AN-1: in the default set (no profile) — it serves the P&L's 12-month trend on every dashboard.
     expose:
       - "8090"
     healthcheck:
@@ -862,3 +892,7 @@ volumes:
   mysql-data:
     external: true
     name: myplus-mysql-data
+  # EX-5 — expense receipts (photos and PDFs). Named so it is not project-prefixed; kept by `docker compose down`.
+  # Back it up alongside the database: a receipt is the evidence behind a posted expense.
+  expense-receipts:
+    name: myplus-expense-receipts

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${htmlLang}" th:dir="${htmlDir}">
+<head>
+<link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+<title th:text="#{ui.ch.title} + ' — MyPlus'">Clinic home — MyPlus</title>
+<th:block th:replace="~{fragments/header :: header-css}"></th:block>
+<style>
+  /* HC-1a — the Hospital / Clinic home. Its own page (not workspaces.html) so clinic-only options can be added here. */
+  .ch-home { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+  .ch-home h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+  .ch-home p.ch-lede { color: #5b6472; margin: 0 0 24px; }
+  .ch-section { margin: 0 0 28px; }
+  .ch-section h2 { font-size: 1rem; font-weight: 700; color: #0d2353; margin: 0 0 12px; }
+  .ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .ch-tile { display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 12px; background: #fff;
+             border: 1px solid #dde3ec; color: #0d2353; text-decoration: none; box-shadow: 0 1px 2px rgba(13,35,83,.06); }
+  .ch-tile:hover, .ch-tile:focus { border-color: #1565C0; box-shadow: 0 4px 14px rgba(21,101,192,.14); text-decoration: none; }
+  .ch-tile .glyphicon { font-size: 24px; color: #1565C0; }
+  .ch-tile b { font-size: 1.05rem; }
+  .ch-empty { color: #5b6472; }
+</style>
+</head>
+<body>
+  <div id="container">
+    <th:block th:replace="~{fragments/header :: header}" />
+    <main class="ch-home" id="clinicHome">
+      <h1 th:text="#{ui.ch.title}">Clinic home</h1>
+      <p class="ch-lede" th:text="#{ui.ch.lede}">Choose where to work today. You can switch any time from the top bar.</p>
+
+      <!-- Where to work: the clinic's workspaces (auth rows V27, filtered to this person and to the clinic type, V34). -->
+      <section class="ch-section" aria-labelledby="chWorkTitle">
+        <h2 id="chWorkTitle" th:text="#{ui.ch.work}">Where to work</h2>
+        <div class="ch-grid" id="chTiles">
+          <a th:each="w : ${list}" class="ch-tile" th:href="@{${w.url}}" th:attr="data-ws=${w.key}">
+            <span th:class="'glyphicon glyphicon-' + ${w.icon != null ? w.icon : 'th-large'}" aria-hidden="true"></span>
+            <b th:text="${#messages.msgOrNull(w.label) != null ? #messages.msg(w.label) : w.key}">Workspace</b>
+          </a>
+        </div>
+        <p class="ch-empty" th:if="${#lists.isEmpty(list)}">
+          <span th:text="#{ui.ch.none}">No clinic workspace is set up for your role yet. Ask the clinic owner.</span>
+        </p>
+      </section>
+      <!-- Later (HC-1b+): clinic-only panels — today's appointments, queue at a glance, prescriptions sent to the
+           linked pharmacy. Each a section here, each gated like the tiles. -->
+    </main>
+  </div>
+  <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+  <script th:src="@{/js/common/sessions.js}"></script>
+</body>
+</html>

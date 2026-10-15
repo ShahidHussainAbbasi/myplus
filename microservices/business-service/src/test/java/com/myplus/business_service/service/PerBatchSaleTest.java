@@ -104,7 +104,7 @@ class PerBatchSaleTest {
         when(settingsService.getChoice(anyString(), any(), anyString())).thenAnswer(i ->
                 PurchaseService.PRICE_MODE_KEY.equals(i.getArgument(0)) ? mode : i.getArgument(2));
         when(settingsService.getDecimal(anyString(), any())).thenAnswer(i -> i.getArgument(1));
-        when(serialUnitService.validateForSale(any(), Mockito.anyBoolean(), Mockito.anyFloat(), any(), any())).thenReturn(List.of());
+        when(serialUnitService.validateForSale(any(), Mockito.anyBoolean(), any(), any(), any())).thenReturn(List.of());
         when(catalogClient.getProduct(ABC)).thenReturn(ProductRef.builder().id(ABC).name("abc-123")
                 .sellingPrice(new BigDecimal("250.00")).build());
         when(purchaseRepo.findRecentCosts(anyLong(), anyLong(), anyLong(), any())).thenReturn(List.of(new BigDecimal("210")));
@@ -130,7 +130,7 @@ class PerBatchSaleTest {
     private static SellDTO line(float qty, String boxRate, String autoRate) {
         SellDTO s = new SellDTO();
         s.setProductId(ABC);
-        s.setQuantity(qty);
+        s.setQuantity(new BigDecimal(Float.toString(qty)));   // NUM-1
         if (boxRate != null) s.setSellRate(new BigDecimal(boxRate));
         if (autoRate != null) s.setAutoRate(new BigDecimal(autoRate));
         return s;
@@ -164,13 +164,13 @@ class PerBatchSaleTest {
 
         List<SagaLine> lines = writtenLines();
         assertThat(lines).hasSize(2);
-        assertThat(lines.get(0).quantity()).isEqualTo(7f);
+        assertThat(lines.get(0).quantity()).isEqualByComparingTo("7");
         assertThat(lines.get(0).sellRate()).isEqualByComparingTo("200");
         assertThat(lines.get(0).totalAmount()).isEqualByComparingTo("1400.00");
         assertThat(lines.get(0).costPrice()).as("judged against ITS batch's cost").isEqualByComparingTo("150");
         assertThat(lines.get(0).priceReason()).isEqualTo("Batch B-0912");
         assertThat(lines.get(0).catalogPrice()).as("the product price is still snapshotted").isEqualByComparingTo("250");
-        assertThat(lines.get(1).quantity()).isEqualTo(3f);
+        assertThat(lines.get(1).quantity()).isEqualByComparingTo("3");
         assertThat(lines.get(1).sellRate()).isEqualByComparingTo("250");
         assertThat(lines.get(1).totalAmount()).isEqualByComparingTo("750.00");
 
@@ -181,6 +181,41 @@ class PerBatchSaleTest {
         assertThat(held.get(0).getQuantity()).isEqualByComparingTo("7");
         assertThat(held.get(1).getStockEntryId()).isEqualTo(NEW);
         assertThat(held.get(1).getLineRef()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("⭐⭐ PB-OLD (owner.pharma Desora): stock received BEFORE Per batch sells at its OWN bill's rate — 9 @ 297.70 + 1 @ 309.15 = 2,988.45")
+    void olderBatchesSellAtTheirBillRate() {
+        // Both batches were booked in Latest mode: no price of their own. Their bills say 297.70 (T25791) and 309.15 (T25792).
+        plan(pick(OLD, "T25791", "9", null, "260", 0), pick(NEW, "T25792", "1", null, "270", 0));
+        when(purchaseRepo.billSellRates(anyLong(), any())).thenReturn(List.<Object[]>of(
+                new Object[] { OLD, new BigDecimal("297.70") }, new Object[] { NEW, new BigDecimal("309.15") }));
+
+        service.addSell(sale(line(10f, "250", "250")));
+
+        List<SagaLine> lines = writtenLines();
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(0).quantity()).isEqualByComparingTo("9");
+        assertThat(lines.get(0).sellRate()).isEqualByComparingTo("297.70");
+        assertThat(lines.get(0).totalAmount()).isEqualByComparingTo("2679.30");
+        assertThat(lines.get(1).quantity()).isEqualByComparingTo("1");
+        assertThat(lines.get(1).sellRate()).isEqualByComparingTo("309.15");
+        assertThat(lines.get(0).totalAmount().add(lines.get(1).totalAmount())).isEqualByComparingTo("2988.45");
+        assertThat(reserved()).extracting(StockReservationLine::getStockEntryId).containsExactly(OLD, NEW);
+    }
+
+    @Test
+    @DisplayName("PB-OLD: a batch's OWN price wins over its bill's rate; only a batch with neither takes the product's")
+    void ownPriceWinsOverTheBillRate() {
+        plan(pick(OLD, "B-OWN", "2", "220", "150", 0), pick(NEW, "B-NONE", "1", null, "150", 0));
+        when(purchaseRepo.billSellRates(anyLong(), any())).thenReturn(List.<Object[]>of(new Object[] { OLD, new BigDecimal("999.00") }));
+
+        service.addSell(sale(line(3f, "250", "250")));
+
+        List<SagaLine> lines = writtenLines();
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(0).sellRate()).as("its own price, not the bill's 999").isEqualByComparingTo("220");
+        assertThat(lines.get(1).sellRate()).as("no own price, no bill: the product's").isEqualByComparingTo("250");
     }
 
     @Test
@@ -289,15 +324,15 @@ class PerBatchSaleTest {
     void bonusRidesOnTheLastPart() {
         plan(pick(OLD, "B-0912", "7", "200", "150", 0), pick(NEW, "B-1003", "4", "250", "210", 0));
         SellDTO s = line(10f, "250", "250");
-        s.setBonusQuantity(1f);
+        s.setBonusQuantity(new BigDecimal("1"));
 
         service.addSell(sale(s));
 
         List<SagaLine> lines = writtenLines();
         assertThat(lines).hasSize(2);
         assertThat(lines.get(0).bonusQuantity()).isNull();
-        assertThat(lines.get(1).bonusQuantity()).isEqualTo(1f);
-        assertThat(lines.get(1).quantity()).isEqualTo(3f);
+        assertThat(lines.get(1).bonusQuantity()).isEqualByComparingTo("1");
+        assertThat(lines.get(1).quantity()).isEqualByComparingTo("3");
         assertThat(reserved().get(1).getQuantity()).as("3 paid + 1 free from B-1003").isEqualByComparingTo("4");
     }
 

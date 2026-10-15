@@ -70,7 +70,8 @@ class CatalogRefsWritersTest {
         categories = new CategoryService(categoryRepository, refsCache, events);
         taxCodes = new TaxCodeService(taxCodeRepository, refsCache, events);
         products = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));
+                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class),
+                org.mockito.Mockito.mock(SkuAllocator.class));
     }
 
     @AfterEach

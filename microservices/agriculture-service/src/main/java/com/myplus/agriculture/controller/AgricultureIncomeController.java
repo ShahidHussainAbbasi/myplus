@@ -78,15 +78,17 @@ public class AgricultureIncomeController {
             obj.setOrganizationId(orgId());        // tenant scope
             obj.setDated(TenantClock.today());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
-            // Resolve the plot only when one was given (null landId is valid when agri.entry.requireLand is off —
-            // findById(null) would otherwise throw). Plot stays unset for an unattributed entry.
+            // Resolve the plot only when one was given (null landId is valid when agri.entry.requireLand is off).
+            // Only the caller's own land: an unscoped findById attached another tenant's land, and its name, to this
+            // row; and an unknown id was dropped silently. Both are now refused in words, before anything is saved.
             if (!appUtil.isEmptyOrNull(dto.getLandId())) {
-                Optional<Land> optional = landService.findById(dto.getLandId());
-                if (optional.isPresent()) {
-                    Land land = optional.get();
-                    obj.setLandId(land.getId());
-                    obj.setLandName(land.getLandName());
+                Optional<Land> optional = landService.findScopedById(dto.getLandId(), orgId(), userId);
+                if (optional.isEmpty()) {
+                    return new GenericResponse(appUtil.INVALID, "That land was not found, or is not one of yours.");
                 }
+                Land land = optional.get();
+                obj.setLandId(land.getId());
+                obj.setLandName(land.getLandName());
             }
             if (service.save(obj).getId() > 0) {
                 return new GenericResponse(appUtil.SUCCESS, "Income added successfully");

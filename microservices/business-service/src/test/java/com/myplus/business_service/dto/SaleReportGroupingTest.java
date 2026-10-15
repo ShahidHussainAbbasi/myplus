@@ -22,7 +22,7 @@ class SaleReportGroupingTest {
         r.setCn(customer);
         r.setItemName(item);
         r.setCategory(category);
-        r.setQuantity(qty);
+        r.setQuantity(new BigDecimal(Float.toString(qty)));   // NUM-1
         r.setTotalAmount(new BigDecimal(total));
         r.setTaxAmount(new BigDecimal(tax));
         return r;

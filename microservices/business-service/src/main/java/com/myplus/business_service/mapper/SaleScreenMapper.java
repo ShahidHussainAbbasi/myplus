@@ -85,6 +85,9 @@ public interface SaleScreenMapper extends DisplayDates {
     @Mapping(target = "tenders", ignore = true)
     @Mapping(target = "termsText", ignore = true)
     @Mapping(target = "warnings", ignore = true)
+    @Mapping(target = "attributionUserId", ignore = true)   // SRA-3: server-only inputs, never part of a read
+    @Mapping(target = "keyedByName", ignore = true)
+    @Mapping(target = "recordChannel", ignore = true)
     CustomerHistoryDTO toDto(CustomerHistory header);
 
     @Mapping(target = "alsoSupplier", ignore = true)

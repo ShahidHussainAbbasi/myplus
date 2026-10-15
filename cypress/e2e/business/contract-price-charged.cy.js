@@ -154,6 +154,9 @@ describe('B2B P2-UI — the contract price is the price charged (#10)', () => {
         cy.openSellSection('sellDiv')
         pickProduct(p.productId)                                    // no customer yet → catalog price
         cy.get('#sellSellRate').should('have.value', String(CATALOG))
+        // The rate is filled at once from the picker; the QUANTITY only when the stock read answers (QTY-RACE-1).
+        // Clicking Add in that gap is refused ("enter a valid quantity") — so wait for it, as a cashier would see it.
+        cy.get('#sellQuantity').should(($q) => expect($q.val(), 'quantity filled').to.not.eq(''))
         cy.get('#addInviceItem').click()
 
         selectCustomer(c.customerId)                                // now the buyer is known

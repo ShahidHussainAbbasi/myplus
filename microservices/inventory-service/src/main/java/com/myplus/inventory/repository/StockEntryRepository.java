@@ -113,4 +113,19 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     List<Object[]> sellableExpiredByScopeAndIds(@Param("ids") java.util.Collection<Long> ids,
             @Param("orgId") Long orgId, @Param("userId") Long userId, @Param("today") LocalDate today,
             @Param("trackExpiry") boolean trackExpiry);
+
+    /*
+     * STK-ALERT — batches still holding stock whose expiry falls in [from, before): expired = [MIN, today), expiring =
+     * [today, today + N). An expiry of TODAY is still sellable (findForFefo keeps expiryDate >= today), so it is
+     * "expiring", not "expired". Held stock counts: it is on the shelf.
+     */
+    @Query("SELECT COUNT(se) FROM StockEntry se WHERE se.expiryDate IS NOT NULL AND se.expiryDate >= :from "
+            + "AND se.expiryDate < :before AND se.quantity > 0 AND " + SCOPE)
+    long countExpiryWindowScoped(@Param("from") LocalDate from, @Param("before") LocalDate before,
+                                 @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT se FROM StockEntry se WHERE se.expiryDate IS NOT NULL AND se.expiryDate >= :from "
+            + "AND se.expiryDate < :before AND se.quantity > 0 AND " + SCOPE + " ORDER BY se.expiryDate ASC, se.id ASC")
+    List<StockEntry> findExpiryWindowScoped(@Param("from") LocalDate from, @Param("before") LocalDate before,
+                                            @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable page);
 }

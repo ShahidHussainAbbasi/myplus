@@ -58,6 +58,21 @@ public class ProductPickerDTO {
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     private String formula;
 
+    /** EXP-REQ — the purchase form marks expiry required unless this is TRUE. Omitted when not TRUE, so the cached
+     *  picker payload (PERF-8) grows only by the few exempt products. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private Boolean noExpiry;
+
+    /** EXP-REQ — only TRUE is sent: an ordinary product's FALSE reads as null and stays out of the JSON. */
+    public Boolean getNoExpiry() {
+        return Boolean.TRUE.equals(noExpiry) ? Boolean.TRUE : null;
+    }
+
+    /** The pre-EXP-REQ shape, kept so existing callers and tests construct it unchanged. */
+    public ProductPickerDTO(Long id, String name, BigDecimal sellingPrice, Boolean requiresSerial, String formula) {
+        this(id, name, sellingPrice, requiresSerial, formula, null);
+    }
+
     /** The pre-formula shape, kept so existing callers and tests construct it unchanged. */
     public ProductPickerDTO(Long id, String name, BigDecimal sellingPrice, Boolean requiresSerial) {
         this(id, name, sellingPrice, requiresSerial, null);

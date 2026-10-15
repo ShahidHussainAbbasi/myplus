@@ -30,8 +30,9 @@ public class DashboardService {
 
     public DashboardStatsDTO getStats(Long userId) {
         YearMonth now = TenantClock.thisMonth();
-        LocalDateTime monthStart = now.atDay(1).atStartOfDay();
-        LocalDateTime monthEnd = now.atEndOfMonth().atTime(23, 59, 59);
+        // H6 C3: the BUSINESS's month as UTC bounds (sales after 19:00 UTC on the last day are the next month)
+        LocalDateTime monthStart = com.myplus.common.security.time.BusinessDay.start(now.atDay(1));
+        LocalDateTime monthEnd = com.myplus.common.security.time.BusinessDay.end(now.atEndOfMonth());
 
         Double salesRaw = sellRepository.sumByUserAndDateRange(userId, monthStart, monthEnd);
         Double purchasesRaw = purchaseRepository.sumByUserAndDateRange(userId, monthStart, monthEnd);

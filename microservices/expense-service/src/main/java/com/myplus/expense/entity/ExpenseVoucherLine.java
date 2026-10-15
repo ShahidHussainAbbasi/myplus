@@ -38,6 +38,15 @@ public class ExpenseVoucherLine {
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
+    /** EX-8d — the recoverable input tax inside {@link #amount} (0 unless the business recovers input tax). */
+    @Column(name = "tax_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
+    /** What the expense account carries: the amount less its recoverable tax. */
+    public BigDecimal netAmount() {
+        return (amount == null ? BigDecimal.ZERO : amount).subtract(taxAmount == null ? BigDecimal.ZERO : taxAmount);
+    }
+
     /** EX-2b — what this line was FOR (SCHOOL, VEHICLE, LAND), confirmed by the owning module; null = untagged. */
     @Column(name = "tag_type", length = 16)
     private String tagType;

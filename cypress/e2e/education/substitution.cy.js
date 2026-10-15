@@ -23,8 +23,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -60,9 +58,9 @@ describe('Education — substitution (slice 2.2)', () => {
     })
 
     // Two periods of our own, so nothing here depends on the org's existing school day.
-    post('/savePeriod', { name: TAG + ' P1', sequence: 80, startTime: '08:00', endTime: '08:45' })
+    cy.postForm('/savePeriod', { name: TAG + ' P1', sequence: 80, startTime: '08:00', endTime: '08:45' })
       .then((r) => ok(r, 'seed period 1'))
-    post('/savePeriod', { name: TAG + ' P2', sequence: 81, startTime: '08:45', endTime: '09:30' })
+    cy.postForm('/savePeriod', { name: TAG + ' P2', sequence: 81, startTime: '08:45', endTime: '09:30' })
       .then((r) => ok(r, 'seed period 2'))
     cy.request('/getPeriods').then((r) => {
       const ps = rows(r.body)
@@ -74,14 +72,14 @@ describe('Education — substitution (slice 2.2)', () => {
 
     // The lesson that will need cover: the absentee teaches it on our Tuesday.
     cy.then(() => {
-      post('/saveTimetableEntry', {
+      cy.postForm('/saveTimetableEntry', {
         dayOfWeek: DAY, periodId: fx.p1.id, subjectId: fx.subject.id,
         staffId: fx.absentee.id, room: TAG + '-R1'
       }).then((r) => ok(r, 'seed the lesson needing cover'))
 
       // And a lesson that makes `busy` genuinely unavailable in the SAME period.
       if (fx.busy) {
-        post('/saveTimetableEntry', {
+        cy.postForm('/saveTimetableEntry', {
           dayOfWeek: DAY, periodId: fx.p1.id, subjectId: fx.otherSubject.id,
           staffId: fx.busy.id, room: TAG + '-R2'
         }).then((r) => {
@@ -109,22 +107,22 @@ describe('Education — substitution (slice 2.2)', () => {
     // Absences first (clearing one cancels its covers), then lessons, then periods.
     day().then((r) => {
       const o = (parse(r.body).object) || {}
-      ;(o.absences || []).forEach((a) => post('/clearStaffAbsence', { id: a.id }))
+      ;(o.absences || []).forEach((a) => cy.postForm('/clearStaffAbsence', { id: a.id }))
     })
     cy.request(`/getTimetable?gradeId=${fx.subject && fx.subject.gradeId}`).then((r) => {
       const entries = ((parse(r.body).object) || {}).entries || []
       entries
         .filter((e) => e.periodId === (fx.p1 || {}).id || e.periodId === (fx.p2 || {}).id)
-        .forEach((e) => post('/deleteTimetableEntry', { id: e.id }))
+        .forEach((e) => cy.postForm('/deleteTimetableEntry', { id: e.id }))
     })
     cy.then(() => {
-      if (fx.p1) post('/deletePeriod', { id: fx.p1.id })
-      if (fx.p2) post('/deletePeriod', { id: fx.p2.id })
+      if (fx.p1) cy.postForm('/deletePeriod', { id: fx.p1.id })
+      if (fx.p2) cy.postForm('/deletePeriod', { id: fx.p2.id })
     })
   })
 
   it('marking a teacher absent OPENS their lessons as UNCOVERED', () => {
-    post('/markStaffAbsent', { staffId: fx.absentee.id, date: DATE, reason: 'sick' })
+    cy.postForm('/markStaffAbsent', { staffId: fx.absentee.id, date: DATE, reason: 'sick' })
       .then((r) => ok(r, 'mark absent'))
 
     day().then((r) => {
@@ -140,7 +138,7 @@ describe('Education — substitution (slice 2.2)', () => {
   })
 
   it('marking the same teacher absent twice is idempotent, not an error', () => {
-    post('/markStaffAbsent', { staffId: fx.absentee.id, date: DATE })
+    cy.postForm('/markStaffAbsent', { staffId: fx.absentee.id, date: DATE })
       .then((r) => expect(parse(r.body).status, 'a double-click is not a failure').to.eq('SUCCESS'))
     day().then((r) => {
       const o = parse(r.body).object
@@ -166,7 +164,7 @@ describe('Education — substitution (slice 2.2)', () => {
   })
 
   it('assigning a free teacher covers the lesson', () => {
-    post('/assignSubstitute', {
+    cy.postForm('/assignSubstitute', {
       timetableEntryId: fx.entry.id, coverStaffId: fx.cover.id, date: DATE
     }).then((r) => ok(r, 'assign cover'))
 
@@ -190,7 +188,7 @@ describe('Education — substitution (slice 2.2)', () => {
   })
 
   it('assigning twice does not create a second row', () => {
-    post('/assignSubstitute', {
+    cy.postForm('/assignSubstitute', {
       timetableEntryId: fx.entry.id, coverStaffId: fx.cover.id, date: DATE
     }).then((r) => expect(parse(r.body).status).to.eq('SUCCESS'))
     day().then((r) => {
@@ -201,7 +199,7 @@ describe('Education — substitution (slice 2.2)', () => {
   })
 
   it('an absent teacher cannot be assigned as cover', () => {
-    post('/assignSubstitute', {
+    cy.postForm('/assignSubstitute', {
       timetableEntryId: fx.entry.id, coverStaffId: fx.absentee.id, date: DATE
     }).then((r) => {
       const b = parse(r.body)
@@ -214,7 +212,7 @@ describe('Education — substitution (slice 2.2)', () => {
     day().then((r) => {
       const lesson = (parse(r.body).object.lessons || [])
         .find((l) => l.timetableEntryId === fx.entry.id)
-      post('/clearSubstitute', { id: lesson.substitutionId }).then((c) => ok(c, 'clear cover'))
+      cy.postForm('/clearSubstitute', { id: lesson.substitutionId }).then((c) => ok(c, 'clear cover'))
     })
     day().then((r) => {
       const lesson = (parse(r.body).object.lessons || [])
@@ -229,7 +227,7 @@ describe('Education — substitution (slice 2.2)', () => {
       const o = parse(r.body).object
       const absence = (o.absences || []).find((a) => a.staffId === fx.absentee.id)
       expect(absence, 'the absence is still there to clear').to.exist
-      post('/clearStaffAbsence', { id: absence.id }).then((c) => ok(c, 'clear absence'))
+      cy.postForm('/clearStaffAbsence', { id: absence.id }).then((c) => ok(c, 'clear absence'))
     })
     day().then((r) => {
       const o = parse(r.body).object
@@ -243,12 +241,12 @@ describe('Education — substitution (slice 2.2)', () => {
     day().then((r) => {
       expect([200, 403]).to.include(r.status)
     })
-    post('/markStaffAbsent', { staffId: fx.absentee.id, date: DATE }).then((r) => {
+    cy.postForm('/markStaffAbsent', { staffId: fx.absentee.id, date: DATE }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
       expect(refused, 'deciding who teaches whom is ADMIN').to.eq(true)
     })
-    post('/assignSubstitute', {
+    cy.postForm('/assignSubstitute', {
       timetableEntryId: fx.entry.id, coverStaffId: fx.cover.id, date: DATE
     }).then((r) => {
       const b = parse(r.body)
@@ -258,7 +256,7 @@ describe('Education — substitution (slice 2.2)', () => {
   })
 
   it('another tenant’s absence is invisible by id', () => {
-    post('/clearStaffAbsence', { id: 999999 }).then((r) => {
+    cy.postForm('/clearStaffAbsence', { id: 999999 }).then((r) => {
       expect(parse(r.body).status, 'an id outside the tenant never silently succeeds').to.not.eq('SUCCESS')
     })
   })

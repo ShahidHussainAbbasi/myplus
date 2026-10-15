@@ -3,10 +3,6 @@ package com.security;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.security.authentication.AuthenticationServiceException;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -28,6 +24,9 @@ import com.web.util.AuthServerClient;
  * {@link TokenStore} for downstream gateway calls. Activated when {@code auth.mode=server}.
  */
 public class AuthServerAuthenticationProvider implements AuthenticationProvider {
+
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(AuthServerAuthenticationProvider.class);
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private final AuthServerClient authServerClient;
     private final TokenStore tokenStore;
@@ -54,34 +53,25 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
             // point (reCAPTCHA tokens are single-use, so the monolith no longer validates locally).
             response = authServerClient.login(email, password, verificationCode, captchaResponse);
         } catch (HttpStatusCodeException e) {
-            // auth-service returns 4xx for invalid captcha / credentials / unverified / locked / wrong 2FA.
-            // The specific reason is in the response body ({"message": "..."}); surface it instead of
-            // collapsing everything to "invalid username or password" (which misleads unverified users).
-            final String body = e.getResponseBodyAsString() == null ? "" : e.getResponseBodyAsString().toLowerCase();
-            if (body.contains("captcha")) {
-                // Captcha is checked before credentials at the auth-service, so report it first.
-                throw new BadCredentialsException("Captcha verification failed");
+            // auth-service names WHY in the refusal's `reason` code (SignInFailure) — branch on that, never on its
+            // English `message`. A 5xx carries no code: auth-service itself is in trouble, not the person.
+            if (e.getStatusCode().is5xxServerError()) {
+                LOG.warn("Sign-in: auth-service answered {}", e.getStatusCode());
+                throw new SignInFailedException(SignInFailure.AUTH_UNAVAILABLE, e);
             }
-            if (verificationCode != null && !verificationCode.isBlank()) {
-                throw new BadCredentialsException("Invalid 2FA code");
-            }
-            if (body.contains("not verified") || body.contains("not enabled") || body.contains("verify your")) {
-                // Registered but the email-verification link hasn't been clicked yet (trial pending).
-                throw new DisabledException("Account not verified");
-            }
-            if (body.contains("locked")) {
-                throw new LockedException("Account is locked. Please try again later.");
-            }
-            throw new BadCredentialsException("Invalid username or password");
+            throw new SignInFailedException(SignInFailure.fromRefusal(refusalCode(e.getResponseBodyAsString())), e);
         } catch (RestClientException e) {
-            throw new AuthenticationServiceException("Authentication server is unavailable", e);
+            // Logged: this branch used to be silent, and it hid every 401 reason behind "Invalid Credentials"
+            LOG.warn("Sign-in could not reach auth-service ({}): {}", e.getClass().getSimpleName(), e.getMessage());
+            throw new SignInFailedException(SignInFailure.AUTH_UNAVAILABLE, e);
         }
 
         if (response == null) {
-            throw new BadCredentialsException("Invalid username or password");
+            LOG.warn("Sign-in: auth-service answered success with no session in it");
+            throw new SignInFailedException(SignInFailure.AUTH_UNAVAILABLE);
         }
         if (response.isTwoFactorRequired()) {
-            throw new BadCredentialsException("Verification code required");
+            throw new SignInFailedException(SignInFailure.TWO_FACTOR_REQUIRED);
         }
 
         User principal = new User();
@@ -114,5 +104,16 @@ public class AuthServerAuthenticationProvider implements AuthenticationProvider 
     @Override
     public boolean supports(Class<?> authentication) {
         return authentication.equals(UsernamePasswordAuthenticationToken.class);
+    }
+
+    /** The {@code reason} code of auth-service's refusal envelope; null when the body is not one. */
+    private static String refusalCode(String body) {
+        if (body == null || body.isBlank()) return null;
+        try {
+            com.fasterxml.jackson.databind.JsonNode reason = JSON.readTree(body).get("reason");
+            return reason == null || reason.isNull() ? null : reason.asText();
+        } catch (Exception notJson) {
+            return null;
+        }
     }
 }

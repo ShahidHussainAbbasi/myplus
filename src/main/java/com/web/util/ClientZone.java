@@ -24,6 +24,12 @@ public final class ClientZone {
 
     public static final String COOKIE = "myplus_tz";
     public static final String HEADER = "X-Client-Tz";
+    /**
+     * H6 C2 — the zone the services write server-formatted text in ("Dated" columns) and read typed date-times in
+     * (common-security RenderZone). Same value as {@link #HEADER}; a separate header because it is only ever sent by
+     * this browser-facing edge, never service-to-service. JSON instants stay UTC either way.
+     */
+    public static final String RENDER_HEADER = "X-Render-Tz";
     private static final ZoneId DEFAULT = ZoneId.of("Asia/Karachi");
 
     private ClientZone() {}
@@ -39,7 +45,10 @@ public final class ClientZone {
 
     /** Adds {@code X-Client-Tz} to an outbound call when the current request came from a browser that sent its zone. */
     public static HttpHeaders forward(HttpHeaders headers) {
-        browserZone().ifPresent(z -> headers.set(HEADER, z.getId()));
+        browserZone().ifPresent(z -> {
+            headers.set(HEADER, z.getId());
+            headers.set(RENDER_HEADER, z.getId());   // H6 C2
+        });
         return headers;
     }
 

@@ -26,6 +26,11 @@
 			aria-controls="expCatPanel" aria-expanded="false" onclick="expenseCategoriesToggle()">
 			<span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.expCategories}">Categories</span>
 		</button>
+		<!-- EX-7b — advances to staff; shown by expense.js only while Expense claims is switched on -->
+		<button type="button" class="btn btn-default btn-sm" id="expAdvOpen" data-cy="expense-advances-open" style="display:none"
+			aria-controls="expAdvPanel" aria-expanded="false" onclick="expenseAdvancesToggle()">
+			<span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.expAdvances}">Advances</span>
+		</button>
 		<button type="button" class="btn btn-default btn-sm" id="expSetOpen" data-cy="expense-settings-open"
 			aria-controls="expSetPanel" aria-expanded="false" onclick="expenseSettingsToggle()">
 			<span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.expSettings}">Settings</span>
@@ -46,7 +51,53 @@
 				</select>
 				<button type="button" class="btn btn-default btn-sm" data-cy="set-paid-from-save" onclick="expenseSettingSavePaidFrom(this)" th:text="#{ui.js.expCatSave}">Save</button>
 			</div>
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+				<label for="expSetReceiptAbove" th:text="#{ui.expSetReceiptAbove}">Receipt required above (0 = never)</label>
+				<input type="number" min="0" step="0.01" class="form-control input-sm" id="expSetReceiptAbove" data-cy="set-receipt-above" style="width:130px" inputmode="decimal">
+				<button type="button" class="btn btn-default btn-sm" data-cy="set-receipt-above-save" onclick="expenseSettingSaveReceiptAbove(this)" th:text="#{ui.js.expCatSave}">Save</button>
+			</div>
+			<!-- EX-6b — what a member may post directly (blank = no limit, the default) -->
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+				<label for="expSetPostLimit" th:text="#{ui.expSetPostLimit}">A member may post up to (blank = no limit)</label>
+				<input type="number" min="0" step="0.01" class="form-control input-sm" id="expSetPostLimit" data-cy="set-post-limit" style="width:130px" inputmode="decimal">
+				<button type="button" class="btn btn-default btn-sm" data-cy="set-post-limit-save" onclick="expenseSettingSavePostLimit(this)" th:text="#{ui.js.expCatSave}">Save</button>
+			</div>
+			<!-- EX-8d — recover input tax on expenses (off by default) -->
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+				<label style="font-weight:normal;margin:0"><input type="checkbox" id="expSetInputTax" data-cy="set-input-tax" onchange="expenseSettingSaveInputTax(this)">
+					<span th:text="#{ui.expSetInputTax}">Recover input tax on expenses</span></label>
+				<span class="help-block" style="margin:0" th:text="#{ui.expSetInputTaxHelp}">On: the form asks how much of each amount is tax you can reclaim.</span>
+			</div>
 			<span id="expSetMsg" role="status" aria-live="polite"></span>
+		</div>
+		<!-- EX-7b — what each member holds of the business's money (1300), giving one and taking back what is unused.
+		     The server checks the member is staff here and never the person giving it. -->
+		<div id="expAdvPanel" class="well well-sm" data-cy="expense-advances" style="display:none;margin-top:8px">
+			<p class="help-block" style="margin-top:0" th:text="#{ui.expAdvancesHelp}">
+				Money given to a member before they spend it. They settle it with approved claims, or hand back what is left.</p>
+			<div class="table-responsive">
+				<table class="table table-condensed" id="expAdvTable" style="margin-bottom:8px">
+					<thead><tr>
+						<th th:text="#{ui.expAdvMember}">Member</th>
+						<th style="text-align:right" th:text="#{ui.expAdvHolds}">Holds</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+				<label for="expAdvMember" th:text="#{ui.expAdvGiveTo}">Give an advance to</label>
+				<select class="form-control input-sm" id="expAdvMember" data-cy="adv-member" data-no-search="true" style="min-width:200px"></select>
+				<label for="expAdvAmount" th:text="#{ui.amount}">Amount</label>
+				<input type="number" step="0.01" min="0.01" class="form-control input-sm" id="expAdvAmount" data-cy="adv-amount" inputmode="decimal" style="width:120px">
+				<select class="form-control input-sm" id="expAdvMethod" data-cy="adv-method" data-no-search="true" th:attr="aria-label=#{ui.paidFrom}">
+					<option value="CASH" th:text="#{ui.cash}">Cash</option>
+					<option value="BANK" th:text="#{ui.bank}">Bank</option>
+				</select>
+				<button type="button" class="btn btn-primary btn-sm" id="expAdvGive" data-cy="adv-give" onclick="expenseAdvanceGive(this)">
+					<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.expAdvGive}">Give</span></button>
+			</div>
+			<span id="expAdvMsg" role="status" aria-live="polite"></span>
 		</div>
 		<div id="expCatPanel" class="well well-sm" data-cy="expense-categories" style="display:none;margin-top:8px">
 			<p class="help-block" style="margin-top:0" th:text="#{ui.expCategoriesHelp}">
@@ -77,6 +128,8 @@
 		</div>
 	</div>
 
+	<!-- EX-7b — a member sees what they hold as an advance (filled by expense.js; hidden when nothing) -->
+	<div id="expMyAdvance" class="alert alert-info" data-cy="my-advance" role="status" style="display:none;max-width:900px;padding:8px 12px"></div>
 	<div style="max-width:900px">
 		<h4 style="font-weight:700;color:#1f4e8c;font-size:15px" th:text="#{ui.newExpense}">New Expense</h4>
 		<form class="form-horizontal" role="form" id="ExpenseForm" autocomplete="off" onsubmit="return false;">
@@ -102,6 +155,14 @@
 			<div class="form-group" id="expTagGroup" style="display:none">
 				<label class="control-label col-sm-3" for="expTag" th:text="#{ui.expFor}">For</label>
 				<div class="col-sm-5"><select class="form-control" id="expTag" data-cy="expense-tag"></select></div>
+			</div>
+			<!-- EX-8d — the tax inside the amount, shown only while the business recovers input tax -->
+			<div class="form-group" id="expTaxGroup" style="display:none">
+				<label class="control-label col-sm-3" for="expTax" th:text="#{ui.expTaxIncluded}">Tax included</label>
+				<div class="col-sm-4">
+					<input type="number" step="0.01" min="0" class="form-control" id="expTax" data-cy="expense-tax" inputmode="decimal">
+					<span class="help-block" style="margin-bottom:0" th:text="#{ui.expTaxIncludedHelp}">The part of the amount that is tax you can reclaim. Only the rest is an expense.</span>
+				</div>
 			</div>
 			<div class="form-group">
 				<label class="control-label col-sm-3" for="expPaidFrom" th:text="#{ui.paidFrom}">Paid from</label>
@@ -138,11 +199,22 @@
 				<label class="control-label col-sm-3" for="expNote" th:text="#{ui.note}">Note</label>
 				<div class="col-sm-7"><input type="text" class="form-control" id="expNote" maxlength="255" data-cy="expense-note"></div>
 			</div>
+			<!-- EX-5 — the receipt: a photo (made smaller on this device before it is sent) or a PDF, kept on the server -->
+			<div class="form-group">
+				<label class="control-label col-sm-3" for="expReceipt" th:text="#{ui.expReceipt}">Receipt</label>
+				<div class="col-sm-7">
+					<input type="file" class="form-control" id="expReceipt" data-cy="expense-receipt" accept="image/jpeg,image/png,image/webp,application/pdf,image/*">
+					<span class="help-block" id="expReceiptHint" style="margin-bottom:0" th:text="#{ui.expReceiptHint}">A photo or PDF of the bill. Photos are made smaller before they are sent.</span>
+				</div>
+			</div>
 			<div class="form-group">
 				<div class="col-sm-offset-3 col-sm-9">
 					<button type="button" class="btn btn-primary" id="expSave" data-cy="save-expense" onclick="expenseSave(this)">
-						<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.saveAndPost}">Save and post</span>
+						<span class="glyphicon glyphicon-ok"></span> <span class="exp-save-label" th:text="#{ui.saveAndPost}">Save and post</span>
 					</button>
+					<!-- EX-6 — shown while "Me — claim it back" is chosen -->
+					<span class="help-block" id="expClaimHint" data-cy="claim-hint" style="display:none;margin-bottom:0" th:text="#{ui.claimHint}">
+						You paid this yourself. An owner or admin approves it; then the business owes it back to you.</span>
 					<span id="expMsg" class="help-inline" role="status" aria-live="polite" style="margin-left:12px"></span>
 				</div>
 			</div>
@@ -159,6 +231,88 @@
 		<button type="button" class="btn btn-default" onclick="expenseLoad()">
 			<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span>
 		</button>
+		<!-- EX-8a — the report over the same From/To; it adds up exactly as the P&L does -->
+		<button type="button" class="btn btn-default" id="expReportOpen" data-cy="expense-report-open"
+			aria-controls="expReportPanel" aria-expanded="false" onclick="expenseReportToggle()">
+			<span class="glyphicon glyphicon-stats"></span> <span th:text="#{ui.expReport}">Report</span>
+		</button>
+	</div>
+	<!-- EX-9a — past till pay-outs into the books (R-4: owner-run, previewed, once each). The shop dashboard only: it is the
+	     one that includes this section with neither a tag source nor a notice. Owner/admin; the server enforces it too. -->
+	<div th:if="${tagSource == '' and booksNote == ''}" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="margin:6px 0">
+		<button type="button" class="btn btn-default btn-sm" data-cy="till-history-open" onclick="expenseTillHistoryToggle()">
+			<span class="glyphicon glyphicon-import"></span> <span th:text="#{ui.expTillHistory}">Past till pay-outs</span></button>
+		<div id="expHistPanel" style="display:none;margin-top:8px;border:1px solid #dde3ea;border-radius:6px;padding:10px;max-width:1000px">
+			<p class="help-block" style="margin-top:0" th:text="#{ui.expTillHistoryHelp}">Money paid out of the till before Expense management was switched on never reached your books. Tick the ones to bring in, choose what they were for, and import: each goes in once, on its own date. One that looks like an expense you already recorded is flagged and left unticked.</p>
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+				<label for="expHistCategory" th:text="#{ui.category}">Category</label>
+				<select class="form-control input-sm" id="expHistCategory" data-cy="till-history-category" data-no-search="true" style="min-width:200px"></select>
+				<button type="button" class="btn btn-primary btn-sm" data-cy="till-history-import" onclick="expenseTillHistoryImport(this)" th:text="#{ui.expTillHistoryImport}">Import</button>
+				<span id="expHistMsg" role="status" aria-live="polite"></span>
+			</div>
+			<div style="max-height:360px;overflow:auto">
+				<table class="table table-condensed" id="tableExpHist" style="margin:0"><thead><tr>
+					<th></th><th th:text="#{ui.date}">Date</th><th class="text-right" th:text="#{ui.amount}">Amount</th>
+					<th th:text="#{ui.expTillHistoryReason}">Reason</th><th th:text="#{ui.expTillHistoryMatch}">Already recorded?</th>
+				</tr></thead><tbody></tbody></table>
+			</div>
+		</div>
+	</div>
+	<!-- EX-9b — the farm's old expense rows into the books: the same consent flow as the till (R-4), on the farm dashboard. -->
+	<div th:if="${tagSource == 'agriculture'}" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="margin:6px 0">
+		<button type="button" class="btn btn-default btn-sm" data-cy="farm-history-open" onclick="expenseHistoryToggle('farm')">
+			<span class="glyphicon glyphicon-import"></span> <span th:text="#{ui.expFarmHistory}">Past farm expenses</span></button>
+		<div id="expHistPanel-farm" style="display:none;margin-top:8px;border:1px solid #dde3ea;border-radius:6px;padding:10px;max-width:1000px">
+			<p class="help-block" style="margin-top:0" th:text="#{ui.expFarmHistoryHelp}">Expenses recorded on the old farm screen never reached your books. Tick the ones to bring in, choose what they were for, and import: each goes in once, on its own date, tagged to its land. One that looks like an expense you already recorded is flagged and left unticked.</p>
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+				<label for="expHistCategory-farm" th:text="#{ui.category}">Category</label>
+				<select class="form-control input-sm" id="expHistCategory-farm" data-cy="farm-history-category" data-no-search="true" style="min-width:200px"></select>
+				<button type="button" class="btn btn-primary btn-sm" data-cy="farm-history-import" onclick="expenseHistoryImport(this, 'farm')" th:text="#{ui.expTillHistoryImport}">Import</button>
+				<span id="expHistMsg-farm" role="status" aria-live="polite"></span>
+			</div>
+			<div style="max-height:360px;overflow:auto">
+				<table class="table table-condensed" id="tableExpHist-farm" style="margin:0"><thead><tr>
+					<th></th><th th:text="#{ui.date}">Date</th><th class="text-right" th:text="#{ui.amount}">Amount</th>
+					<th th:text="#{ui.expFarmHistoryWhat}">Expense · land</th><th th:text="#{ui.expTillHistoryMatch}">Already recorded?</th>
+				</tr></thead><tbody></tbody></table>
+			</div>
+		</div>
+	</div>
+	<div id="expReportPanel" class="well well-sm" data-cy="expense-report" style="display:none;max-width:900px">
+		<p class="help-block" style="margin-top:0" th:text="#{ui.expReportHelp}">
+			What reached the books in this period, as the profit and loss counts it: an expense on its own date, a void as a minus on the day it was voided.</p>
+		<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+			<label for="expReportBy" th:text="#{ui.expReportBy}">Group by</label>
+			<select class="form-control input-sm" id="expReportBy" data-cy="report-by" data-no-search="true">
+				<option value="category" th:text="#{ui.category}">Category</option>
+				<option value="member" th:text="#{ui.expAdvMember}">Member</option>
+				<option value="month" th:text="#{ui.expReportMonth}">Month</option>
+				<option value="paidFrom" th:text="#{ui.paidFrom}">Paid from</option>
+				<option value="branch" th:text="#{ui.expReportBranch}">Branch</option>
+			</select>
+			<button type="button" class="btn btn-primary btn-sm" data-cy="report-run" onclick="expenseReportRun(this)" th:text="#{ui.expReportRun}">Show</button>
+			<a class="btn btn-default btn-sm" id="expReportCsv" data-cy="report-csv" href="#" download>
+				<span class="glyphicon glyphicon-download-alt"></span> <span th:text="#{ui.expReportCsv}">CSV</span></a>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-condensed" id="expReportTable" style="margin-bottom:4px">
+				<thead><tr>
+					<th></th>
+					<th style="text-align:right" th:text="#{ui.expReportLines}">Lines</th>
+					<th style="text-align:right" th:text="#{ui.amount}">Amount</th>
+				</tr></thead>
+				<tbody></tbody>
+				<tfoot><tr><th th:text="#{ui.total}">Total</th><th></th>
+					<th style="text-align:right;font-variant-numeric:tabular-nums" id="expReportTotal" data-cy="report-total"></th></tr></tfoot>
+			</table>
+		</div>
+		<span id="expReportMsg" role="status" aria-live="polite"></span>
+	</div>
+	<!-- EX-6 — owner/admin: claims waiting for a decision (expense.js fills and shows it while Expense claims is on) -->
+	<div id="expClaimsWaiting" class="alert alert-info" data-cy="claims-waiting" role="status"
+		style="display:none;max-width:900px;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:8px 12px">
+		<span id="expClaimsWaitingText"></span>
+		<button type="button" class="btn btn-default btn-sm" id="expClaimsShow" data-cy="claims-show" onclick="expenseClaimsFilter()" th:text="#{ui.js.claimsShow}">Show them</button>
 	</div>
 	<!-- FP-3 — pay (part of) a bill. Opened by a row's Pay button; ONE Idempotency-Key per opening, so pressing Pay
 	     again after a lost answer is the same payment, never a second one. -->

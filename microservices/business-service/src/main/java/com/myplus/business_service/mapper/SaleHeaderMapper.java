@@ -40,6 +40,9 @@ public interface SaleHeaderMapper {
     @Mapping(target = "tenderedAmount", ignore = true)
     @Mapping(target = "tradeDiscount", ignore = true)
     @Mapping(target = "voidReason", ignore = true)
+    @Mapping(target = "repId", ignore = true)          // SRA-3: decided by SalesRepAttribution, never copied from a customer
+    @Mapping(target = "repName", ignore = true)
+    @Mapping(target = "saleSource", ignore = true)
     @Mapping(target = "voidedAt", ignore = true)
     @Mapping(target = "voidedBy", ignore = true)
     @Mapping(target = "dated", ignore = true)

@@ -89,8 +89,22 @@ public class ProductController {
                                 dto.getIdempotencyKey(), existing.getId());
                         return ResponseEntity.ok(ApiResponse.success(existing, "Created"));
                     })
-                    .orElseThrow(() -> dup);
+                    .orElseThrow(() -> skuClash(dup, dto.getSku()));
         }
+    }
+
+    /**
+     * SKU-AUTO — the UNIQUE (organization_id, sku) index decides between two saves of one SKU at the same moment
+     * (the service's pre-check is passed by both). That violation is the shopkeeper's "already in use", not a fault;
+     * any other constraint is returned unchanged.
+     */
+    static RuntimeException skuClash(org.springframework.dao.DataIntegrityViolationException dup, String sku) {
+        String m = String.valueOf(dup.getMostSpecificCause() != null ? dup.getMostSpecificCause().getMessage() : dup.getMessage());
+        if (m.contains("uq_products_org_sku")) {
+            return new com.myplus.common.web.exception.DuplicateResourceException(
+                    "Product SKU already exists: " + (sku == null ? "" : sku.trim()));
+        }
+        return dup;
     }
 
     @GetMapping("/{id}")
@@ -212,13 +226,28 @@ public class ProductController {
      * whether this TENANT has the capability at all. A mobile shop's admin has every write privilege and still
      * cannot mark a product batch-tracked if the business does not do batch trade.
      */
+    /** SSR-0c — a purchase's supplier becomes the product's main supplier only if it has none (any purchaser). */
+    @PutMapping("/{id}/main-supplier/stamp")
+    public boolean stampMainSupplier(@PathVariable Long id, @RequestParam("supplierId") Long supplierId) {
+        return productService.stampMainSupplier(id, supplierId);
+    }
+
+    /** SSR-0c — the owner sets (or clears, with no supplierId) the main supplier on the product form. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PutMapping("/{id}/main-supplier")
+    public com.myplus.commerce.contracts.dto.ProductRef setMainSupplier(
+            @PathVariable Long id, @RequestParam(name = "supplierId", required = false) Long supplierId) {
+        return productService.setMainSupplier(id, supplierId);
+    }
+
     @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @PutMapping("/{id}/tracking-flags")
     public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(
             @PathVariable Long id,
             @RequestParam(required = false) Boolean requiresSerial,
-            @RequestParam(required = false) Boolean tracksBatch) {
-        return productService.updateTrackingFlags(id, requiresSerial, tracksBatch);
+            @RequestParam(required = false) Boolean tracksBatch,
+            @RequestParam(required = false) Boolean noExpiry) {
+        return productService.updateTrackingFlags(id, requiresSerial, tracksBatch, noExpiry);
     }
 
     /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI — GET /products/count. */
@@ -272,7 +301,11 @@ public class ProductController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
-        return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));
+        try {
+            return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            throw skuClash(dup, dto.getSku());   // SKU-AUTO — a simultaneous save took this SKU first
+        }
     }
 
     @org.springframework.beans.factory.annotation.Autowired
