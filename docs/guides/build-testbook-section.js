@@ -139,8 +139,8 @@ const SECTIONS = {
   },
   sra: {
     dir: 'sra', anchor: 'sra', number: Number(process.env.TB_NUMBER || 29), prefix: 'sra',
-    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3'],
-    title: 'Sales by rep and area: City / Area, sales reps, territory, and the rep on every invoice (SRA-1, SRA-2, SRA-3)',
+    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3', 'D1', 'D2'],
+    title: 'Sales by rep and area: City / Area, sales reps, territory, the rep on every invoice, and the report by rep and area (SRA-1 – SRA-4a)',
     spec: 'cypress/e2e/docs/sra-guide-screens.cy.js',
     notes: [
       ['red', '⚠ What was broken (found while building SRA-1 / SRA-2, fixed 14 Oct)', `<strong>Another business could take
@@ -167,6 +167,27 @@ const SECTIONS = {
       ['amber', 'Clean-up', `Every name carries the run's stamp. The run deactivates its reps, returns its shops to the shared
         pool and <strong>unlinks the booker's login</strong> from its rep — a linked booker narrows every booking test. The C-cases'
         sales and dispatched orders have their invoices voided.`],
+    ],
+  },
+  hc1a: {
+    dir: 'hc-1a', anchor: 'hc1a', number: Number(process.env.TB_NUMBER || 31), prefix: 'hc1a',
+    order: ['C1', 'C2', 'C3', 'C4', 'C5'],
+    title: 'Healthcare: a Hospital / Clinic tenant and a Pharmacy & Pharmaceutical tenant, and the Clinic home (HC-1a)',
+    spec: 'cypress/e2e/docs/hc-1a-healthcare-guide-screens.cy.js',
+    notes: [
+      ['blue', 'What is new (15 Oct)', `A clinic and a pharmacy are now <strong>two separate businesses</strong>; the clinic inside a
+        pharmacy is dropped. The operator's <strong>New tenant</strong> form asks <strong>Product line → Business type</strong>
+        (Healthcare → Hospital / Clinic, or Pharmacy &amp; Pharmaceutical); the list comes from the platform's own rows, not the
+        screen. A Hospital / Clinic signs in to its own <strong>Clinic home</strong> (Front desk · Doctor · Administration — never
+        Pharmacy or Stock). The pharmacy's “Clinic reception” menu is removed.`],
+      ['amber', 'Chosen once', `A Hospital / Clinic business type is set when the tenant is created and cannot be changed to a
+        shop type later (or a shop to a clinic): the console shows it without a change control, and the server refuses it.`],
+      ['amber', 'Proven by unit tests, no screen to walk', `The clinic always has its clinic module (it cannot be switched off);
+        an unknown or not-yet-offered business type is refused; the clinic uses the business permission list:
+        <code>BusinessTypeServiceTest</code>, <code>OptInCapabilityTest</code>, <code>PermissionModuleTest</code>,
+        <code>WorkspaceOrgTypeTest</code>, <code>ModuleRouterTest</code> — 15 Oct.`],
+      ['amber', 'Clean-up', `Each run creates its own two tenants (names carry the run stamp, owner e-mails end in .test, the
+        set-password link is read from Mailpit) and suspends them on screen. Tenants are never deleted.`],
     ],
   },
 }

@@ -39,7 +39,32 @@ public enum SaleReportGrouping {
     COMPANY(row -> blankToDash(row.getManufacturer())),
 
     /** B2B vs B2C — the channel split Phase 0 introduced. */
-    CHANNEL(row -> blankToDash(row.getCustomerType()));
+    CHANNEL(row -> blankToDash(row.getCustomerType())),
+
+    /*
+     * SRA-4a — sales by rep and area (design sra-sales-by-rep-and-area.md §7). A group with no name is a CODE, never "—":
+     * "Not recorded" (a sale from before SRA-3) and "No rep" (a counter or portal sale) are different answers, and
+     * the report must keep them apart or the gap it shows can never be chased.
+     */
+    REP(row -> row.getRepName() != null && !row.getRepName().isBlank() ? row.getRepName()
+            : code(row.getSaleSource() == null || row.getSaleSource().isBlank() ? "NOT_RECORDED" : "NO_REP")),
+
+    SOURCE(row -> code(row.getSaleSource() == null || row.getSaleSource().isBlank() ? "NOT_RECORDED" : row.getSaleSource())),
+
+    KEYED_BY(row -> blankToDash(row.getKeyedBy())),
+
+    AREA(row -> row.getArea() != null && !row.getArea().isBlank() ? row.getArea() : code("NO_AREA")),
+
+    CITY(row -> row.getCity() != null && !row.getCity().isBlank() ? row.getCity() : code("NO_AREA")),
+
+    SUPPLIER(row -> row.getSupplier() != null && !row.getSupplier().isBlank() ? row.getSupplier() : code("NO_SUPPLIER"));
+
+    /** Marks a key as a code (see {@link SaleReportGroup#getLabelCode()}); a name typed by a person cannot start with it. */
+    private static final String CODE = "\u0001";
+
+    private static String code(String c) {
+        return CODE + c;
+    }
 
     private final Function<SellDTO, String> keyOf;
 
@@ -67,12 +92,17 @@ public enum SaleReportGrouping {
         for (SellDTO row : rows) {
             if (row == null) continue;
             String key = keyOf.apply(row);
-            SaleReportGroup g = byKey.computeIfAbsent(key,
-                    k -> new SaleReportGroup(k, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
+            SaleReportGroup g = byKey.computeIfAbsent(key, k -> {
+                SaleReportGroup ng = new SaleReportGroup(k, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+                if (k.startsWith(CODE)) { ng.setLabel(null); ng.setLabelCode(k.substring(CODE.length())); }
+                return ng;
+            });
 
             g.setQuantity(g.getQuantity().add(nz(row.getQuantity())));   // NUM-1: exact, no double hop
             g.setTotal(g.getTotal().add(nz(row.getTotalAmount())));
             g.setTax(g.getTax().add(nz(row.getTaxAmount())));
+            g.setBonusQuantity(g.getBonusQuantity().add(nz(row.getBonusQuantity())));   // SRA-4a
+            g.setBonusValue(g.getBonusValue().add(nz(row.getBonusValue())));
 
             // Count DISTINCT invoices: a three-line sale is one transaction, not three.
             if (row.getInvoiceNo() != null && !row.getInvoiceNo().isEmpty()) {

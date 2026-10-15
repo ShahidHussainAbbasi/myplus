@@ -94,3 +94,12 @@ The clinic gets its OWN landing page `/clinicHome` (not `workspaces.html`), so c
 Measured before building: 1 tenant has the clinic on and it is PHARMA (org 15) → V34 hides nothing from anyone; 0 orgs have no type.
 
 **Open / follow-on:** self-signup forms still hardcode their list (HC-1a-2 — needs a public read); `/overview` (Administration tile) is the shop owner's overview — clinic content is HC-1b; "send to linked pharmacy" HC-1d; `ui_menu` row `pharmacy.clinic` now unused; FREE plan excludes CLINIC on the write path (operator should provision clinics on TRIAL/PRO).
+
+## Deployed + gate GREEN — 2026-10-15
+auth (V34+V35 applied 12:35) and monolith (11:34) live. Unit tests passed (user). Gate `hc-1a-healthcare-guide-screens.cy.js`
+**5/5** headed (first run 3/5: the spec did not dismiss the "Tenant provisioned" notice — spec fixed, product unchanged).
+Test Book section 31 built: `cypress/guide-out/testbook-hc1a/hc1a-section.html` + `cypress/guide-out/hc-1a/img/` (15 pictures).
+Test tenants 154–157 SUSPENDED.
+Regression of the specs HC-1a touched (15 Oct): `onboarding-profile` 11/11, `diag/clinic-on-for-manual-testing` 1/1,
+`hms-s1-patient-desk` 9/9 (S1-09 first failed: it asserted the removed `li[data-capability="clinic"]`; now asserts the
+Front desk tile is absent with the clinic off). Lesson: grep specs for the CAPABILITY selector too, not only the id.

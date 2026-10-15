@@ -108,6 +108,9 @@ public class SellController {
 	@Autowired
 	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line display fields from catalog
 
+	@Autowired
+	com.myplus.business_service.service.SaleReportDimensions reportDimensions;   // SRA-4a: rep / area / supplier / bonus + who sees which rows
+
 	/**
 	 * M4d (slice 94): batch-resolve catalog ProductRef by productId for the read screens (name/sku/description),
 	 * replacing the local Item entity load. Best-effort — on a catalog hiccup names fall back to blank, never throws.
@@ -962,7 +965,11 @@ public class SellController {
 	            objs = sellService.findSellByDates(com.myplus.common.security.time.BusinessDay.fromBusinessTime(fallback[0]), com.myplus.common.security.time.BusinessDay.fromBusinessTime(fallback[1]),   // H6 C3
 	                    user.getOrganizationId(), user.getUserId());
 	        }
-	        
+
+	        // SRA-4a (R11): only the rows this caller may see — their stores, and (on a "Sees: Own" set) the sales they keyed
+	        // or that are credited to their rep. It used to return the whole business to anyone who could open the report.
+	        if (objs != null) objs = reportDimensions.visible(objs, user.getOrganizationId(), user.getUserId());
+
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
@@ -995,7 +1002,13 @@ public class SellController {
 					// work in service modes.
 					dtotemp.setOrderType(ch.getOrderType() == null ? null : ch.getOrderType().name());
 					dtotemp.setDueDate(ch.getDueDate() != null ? ch.getDueDate().toString() : "");
+					// SRA-4a: who sold it and how — STAMPED on the invoice (SRA-3); keyed by = "Booked By".
+					dtotemp.setRepId(ch.getRepId());
+					dtotemp.setRepName(ch.getRepName());
+					dtotemp.setSaleSource(ch.getSaleSource());
+					dtotemp.setKeyedBy(ch.getBookedByName());
 					if (ch.getCustomer() != null) {
+						dtotemp.setAreaId(ch.getCustomer().getAreaId());   // SRA-4a: named (with its city) by enrich() below
 						dtotemp.setCn(ch.getCustomer().getName());
 						dtotemp.setCc(ch.getCustomer().getContact());
 						// B2B-P3e-1 (#6): report dimensions — who bought, and on which channel.
@@ -1009,6 +1022,9 @@ public class SellController {
 				dtos.add(dtotemp);
 			});
 
+			// SRA-4a: area, city, supplier and bonus value — one batch read per dimension, never one per line.
+			reportDimensions.enrich(dtos, rpProductById, user.getOrganizationId(), user.getUserId());
+
 			// B2B-P3e-1 (#6): narrow by customer / product / category / channel. The filter binds from the
 			// SAME posted form (its fields live on SellDTO), and every field is optional — an empty filter
 			// returns exactly what this report returned before, which is what makes it safe for live
@@ -1018,6 +1034,9 @@ public class SellController {
 							.customerId(dto.getCustomerId()).productId(dto.getProductId())
 							.category(dto.getCategory()).customerType(dto.getCustomerType())
 							.manufacturer(dto.getManufacturer())   // #18
+							// SRA-4a
+							.repId(dto.getRepId()).saleSource(dto.getSaleSource()).areaId(dto.getAreaId())
+							.cityId(dto.getCityId()).supplierId(dto.getSupplierId()).bonus(dto.getBonus())
 							.build();
 			// Filtered into its own variable: `dtos` is captured by the mapping lambda above, so reassigning
 			// it here would make it not effectively final and fail to compile.
@@ -1073,12 +1092,16 @@ public class SellController {
 						if (!(o instanceof com.myplus.business_service.dto.SaleReportGroup)) continue;
 						com.myplus.business_service.dto.SaleReportGroup g =
 								(com.myplus.business_service.dto.SaleReportGroup) o;
-						grouped.add(java.util.Arrays.asList(g.getLabel(), g.getInvoices(), com.myplus.business_service.util.Quantities.plain(g.getQuantity()),   // NUM-1: 2, not 2.0000
-								g.getTotal(), g.getTax(), g.getGross()));
+						// SRA-4a: a group with no name is a CODE (NOT_RECORDED, NO_REP, COUNTER …) — written as the code, stable
+						// for a spreadsheet to filter on. New columns go LAST so a file someone already reads keeps its places.
+						grouped.add(java.util.Arrays.asList(g.getLabel() != null ? g.getLabel() : g.getLabelCode(),
+								g.getInvoices(), com.myplus.business_service.util.Quantities.plain(g.getQuantity()),   // NUM-1: 2, not 2.0000
+								g.getTotal(), g.getTax(), g.getGross(),
+								com.myplus.business_service.util.Quantities.plain(g.getBonusQuantity()), g.getBonusValue()));
 					}
 				}
 				String groupedCsv = com.myplus.common.imports.CsvWriter.write(
-						java.util.Arrays.asList(grouping.name(), "Invoices", "Qty", "Total", "Tax", "Gross"),
+						java.util.Arrays.asList(grouping.name(), "Invoices", "Qty", "Total", "Tax", "Gross", "Bonus qty", "Bonus value"),
 						grouped);
 				return org.springframework.http.ResponseEntity.ok()
 						.header("Content-Disposition", "attachment; filename=\"sale-report.csv\"")
@@ -1095,12 +1118,16 @@ public class SellController {
 					rows.add(java.util.Arrays.asList(
 							r.getDated(), r.getInvoiceNo(), r.getCn(), r.getCustomerType(),
 							r.getItemCode(), r.getItemName(), r.getCategory(),
-							com.myplus.business_service.util.Quantities.plain(r.getQuantity()), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount()));   // NUM-1: Qty reads 2, money keeps 2 places
+							com.myplus.business_service.util.Quantities.plain(r.getQuantity()), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount(),   // NUM-1: Qty reads 2, money keeps 2 places
+							// SRA-4a — appended, so the first eleven columns keep their places.
+							r.getRepName(), r.getSaleSource(), r.getKeyedBy(), r.getArea(), r.getCity(), r.getSupplier(),
+							com.myplus.business_service.util.Quantities.plain(r.getBonusQuantity()), r.getBonusValue()));
 				}
 			}
 			String csv = com.myplus.common.imports.CsvWriter.write(
 					java.util.Arrays.asList("Date", "Invoice", "Customer", "Channel", "SKU", "Item",
-							"Category", "Qty", "Rate", "Total", "Tax"),
+							"Category", "Qty", "Rate", "Total", "Tax",
+							"Rep", "Source", "Keyed by", "Area", "City", "Supplier", "Bonus qty", "Bonus value"),
 					rows);
 			return org.springframework.http.ResponseEntity.ok()
 					.header("Content-Disposition", "attachment; filename=\"sale-report.csv\"")

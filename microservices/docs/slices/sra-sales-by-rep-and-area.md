@@ -238,6 +238,35 @@ drill-down count = the invoices behind the figure · CSV / XLSX / PDF totals = s
 only their rows (positive control: another rep's sale present for *All*, absent for *Own*) · bonus value at TP
 matches the SSR for the same product and period.
 
+### 7.6 SRA-4 is split in three (2026-10-15) — 4a deployed, GREEN: gate 7/7, report regression 97/97
+
+The report is too large for one gate. Each part stays on the SAME screen and endpoint (`/loadSR`, `/saleReport.csv`), so
+the file and the screen cannot disagree (§3.4):
+
+| Part | What | Status |
+|---|---|---|
+| **4a** | the new dimensions as filters + ONE group-by + grid columns + CSV columns; bonus at TP; who sees which rows | GREEN 15 Oct |
+| 4b | filtering and grouping move into SQL; nested groups (up to 4); one column split; drill-down to the invoices | next |
+| 4c | Excel (.xlsx, POI) and PDF downloads | after 4b |
+
+**4a as written:**
+
+| Where | What |
+|---|---|
+| business-service | `SellDTO` gains repId/repName/saleSource/keyedBy/areaId/area/cityId/city/supplierId/supplier/bonusValue (out) and the same names + `bonus` as filters (in); `SaleReportFilter` — 0 = "none", `NOT_RECORDED` source, WITH/WITHOUT bonus; `SaleReportGrouping` + REP, SOURCE, KEYED_BY, AREA, CITY, SUPPLIER — a nameless group is a CODE (`labelCode`: NOT_RECORDED, NO_REP, NO_AREA, NO_SUPPLIER, the source codes), so "no rep" and "not recorded" stay apart and a rep named "Counter" is never the counter; groups carry bonus qty + value; NEW `SaleReportDimensions` — `visible()` (R11) and `enrich()` (one batch read per dimension); CSV appends Rep, Source, Keyed by, Area, City, Supplier, Bonus qty, Bonus value (grouped: Bonus qty, Bonus value) LAST |
+| monolith | filter rail: Sales rep, How it came in, Area, City, Supplier, Bonus + six group-bys (only where the page asks for the rep dimensions); `saleReportCodeLabel()` — the ONE code → words; grid 14 → 18 columns (Sales rep + source, Area + city, Supplier, Bonus value — appended, footer sums bonus value); group table + Bonus qty / value; 33 keys × 6 bundles |
+| tests | `SaleReportRepAreaTest` (4), `SaleReportDimensionsTest` (1) — written, not run; gate `sra-sales-analysis.cy.js` R1–R7; `report-grouping.cy.js` grouped header and `sell.cy.js` column count updated (deliberate, appended columns) |
+
+**⚠ Found while reviewing (fixed in 4a): the report showed the WHOLE business to anyone who could open it** — a member
+on a "Sees: Own" set, and a branch member granted one store, both read every sale of every store. `visible()` now applies
+the store grants and, for "Sees: Own", keeps the sales they KEYED or that are credited to their REP.
+Checked and NOT a problem: a void deletes the sale lines (SaleVoidService), so a voided invoice never reaches the report.
+
+**Rules reused, not re-invented:** area/city = the customer's CURRENT area (owner); supplier = catalog main supplier, else
+first purchase (SSR); bonus value = bonus qty × TP = last purchase rate (SSR) — so the two reports agree.
+**Known edge:** two areas with the same name in different cities read alike in the Area filter (names only); 4b's
+nested City → Area grouping is the answer.
+
 ---
 
 ## 8. Order and effort

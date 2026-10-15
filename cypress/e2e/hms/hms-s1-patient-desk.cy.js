@@ -280,8 +280,11 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
       relogin(OWNER)
       cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' } })
       relogin(OWNER, 'off')
-      cy.visit('/businessDashboard')
-      cy.get('li[data-capability="clinic"]').should('have.class', 'cap-off')
+      // HC-1a — the way in is the Front desk tile (the pharmacy's "Clinic reception" menu was removed): with the
+      // clinic off, the tile is not offered at all.
+      cy.visit('/workspaces')
+      cy.get('#wsTiles').should('exist')
+      cy.get('#wsTiles [data-ws="frontdesk"]').should('not.exist')
       cy.request({ url: `/clinic/patients/${ali.id}`, failOnStatusCode: false }).then((r) => {
         expect(r.body.success).to.eq(false)
         expect(r.body.message).to.match(/not switched on/)

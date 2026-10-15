@@ -50,6 +50,11 @@ const provision = (t, businessTypeLabel) => {
   cy.intercept('POST', '**/platform/provisionTenant*').as('provision')
   cy.get('#provSubmit').click()
 }
+/** After a successful Create the console shows a "Tenant provisioned" notice; it must be dismissed (OK). */
+const dismissNotice = () => {
+  cy.get('[data-ui-confirm="ok"]', { timeout: 15000 }).should('be.visible').click()
+  cy.get('[data-ui-confirm="ok"]').should('not.exist')
+}
 const tenantRow = (orgName) => {
   cy.get('#platSearch', { timeout: 20000 }).clear().type(orgName)
   return cy.contains('[data-testid="tenant-row"]', orgName, { timeout: 20000 })
@@ -117,12 +122,14 @@ describe('Test Book — HC-1a Healthcare tenants (captured)', () => {
       rollback: 'Cleanup suspends the tenant on screen. Tenants are never deleted.',
     })
     const a1 = g.act('Open **Tenants** and press **New tenant**. Type the business name, owner e-mail, first and last name. Choose **Product line: Healthcare**, **Business type: Hospital / Clinic**, plan **PRO**, and press **Create**.',
-      ['A green note says the tenant was created and a set-password e-mail went to the owner.'])
+      ['A notice says **Tenant provisioned** (a set-password e-mail went to the owner). Press **OK**.'])
     openConsole()
     made.push(CLINIC.org)
     provision(CLINIC, 'Hospital / Clinic')
     cy.wait('@provision').its('response.statusCode').should('eq', 200)
+    cy.contains('Tenant provisioned').should('be.visible')
     g.snap(a1, 'created')
+    dismissNotice()
 
     const a2 = g.act(`Type **${CLINIC.org}** in the tenant search.`, ['The row shows the business type **Hospital / Clinic**.'])
     tenantRow(CLINIC.org).find('[data-testid="tenant-shape"]').should('contain.text', 'Hospital / Clinic')
@@ -206,11 +213,12 @@ describe('Test Book — HC-1a Healthcare tenants (captured)', () => {
       rollback: 'Cleanup suspends the tenant on screen.',
     })
     const a1 = g.act('In **Tenants → New tenant**, choose **Healthcare → Pharmacy & Pharmaceutical**, fill the owner and press **Create**.',
-      ['The tenant is created; its row shows **Pharmacy & Pharmaceutical**.'])
+      ['A notice says **Tenant provisioned**; press **OK**.', 'Its row shows **Pharmacy & Pharmaceutical**.'])
     openConsole()
     made.push(PHARMA.org)
     provision(PHARMA, 'Pharmacy & Pharmaceutical')
     cy.wait('@provision').its('response.statusCode').should('eq', 200)
+    dismissNotice()
     tenantRow(PHARMA.org).find('[data-testid="tenant-shape"]').should('contain.text', 'Pharmacy & Pharmaceutical')
     g.snap(a1, 'created')
 

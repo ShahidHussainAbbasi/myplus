@@ -110,7 +110,8 @@ describe('B2B P3e-2 — report grouping (#6)', () => {
             expect(csv.status).to.eq(200)
             const lines = String(csv.body).trim().split(/\r?\n/)
             expect(lines[0], 'the header names the grouping, not the detail columns')
-              .to.eq('CUSTOMER,Invoices,Qty,Total,Tax,Gross')
+              // SRA-4a appended the free-goods columns LAST, so the first six keep their places.
+              .to.eq('CUSTOMER,Invoices,Qty,Total,Tax,Gross,Bonus qty,Bonus value')
             expect(lines.length - 1, 'one row per group, not per line').to.eq(groups.length)
             expect(lines[1], 'the group label').to.contain(ctx.customer.name)
           })

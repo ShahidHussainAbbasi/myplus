@@ -14,6 +14,8 @@
  *   C1  SRA-3 — the sale screen's Sales rep picker defaults to the customer's usual rep; the invoice credits that rep
  *   C2  SRA-3 — the office keys a rep's PAPER order on the booking screen; the invoice credits the rep, not the office
  *   C3  SRA-3 — a rep booking signed in has no picker and is credited themselves
+ *   D1  SRA-4a — the Sale Detail Report filters by sales rep and shows rep, area and supplier on each line
+ *   D2  SRA-4a — grouped by how the sale came in, the sources in words; old sales read "Not recorded"
  *
  * The cases with no screen (import, another business, the takeover by id, the credit account, refusals at the server)
  * are proven by the gates — sra-areas.cy.js, sra-reps.cy.js, territory-assignment.cy.js — and listed under the section.
@@ -34,7 +36,7 @@ const list = (body) => {
   for (const k of ['collection', 'data', 'object']) if (Array.isArray(body && body[k])) return body[k]
   return []
 }
-const ctx = { reps: [], outlets: [], invoices: [] }
+const ctx = { reps: [], outlets: [], invoices: [], irfanInvoices: [] }
 const PRICE = 50
 const post = (url, body) => cy.request({ method: 'POST', url, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false, body })
 /** The invoice as the receipt reads it — rep, source and "Booked By" are stamped on it (SRA-3). */
@@ -462,6 +464,7 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
       expect(x.request.body.repId, 'the till sent the rep').to.eq(ctx.irfan)
       expect(x.response.body.status, JSON.stringify(x.response.body).slice(0, 200)).to.eq('SUCCESS')
       ctx.invoices.push(x.response.body.object)
+      ctx.irfanInvoices.push(x.response.body.object)
       receipt(x.response.body.object).then((inv) => {
         expect(inv.repName).to.eq(`SRA Irfan ${RUN}`)
         expect(inv.saleSource).to.eq('REP_PAPER')
@@ -506,6 +509,7 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
       [`The invoice credits **SRA Irfan ${RUN}**, source **Paper order (REP_PAPER)**; “Booked By” is the owner who typed it — not a dispatcher.`], { via: 'run' })
     cy.then(() => confirmAndDispatch(ctx.paperOrder)).then((o) => {
       ctx.invoices.push(o.invoiceNo)
+      ctx.irfanInvoices.push(o.invoiceNo)
       receipt(o.invoiceNo).then((inv) => {
         expect(inv.repName).to.eq(`SRA Irfan ${RUN}`)
         expect(inv.saleSource).to.eq('REP_PAPER')
@@ -551,5 +555,75 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
         expect(inv.bookedByName).to.contain('booker')
       })
     })
+  })
+  // ── D1 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('D1', 'The Sale Detail Report filters by sales rep, and shows rep, area and supplier on every line', () => {
+    g.testCase('D1', 'The Sale Detail Report filters by sales rep, and shows rep, area and supplier on every line', {
+      tenant: OWNER, role: 'Owner (a member on a “Sees: Own” set sees only the sales they keyed or that are credited to their rep — gate sra-sales-analysis.cy.js R6)',
+      purpose: 'The distributor’s first question: what did each rep sell, and where. The rep is the one STAMPED on the invoice (C1–C3), the area is the shop’s current one.',
+      prereq: ['C1–C3 done this run: two sales credited to SRA Irfan (the till sale and the paper order), one to SRA Booker.'],
+      data: [`Sales rep **SRA Irfan ${RUN}**, period **This month**`],
+      rollback: 'Nothing is saved — a report only reads.',
+    })
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('SRDiv', { force: true })
+    cy.get('#SRDiv').should('be.visible')
+    const a1 = g.act('**Sale → Sale Detail Report**. Set the period to **This month**. Open **Sales rep**.',
+      ['New filters beside the old ones: **Sales rep**, **How it came in**, **Area**, **City**, **Supplier**, **Bonus**.',
+        `Sales rep lists **— No rep / not recorded —** and every rep; typing **Irfan ${RUN}** in its search box finds **SRA Irfan ${RUN}**.`])
+    cy.get('#dateRangeDDSR').select('0', { force: true })
+    cy.get('#rfRep').focus()   // the rail loads its lists on first focus
+    cy.get(`#rfRep option[value="${ctx.irfan}"]`, { timeout: 15000 }).should('exist')
+    cy.get('#rfSource').should('exist')
+    cy.get('#rfBonus').should('exist')
+    cy.get('#SR').scrollIntoView()
+    cy.get('button[data-id="rfRep"]').click({ force: true })   // open the rep list for the picture
+    cy.get('.bs-searchbox input:visible').first().type(`Irfan ${RUN}`)   // type to find, as a person would
+    cy.contains('.dropdown-menu.show li:visible, .dropdown-menu.open li:visible, .bootstrap-select.open li:visible', `SRA Irfan ${RUN}`).should('exist')
+    g.snap(a1, 'report-filters')
+    cy.get('button[data-id="rfRep"]').click({ force: true })
+
+    const a2 = g.act(`Choose **SRA Irfan ${RUN}** in Sales rep.`,
+      ['The report reloads with **only Irfan’s sales**: the till sale (C1) and the paper order (C2).',
+        `The new columns at the right: **Sales rep — SRA Irfan ${RUN}**, with **Paper order** under it.`,
+        '**Area** and **Supplier** read **No area** / **No supplier** here, and that is the right answer: SRA Labaik Pharmacy was registered without an area (B3) and SRA Panadol was stocked without a purchase. A shop with an area shows it with its city under it, and a product bought from a supplier shows that supplier — proven by the gate (sra-sales-analysis.cy.js R1).'])
+    cy.intercept('POST', '**/loadSR').as('sr')
+    cy.get('#rfRep').select(String(ctx.irfan), { force: true })
+    cy.wait('@sr').then((x) => {
+      const rows = x.response.body.collection || []
+      expect(rows.length, 'Irfan has rows').to.be.greaterThan(0)
+      rows.forEach((r) => expect(r.repName).to.eq(`SRA Irfan ${RUN}`))
+      expect([...new Set(rows.map((r) => r.invoiceNo))].sort(), 'exactly the two Irfan sales').to.deep.eq([...ctx.irfanInvoices].sort())
+    })
+    // The new columns are the LAST four of eighteen — scroll the rep cell itself into view for the picture.
+    cy.contains('#tableSellReport tbody td', `SRA Irfan ${RUN}`).scrollIntoView().should('be.visible')
+    g.snap(a2, 'report-by-rep')
+  })
+
+  // ── D2 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('D2', 'Grouped by how the sale came in: paper orders, reps signed in, counter — and “Not recorded” for old sales', () => {
+    g.testCase('D2', 'Grouped by how the sale came in: paper orders, reps signed in, counter — and “Not recorded” for old sales', {
+      tenant: OWNER, role: 'Owner',
+      purpose: 'A distributor checks how much comes in on paper versus by login. A sale from before 15 Oct never knew its rep — it groups as **Not recorded**, never guessed.',
+      prereq: ['D1 done.'], data: ['Group by **How it came in**, Sales rep back to all'],
+      rollback: 'Nothing is saved.',
+    })
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('SRDiv', { force: true })
+    cy.get('#dateRangeDDSR').select('0', { force: true })
+    const a1 = g.act('Set **Group by** to **How it came in**.',
+      ['A subtotal table appears above the lines, one row per source in words — **Paper order**, **Rep signed in**, **Counter sale**, **Not recorded** … — with invoices, quantity, total, tax, gross, and the **bonus** quantity and value.'])
+    cy.intercept('POST', '**/loadSR').as('sr')
+    cy.get('#rfGroupBy').select('SOURCE', { force: true })
+    cy.wait('@sr').then((x) => {
+      const codes = (x.response.body.object || []).map((g2) => g2.labelCode)
+      expect(codes, 'the sources are codes on the wire').to.include.members(['REP_PAPER', 'REP_LOGIN'])
+    })
+    cy.contains('#srGroups td', 'Paper order').should('be.visible')
+    cy.contains('#srGroups td', 'Rep signed in').should('be.visible')
+    cy.get('#srGroups').scrollIntoView()
+    g.snap(a1, 'grouped-by-source')
   })
 })

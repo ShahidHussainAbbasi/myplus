@@ -33,6 +33,25 @@ public class SaleReportGroup {
     /** Tax on those lines. */
     private BigDecimal tax;
 
+    /**
+     * SRA-4a — set INSTEAD of a label when the group is a code, not a name: a sale source (COUNTER, REP_LOGIN …) or a
+     * gap (NOT_RECORDED, NO_REP, NO_AREA, NO_SUPPLIER). The screen shows its bundle key, so the words are translated and
+     * a rep who happens to be called "Counter" can never be confused with the counter.
+     */
+    private String labelCode;
+
+    /** SRA-4a — free goods: quantity, and value at TP (the SSR convention). Zero on a report with no bonus. */
+    private BigDecimal bonusQuantity = BigDecimal.ZERO;
+    private BigDecimal bonusValue = BigDecimal.ZERO;
+
+    public SaleReportGroup(String label, int invoices, BigDecimal quantity, BigDecimal total, BigDecimal tax) {
+        this.label = label;
+        this.invoices = invoices;
+        this.quantity = quantity;
+        this.total = total;
+        this.tax = tax;
+    }
+
     /** total + tax — what the customer actually paid for this group. */
     public BigDecimal getGross() {
         return nz(total).add(nz(tax));

@@ -49,6 +49,20 @@ public interface SaleScreenMapper extends DisplayDates {
     @Mapping(target = "serials", ignore = true)
     @Mapping(target = "stock", ignore = true)
     @Mapping(target = "stockEntryId", ignore = true)  // PR-3c: a till input; the sale's batches are in sell_batch
+    // SRA-4a: the sale report's rep / area / supplier / bonus dimensions — filled by loadSR from the invoice and
+    // SaleReportDimensions, or bound as filters; a sale line itself carries none of them.
+    @Mapping(target = "repId", ignore = true)
+    @Mapping(target = "repName", ignore = true)
+    @Mapping(target = "saleSource", ignore = true)
+    @Mapping(target = "keyedBy", ignore = true)
+    @Mapping(target = "areaId", ignore = true)
+    @Mapping(target = "area", ignore = true)
+    @Mapping(target = "cityId", ignore = true)
+    @Mapping(target = "city", ignore = true)
+    @Mapping(target = "supplierId", ignore = true)
+    @Mapping(target = "supplier", ignore = true)
+    @Mapping(target = "bonusValue", ignore = true)
+    @Mapping(target = "bonus", ignore = true)
     SellDTO toDto(Sell sell);
 
     @Mapping(target = "autoCut", ignore = true)
