@@ -115,6 +115,9 @@ public class MarketplaceCheckoutService {
     /** MKT-2c: every seller asked at once, each with a timeout, the checkout with one deadline, circuits per seller. */
     private final LiveRouting routing;
     private final CodStandingService codStanding;
+    /** MKT-3b: the accepted part's store order and its parcels, read for the shopper's view. */
+    private final com.myplus.marketplace.repository.OrderRepository storeOrders;
+    private final com.myplus.marketplace.repository.ShipmentRepository shipments;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -476,15 +479,37 @@ public class MarketplaceCheckoutService {
             BigDecimal subtotal = partTotal(ls);
             int promise = ls.stream().map(MarketplaceOrderLine::getPromiseHours).filter(java.util.Objects::nonNull)
                     .max(Integer::compare).orElse(0);
+            com.myplus.marketplace.entity.Order store = storeOrder(so);          // MKT-3b: read, never copied
             LocalDateTime from = so.getDecidedAt() != null && SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus())
                     ? so.getDecidedAt() : so.getCreatedAt();
             out.add(new MarketplaceOrderDTOs.PartView(so.getId(), so.getVersion(), so.getSellerOrganizationId(),
                     sellerName(so.getSellerOrganizationId()),
                     so.getAcceptanceStatus(), secondsLeft(so), subtotal, BigDecimal.ZERO, subtotal,
                     from == null || promise == 0 ? null : from.plusHours(promise), so.getDeliveredAt(),
-                    ls.stream().map(MarketplaceCheckoutService::lineView).toList(), shortageView(shortBy.get(so.getId()), subtotal)));
+                    ls.stream().map(MarketplaceCheckoutService::lineView).toList(), shortageView(shortBy.get(so.getId()), subtotal),
+                    store == null || store.getFulfilmentStatus() == null ? null : store.getFulfilmentStatus().name(), parcels(store)));
         }
         return out;
+    }
+
+    /** MKT-3b — the part's parcels, oldest first; empty before anything is sent. */
+    List<MarketplaceOrderDTOs.ParcelView> parcels(com.myplus.marketplace.entity.Order store) {
+        if (store == null) return List.of();
+        return shipments.findByOrderIdOrderByShipmentSeqAsc(store.getId()).stream()
+                .map(s -> new MarketplaceOrderDTOs.ParcelView(s.getShipmentNo(), s.getCarrier(), s.getTrackingNumber(),
+                        s.getShippedAt(), s.getStatus()))
+                .toList();
+    }
+
+    /**
+     * MKT-3b — an accepted part's store order, whose fulfilment status (NEW, PACKED, PARTIALLY_SHIPPED, SHIPPED,
+     * DELIVERED, …) the shopper's view reads; the marketplace keeps no copy of it (MKT-1f keeps only
+     * {@code delivered_at}). Null before Accept, and for a store order that is not this seller's.
+     */
+    com.myplus.marketplace.entity.Order storeOrder(MarketplaceSellerOrder so) {
+        if (so.getStoreOrderId() == null || !ACCEPTED_PARTS.contains(so.getAcceptanceStatus())) return null;
+        return storeOrders.findById(so.getStoreOrderId())
+                .filter(o -> java.util.Objects.equals(o.getOrganizationId(), so.getSellerOrganizationId())).orElse(null);
     }
 
     /**

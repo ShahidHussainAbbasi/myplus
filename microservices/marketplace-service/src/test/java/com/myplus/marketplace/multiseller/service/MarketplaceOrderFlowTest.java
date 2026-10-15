@@ -96,6 +96,8 @@ class MarketplaceOrderFlowTest {
     @Mock PlatformTransactionManager txManager;
     @Mock MarketplaceAuditService audit;                             // G-16: actions are audited
     @Mock com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;   // MKT-2b
+    @Mock com.myplus.marketplace.repository.OrderRepository storeOrderRows;                         // MKT-3b
+    @Mock com.myplus.marketplace.repository.ShipmentRepository shipmentRows;                        // MKT-3b
 
     MarketplaceCheckoutService checkout;
     SellerOrderService sellerSide;
@@ -120,7 +122,7 @@ class MarketplaceOrderFlowTest {
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
                 lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider,
                 routing = new LiveRouting(trade, java.time.Duration.ofMillis(1000), java.time.Duration.ofMillis(2000), 3,
-                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding);
+                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding, storeOrderRows, shipmentRows);
         shortages = new MarketplaceShortageService(shortageRows, sellerOrders, orders, lines, offers, projections, products,
                 publicOffers, settings, checkout, payments, trade, access, audit, txManager, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
@@ -449,6 +451,41 @@ class MarketplaceOrderFlowTest {
         assertThat(s.getValue().idempotencyKey()).isEqualTo("MKT-SO-" + so.getId());
         assertThat(s.getValue().lines().get(0).unitPrice()).isEqualByComparingTo("52000");
         assertThat(s.getValue().lines().get(0).productId()).isEqualTo(SOURCE);
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.4] [MKT-R18.5] the shopper sees where an accepted part stands: packed, its parcel's carrier and tracking; nothing before Accept, nothing from another seller's order")
+    void deliveryProgress() {
+        MarketplaceSellerOrder so = offered();
+        MarketplaceOrderDTOs.PartView before = checkout.view(orderTable.get(so.getMktOrderId())).sellerOrders().get(0);
+        assertThat(before.fulfilment()).isNull();
+        assertThat(before.parcels()).isEmpty();
+        verify(storeOrderRows, never()).findById(any());
+
+        when(catalog.getProductsFresh(anyList(), anyBoolean())).thenReturn(List.of());
+        when(storeOrders.placeMarketplace(any())).thenReturn(sale());
+        sellerSide.accept(so.getId(), new MarketplaceOrderDTOs.AcceptRequest(so.getVersion(), null));
+        com.myplus.marketplace.entity.Order store = new com.myplus.marketplace.entity.Order();
+        store.setId(9001L);
+        store.setOrganizationId(SELLER);
+        store.setFulfilmentStatus(com.myplus.marketplace.entity.FulfilmentStatus.SHIPPED);
+        when(storeOrderRows.findById(9001L)).thenReturn(java.util.Optional.of(store));
+        com.myplus.marketplace.entity.Shipment parcel = new com.myplus.marketplace.entity.Shipment();
+        parcel.setShipmentNo("SHP-000007");
+        parcel.setCarrier("TCS");
+        parcel.setTrackingNumber("TCS-123");
+        parcel.setInvoiceNo("INV-000099");
+        parcel.setNote("fragile, back door");
+        when(shipmentRows.findByOrderIdOrderByShipmentSeqAsc(9001L)).thenReturn(List.of(parcel));
+
+        MarketplaceOrderDTOs.PartView after = checkout.view(orderTable.get(so.getMktOrderId())).sellerOrders().get(0);
+        assertThat(after.fulfilment()).isEqualTo("SHIPPED");
+        assertThat(after.parcels()).containsExactly(new MarketplaceOrderDTOs.ParcelView("SHP-000007", "TCS", "TCS-123", null, "DISPATCHED"));
+
+        store.setOrganizationId(SELLER + 1);                             // a store order that is not this seller's
+        MarketplaceOrderDTOs.PartView foreign = checkout.view(orderTable.get(so.getMktOrderId())).sellerOrders().get(0);
+        assertThat(foreign.fulfilment()).isNull();
+        assertThat(foreign.parcels()).isEmpty();
     }
 
     @Test
