@@ -104,6 +104,12 @@ public final class ModuleRouter {
      */
     public static final String PLATFORM_DASHBOARD = "/platformDashboard";
 
+    /**
+     * HC-1a — the Hospital / Clinic home (org type {@code CLINIC}). Its own page rather than the shared tile home
+     * ({@code /workspaces}) on purpose (the user, 2026-10-15): a clinic will grow options of its own there.
+     */
+    public static final String CLINIC_HOME = "/clinicHome";
+
     private static final Map<String, String> DASHBOARD_BY_TYPE = Map.of(
             "BUSINESS",    COMMERCE_DASHBOARD,
             "PHARMA",      COMMERCE_DASHBOARD,
@@ -112,6 +118,7 @@ public final class ModuleRouter {
             "WELFARE",     "/welfareDashboard",
             "AGRICULTURE", "/agricultureDashboard",
             "APPOINTMENT", "/appointmentDashboard",
+            "CLINIC",      CLINIC_HOME,
             /*
              * E2 — the MaxTheService operator.
              *

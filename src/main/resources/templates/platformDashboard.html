@@ -577,14 +577,15 @@
                   GENERAL presets every capability: the customer meets the whole product and has to subtract.
                   A pesticide dealer was shown installments and serial/IMEI for exactly this reason.
                 -->
-                <label th:text="#{ui.businessType}">Business type</label>
-                <select id="provShape" class="form-control" required="required">
-                    <option value="retail">Retail counter / POS</option>
-                    <option value="pharmacy">Pharmacy / dispensing</option>
-                    <option value="distribution">Distribution / wholesale</option>
-                    <option value="storefront">Online storefront</option>
-                    <option value="general">General - show every feature</option>
-                </select>
+                <!--
+                  HC-1a — product line → business type, from the auth rows (V35 product_line / business_type), filled
+                  by platform.js. The business type decides BOTH the tenant's org type (which application opens) and
+                  its shape (which features it starts with), so the form sends one key and the two cannot disagree.
+                -->
+                <label for="provProductLine" th:text="#{ui.productLine}">Product line</label>
+                <select id="provProductLine" class="form-control" required="required"></select>
+                <label for="provBusinessType" th:text="#{ui.businessType}">Business type</label>
+                <select id="provBusinessType" class="form-control" required="required" disabled="disabled"></select>
                 <span class="plat__hint" th:text="#{ui.businessTypeHelp}">Sets which features this business starts with. It can be changed later.</span>
                 <label th:text="#{ui.plan}">Plan</label>
                 <select id="provPlan" class="form-control">
@@ -594,6 +595,8 @@
                 </select>
                 <button type="button" class="btn btn-primary" id="provSubmit"
                         th:text="#{ui.provisionTenant}">Provision tenant</button>
+                <!-- HC-1a — a refusal is shown HERE, next to the form it is about (e.g. the e-mail already owns a tenant). -->
+                <p class="plat__error text-danger" id="provError" role="alert" style="display:none"></p>
             </div>
         </section>
 

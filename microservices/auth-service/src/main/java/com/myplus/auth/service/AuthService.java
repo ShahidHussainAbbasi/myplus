@@ -82,6 +82,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
     private final OrganizationService organizationService;
+    /** HC-1a — the business type rows (V35) provisioning reads its org type and shape from. */
+    private final BusinessTypeService businessTypeService;
     private final com.myplus.auth.repository.UserLocationAccessRepository userLocationAccessRepository;
 
     @Value("${app.verification-token-expiry-hours:24}")
@@ -171,7 +173,14 @@ public class AuthService {
             username = username + "_" + UUID.randomUUID().toString().substring(0, 4);
         }
 
-        String userType = request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
+        /*
+         * HC-1a — a business type row (V35) decides the org type and the shape together. Without one, the
+         * request's own userType + shape (the API before HC-1a; still validated below exactly as it was).
+         */
+        BusinessType businessType = (request.getBusinessType() == null || request.getBusinessType().isBlank())
+                ? null : businessTypeService.forProvisioning(request.getBusinessType());
+        String userType = businessType != null ? businessType.getOrgType().toUpperCase()
+                : request.getUserType() != null ? request.getUserType().toUpperCase() : "BUSINESS";
         // Operator-provisioned tenants also get an OWNER (super user of that company).
         Set<Role> roles = new HashSet<>();
         roles.add(ownerRole());
@@ -188,7 +197,8 @@ public class AuthService {
          * slice closes. So an unrecognised value is refused, not guessed.
          */
         com.myplus.common.settings.Shape shape = null;
-        String requestedShape = request.getShape() == null ? null : request.getShape().trim();
+        String requestedShape = businessType != null ? businessType.getShape()
+                : request.getShape() == null ? null : request.getShape().trim();
         if (requestedShape != null && !requestedShape.isEmpty()) {
             for (com.myplus.common.settings.Shape candidate : com.myplus.common.settings.Shape.values()) {
                 if (candidate.code().equalsIgnoreCase(requestedShape)) shape = candidate;
@@ -538,7 +548,9 @@ public class AuthService {
      * a bug fix — it needs its own ruling rather than being swept in here.
      */
     static boolean tradeTenant(String orgType) {
-        return "BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType);
+        // HC-1a — CLINIC: its menus are gated by clinic.* codes, so a member minted none would see no clinic screen.
+        return "BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)
+                || "CLINIC".equalsIgnoreCase(orgType);
     }
 
     /**

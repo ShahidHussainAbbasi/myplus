@@ -11,6 +11,9 @@
  *   B4  a deactivated rep is not offered for new outlets but still names the ones they hold
  *   T1  assigning on the Territory screen narrows what the booker's booking screen offers
  *   B5  a rep (the booker) has no Territory menu
+ *   C1  SRA-3 — the sale screen's Sales rep picker defaults to the customer's usual rep; the invoice credits that rep
+ *   C2  SRA-3 — the office keys a rep's PAPER order on the booking screen; the invoice credits the rep, not the office
+ *   C3  SRA-3 — a rep booking signed in has no picker and is credited themselves
  *
  * The cases with no screen (import, another business, the takeover by id, the credit account, refusals at the server)
  * are proven by the gates — sra-areas.cy.js, sra-reps.cy.js, territory-assignment.cy.js — and listed under the section.
@@ -31,7 +34,33 @@ const list = (body) => {
   for (const k of ['collection', 'data', 'object']) if (Array.isArray(body && body[k])) return body[k]
   return []
 }
-const ctx = { reps: [], outlets: [] }
+const ctx = { reps: [], outlets: [], invoices: [] }
+const PRICE = 50
+const post = (url, body) => cy.request({ method: 'POST', url, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false, body })
+/** The invoice as the receipt reads it — rep, source and "Booked By" are stamped on it (SRA-3). */
+const receipt = (invoiceNo) => cy.request(`/getReceipt?invoiceNo=${encodeURIComponent(invoiceNo)}`).then((r) => {
+  expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.eq('SUCCESS')
+  return r.body.object
+})
+/** Confirm and dispatch an order as the owner — the dispatch raises the invoice. */
+const confirmAndDispatch = (o) => {
+  cy.loginAsMarketplaceOwner()
+  post('/confirmOrder', { id: o.id }).its('body.success').should('eq', true)
+  post('/shipOrder', { id: o.id, lines: [{ orderItemId: o.items[0].id, quantity: o.items[0].quantity }], carrier: 'SRA van' })
+    .its('body.success').should('eq', true)
+  return cy.request('/getOrder?id=' + o.id).then((r) => {
+    expect(r.body.data.invoiceNo, 'the dispatch raised the invoice').to.match(/^INV-/)
+    return r.body.data
+  })
+}
+const bookOnScreen = (outletId, qty) => {
+  cy.get(`#bkOutlet option[value="${outletId}"]`, { timeout: 20000 }).should('exist')
+  cy.get('#bkOutlet').select(String(outletId), { force: true })
+  cy.get(`#bkProduct option[value="${ctx.productId}"]`, { timeout: 20000 }).should('exist')
+  cy.get('#bkProduct').select(String(ctx.productId), { force: true })
+  cy.get('#bkQty').clear().type(String(qty))
+  cy.get('#bkAddBtn').click()
+}
 
 const customerNamed = (name) => cy.request('/getUserCustomer').then((r) => list(r.body).find((c) => c.name === name) ?? null)
 const addRep = (body) => cy.request({ method: 'POST', url: '/addSalesRep', form: true, failOnStatusCode: false, body })
@@ -80,6 +109,8 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
   after(() => {
     cy.loginAsMarketplaceOwner()
     cy.then(() => ctx.outlets.length && assign(null, ctx.outlets))
+    cy.then(() => ctx.invoices.forEach((invoiceNo) => cy.request({ method: 'POST', url: '/voidSell', form: true,
+      failOnStatusCode: false, body: { invoiceNo, reason: 'Test Book 29 clean-up' } })))
     cy.then(() => ctx.reps.forEach((id) => updateRep({ id, userId: 0, status: 'INACTIVE' })))
   })
 
@@ -376,5 +407,149 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
     cy.get('#TerritoryDiv').should('not.exist')
     cy.get('body').should('not.contain.text', 'Sales reps')
     g.snap(a1, 'no-territory')
+  })
+  // ── C1 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('C1', "The sale screen's Sales rep defaults to the customer's usual rep, and the invoice credits that rep", () => {
+    g.testCase('C1', 'The sale screen’s Sales rep defaults to the customer’s usual rep, and the invoice credits that rep', {
+      tenant: OWNER, role: 'Owner at the till (any cashier may name the rep of a paper order; only a rep manager may change it on an EDIT)',
+      purpose: 'Commission and the rep report (SRA-4) run on the rep STAMPED on each invoice — not on who keyed it. A counter sale with no rep says “No rep (counter)”.',
+      prereq: [`B3 done: **SRA Labaik Pharmacy ${RUN}**’s usual rep is **SRA Irfan ${RUN}**.`, `A product **SRA Panadol ${RUN}**, price ${PRICE}, 100 in stock (made through the product form’s own requests).`],
+      data: [`Customer SRA Labaik Pharmacy ${RUN} · 2 × SRA Panadol ${RUN} · on account (Credit)`],
+      rollback: 'The sale is voided at the end of the run.',
+    })
+    post('/addProduct', { name: `SRA Panadol ${RUN}`, sku: 'SRP' + RUN, sellingPrice: PRICE, taxRate: 0, unit: 'pcs' }).then((r) => {
+      expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
+      ctx.productId = r.body.data.id
+      return post('/addProductStock', { productId: ctx.productId, quantity: 100 })
+    }).its('body.success').should('eq', true)
+    cy.viewport(1400, 900)
+    cy.visitSaleScreen()
+    const a1 = g.act(`**Sale → New Sale**. In **Customer** choose **SRA Labaik Pharmacy ${RUN}**.`,
+      [`Beside the customer, **Sales rep** now reads **SRA Irfan ${RUN}** — the shop’s usual rep, filled in by itself.`,
+        'A business with no reps never sees this picker.'])
+    cy.get(`#sellCustomerDD option[value="${ctx.labaik.customerId}"]`, { timeout: 15000 }).should('exist')
+    cy.get('#sellCustomerDD').select(String(ctx.labaik.customerId), { force: true })
+    cy.get('#sellRepWrap').should('be.visible')
+    cy.get('#sellRepId').should('have.value', String(ctx.irfan))
+    cy.get('#sellRepId option:selected').should('have.text', `SRA Irfan ${RUN}`)
+    g.snap(a1, 'sale-rep-default')
+
+    const a2 = g.act('Open **Sales rep**.', ['The list: **— No rep (counter) —**, then every active rep.'])
+    cy.get('button[data-id="sellRepId"]').click({ force: true })
+    cy.get('#sellRepId option').first().should('have.text', '— No rep (counter) —')
+    g.snap(a2, 'sale-rep-list')
+    cy.get('button[data-id="sellRepId"]').click({ force: true })
+
+    const a3 = g.act(`Add **2 × SRA Panadol ${RUN}**, choose payment **Credit**, press **Complete Sale**.`,
+      [`The line is in the cart (2 × ${PRICE}.00). A box asks **“Complete this sale?”** with the total **100.00** — Cancel · Park · Complete Sale.`])
+    // ctx.productId is set when the product request ANSWERS — read it then, not while the test is being queued.
+    cy.then(() => cy.get(`#sellItemDD option[value="${ctx.productId}"]`, { timeout: 15000 }).should('exist'))
+    cy.then(() => cy.get('#sellItemDD').select(String(ctx.productId), { force: true }))
+    cy.get('#sellQuantity').should(($q) => expect($q.val(), 'quantity filled').to.not.eq(''))
+    cy.get('#sellQuantity').clear().type('2')
+    cy.get('#addInviceItem').click()
+    cy.get('#tablesi tbody tr:first td').should('have.length.greaterThan', 1)
+    cy.get('#sellPayMethod').select('CREDIT', { force: true })
+    cy.intercept('POST', '**/addSell').as('sale')
+    cy.get('#addSell').click()
+    cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('be.visible')
+    g.snap(a3, 'confirm')
+
+    const a4 = g.act('Press **Complete Sale** in the box.',
+      ['“Sale recorded — Invoice INV-…”.', `The invoice is credited to **SRA Irfan ${RUN}**, source **Paper order (REP_PAPER)**; “Booked By” is the owner who keyed it. (The SRA-4 report shows it; this run checks the invoice record.)`])
+    cy.confirmSale()
+    cy.wait('@sale').then((x) => {
+      expect(x.request.body.repId, 'the till sent the rep').to.eq(ctx.irfan)
+      expect(x.response.body.status, JSON.stringify(x.response.body).slice(0, 200)).to.eq('SUCCESS')
+      ctx.invoices.push(x.response.body.object)
+      receipt(x.response.body.object).then((inv) => {
+        expect(inv.repName).to.eq(`SRA Irfan ${RUN}`)
+        expect(inv.saleSource).to.eq('REP_PAPER')
+      })
+    })
+    cy.contains('Sale recorded', { timeout: 10000 }).should('be.visible')
+    g.snap(a4, 'sale-recorded')
+  })
+
+  // ── C2 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('C2', "The office keys a rep's paper order; the invoice credits the rep, not the office", () => {
+    g.testCase('C2', 'The office keys a rep’s paper order; the invoice credits the rep, not the office', {
+      tenant: OWNER, role: 'Owner (the booking screen’s Sales rep picker is shown only to members who may manage reps)',
+      purpose: 'Shafeeq’s reps hand in written orders that the office types in. ⚠ Before SRA-3 the invoice raised at dispatch named whoever DISPATCHED it as “Booked By”, and credited no rep at all.',
+      prereq: ['C1 done (the product exists).'],
+      data: [`Shop SRA Labaik Pharmacy ${RUN} · 3 × SRA Panadol ${RUN} · rep SRA Irfan ${RUN}`],
+      rollback: 'The order is dispatched and its invoice voided at the end of the run.',
+    })
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.window().should('have.property', 'showOrderBooking')
+    cy.window().then((w) => w.showOrderBooking())
+    const a1 = g.act(`**Order → New Order**. In **Shop** choose **SRA Labaik Pharmacy ${RUN}**; add 3 × SRA Panadol.`,
+      [`**Sales rep** appears under the shop and reads **SRA Irfan ${RUN}** — the shop’s usual rep.`])
+    bookOnScreen(ctx.labaik.customerId, 3)
+    cy.get('#bkRepWrap').should('be.visible')
+    cy.get('#bkRepId').should('have.value', String(ctx.irfan))
+    cy.get('#BookingDiv').scrollIntoView()   // the picture must show the shop and its rep, not the lines below
+    g.snap(a1, 'booking-rep-default')
+
+    const a2 = g.act('Press **Book order**.', ['“Order booked — SO-… · awaiting review”.'])
+    cy.intercept('POST', '**/bookOrder').as('book')
+    cy.get('#bkSubmit').click()
+    cy.wait('@book').then((x) => {
+      expect(x.request.body.repId, 'the screen sent the rep').to.eq(ctx.irfan)
+      expect(x.response.body.success, JSON.stringify(x.response.body).slice(0, 200)).to.eq(true)
+      ctx.paperOrder = x.response.body.data
+    })
+    g.snap(a2, 'booked')
+
+    g.act('**Orders**: **Confirm** the order, then **Dispatch** it (the dispatch raises the invoice).',
+      [`The invoice credits **SRA Irfan ${RUN}**, source **Paper order (REP_PAPER)**; “Booked By” is the owner who typed it — not a dispatcher.`], { via: 'run' })
+    cy.then(() => confirmAndDispatch(ctx.paperOrder)).then((o) => {
+      ctx.invoices.push(o.invoiceNo)
+      receipt(o.invoiceNo).then((inv) => {
+        expect(inv.repName).to.eq(`SRA Irfan ${RUN}`)
+        expect(inv.saleSource).to.eq('REP_PAPER')
+      })
+    })
+  })
+
+  // ── C3 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('C3', 'A rep booking signed in has no rep picker and is credited themselves', () => {
+    g.testCase('C3', 'A rep booking signed in has no rep picker and is credited themselves', {
+      tenant: `${BOOKER} (books) and ${OWNER} (confirms, dispatches)`, role: 'The booker — a rep whose login is linked (T1)',
+      purpose: 'A rep must never be able to book a sale in a colleague’s name. The picker is not on their screen, and a rep id sent anyway is dropped by the server (gate sra-rep-on-sale.cy.js C2).',
+      prereq: [`T1 done: **SRA Booker ${RUN}** is linked to ${BOOKER}, and **SRA Mine ${RUN}** is their outlet.`],
+      data: [`Shop SRA Mine ${RUN} · 2 × SRA Panadol ${RUN}`],
+      rollback: 'The order is dispatched and its invoice voided at the end of the run; the booker is unlinked.',
+    })
+    cy.loginAsOrderBooker()
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.window().should('have.property', 'showOrderBooking')
+    cy.window().then((w) => w.showOrderBooking())
+    const a1 = g.act(`Sign in as **${BOOKER}** → **Order → New Order**, choose **SRA Mine ${RUN}**, add 2 × SRA Panadol.`,
+      ['There is **no Sales rep** picker — the order is the signed-in rep’s own.'])
+    cy.then(() => bookOnScreen(ctx.t1[`SRA Mine ${RUN}`], 2))
+    cy.get('#bkRepId').should('not.exist')
+    cy.get('#BookingDiv').scrollIntoView()
+    g.snap(a1, 'booker-no-picker')
+
+    const a2 = g.act('Press **Book order**; the owner then confirms and dispatches it.',
+      [`The invoice credits **SRA Booker ${RUN}**, source **Rep signed in (REP_LOGIN)**; “Booked By” is the booker.`])
+    cy.intercept('POST', '**/bookOrder').as('book')
+    cy.get('#bkSubmit').click()
+    cy.wait('@book').then((x) => {
+      expect(x.response.body.success, JSON.stringify(x.response.body).slice(0, 200)).to.eq(true)
+      ctx.repOrder = x.response.body.data
+    })
+    g.snap(a2, 'booker-booked')
+    cy.then(() => confirmAndDispatch(ctx.repOrder)).then((o) => {
+      ctx.invoices.push(o.invoiceNo)
+      receipt(o.invoiceNo).then((inv) => {
+        expect(inv.repName).to.eq(`SRA Booker ${RUN}`)
+        expect(inv.saleSource).to.eq('REP_LOGIN')
+        expect(inv.bookedByName).to.contain('booker')
+      })
+    })
   })
 })

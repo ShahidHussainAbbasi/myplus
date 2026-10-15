@@ -46,4 +46,17 @@ public final class PermissionVisibility {
         }
         return false;
     }
+
+    /**
+     * HC-1a — offered to these BUSINESS TYPES only: when {@code orgTypes} is empty the row is for every type; otherwise
+     * the tenant's organization type must be one it lists (e.g. the Pharmacy and Stock tiles are not for a clinic).
+     */
+    public static boolean forOrgType(String orgTypes, String orgType) {
+        if (orgTypes == null || orgTypes.isBlank()) return true;
+        if (orgType == null) return false;
+        for (String t : orgTypes.split(",")) {
+            if (t.trim().equalsIgnoreCase(orgType)) return true;
+        }
+        return false;
+    }
 }

@@ -687,6 +687,10 @@ $(document).ready(function() {
 					// prescription-only medicine through the server-side sell guard; the post-sale dispense call
 					// then reconciles what was actually sold against what was prescribed.
 					if (window.dispensingPrescriptionId) customerHistory.prescriptionId = window.dispensingPrescriptionId;
+					// SRA-3: the sales rep who took this order (0 = none / a counter sale). Sent only when the picker is on the
+					// page; the server decides the credit (a booker who IS a rep is credited themselves). Twin field on the
+					// monolith's CustomerHistoryDTO, or the proxy drops it.
+					if ($('#sellRepId').length) customerHistory.repId = Number($('#sellRepId').val() || 0);
 					// INST-1: a handset sold on terms carries its plan with the sale, so the schedule is
 					// written in the same act that creates the receivable it structures. Null on every
 					// ordinary sale. Like tradeDiscount above, this needs its twin field on BOTH

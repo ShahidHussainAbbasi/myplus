@@ -161,6 +161,9 @@ public class OrderService {
                 // O7 D2: who took it. The name is stamped, not resolved later — see Order.bookedByName.
                 .bookedByUserId(userId)
                 .bookedByName(bookedByName)
+                // SRA-3: the rep the office chose for a PAPER order (0 / absent = none). Checked against the business's
+                // rep list when the order is invoiced; a rep who booked signed in is credited by their login there.
+                .repId(dto.getRepId() == null || dto.getRepId() == 0L ? null : dto.getRepId())
                 .total(lineTotal(dto.getItems()))     // indicative only — the invoice is priced at dispatch
                 .items(toItems(dto.getItems()))
                 .source("FIELD")                      // POS | STOREFRONT | FIELD — how the order was taken
@@ -522,6 +525,14 @@ public class OrderService {
         if (dto.getPromisedDate() != null && !dto.getPromisedDate().equals(o.getPromisedDate())) {
             changes.add(change("promisedDate", str(o.getPromisedDate()), str(dto.getPromisedDate())));
             o.setPromisedDate(dto.getPromisedDate());
+        }
+        // SRA-3: the rep of a paper order may be corrected under review (0 = none), recorded like any other change.
+        if (dto.getRepId() != null) {
+            Long wanted = dto.getRepId() == 0L ? null : dto.getRepId();
+            if (!java.util.Objects.equals(wanted, o.getRepId())) {
+                changes.add(change("rep", str(o.getRepId()), str(wanted)));
+                o.setRepId(wanted);
+            }
         }
     }
 
@@ -1739,6 +1750,7 @@ public class OrderService {
         d.setRejectionReason(o.getRejectionReason());   // O7 D1 — the booker's only route to fixing it
         d.setBookedByUserId(o.getBookedByUserId());     // O7 D2 — attribution
         d.setBookedByName(o.getBookedByName());
+        d.setRepId(o.getRepId());                        // SRA-3 — the rep the office chose (paper orders)
         d.setCustomerId(o.getCustomerId());             // O7 D2c — which trade account this bills
         d.setShippingAddress(o.getShippingAddress());
         d.setReturnReason(o.getReturnReason());

@@ -110,7 +110,10 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
         if (com.web.util.ModuleRouter.portalDashboardFor(authentication.getAuthorities()) != null) return null;
         java.util.List<java.util.Map<String, Object>> mine = workspaces.load(request.getSession(true));
         if (mine.size() == 1 && mine.get(0).get("url") != null) return String.valueOf(mine.get(0).get("url"));
-        if (mine.size() > 1) return "/workspaces";
+        // HC-1a — a clinic's several workspaces are offered on ITS home, not the shared tile page.
+        if (mine.size() > 1) return com.web.util.ModuleRouter.CLINIC_HOME.equals(
+                com.web.util.ModuleRouter.dashboardFor((User) authentication.getPrincipal()))
+                ? com.web.util.ModuleRouter.CLINIC_HOME : "/workspaces";
         return null;
     }
 

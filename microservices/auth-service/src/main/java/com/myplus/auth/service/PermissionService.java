@@ -60,7 +60,10 @@ public class PermissionService {
      */
     public static String moduleOf(String orgType) {
         if (orgType == null) return null;
-        if ("BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)) return "BUSINESS";
+        // HC-1a — CLINIC (Hospital / Clinic) too: the clinic.* codes and the Doctor / Clinic reception sets live in
+        // the BUSINESS catalogue. Without this a clinic has no matrix and its members no codes.
+        if ("BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)
+                || "CLINIC".equalsIgnoreCase(orgType)) return "BUSINESS";
         if ("EDUCATION".equalsIgnoreCase(orgType)) return "EDUCATION";
         return null;
     }

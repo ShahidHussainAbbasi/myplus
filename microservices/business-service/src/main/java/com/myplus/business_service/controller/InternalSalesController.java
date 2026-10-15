@@ -207,6 +207,13 @@ public class InternalSalesController {
     private CustomerHistoryDTO toCustomerHistory(SaleRecordRequest r) {
         CustomerHistoryDTO dto = new CustomerHistoryDTO();
         dto.setIdempotencyKey(r.getIdempotencyKey());
+        // SRA-3 — who booked it, set SERVER-SIDE from the order (the DTO's fields are @JsonIgnore, so no browser can set
+        // them): the booker's login is credited if they are a rep; otherwise the office's chosen rep; the keyer is
+        // printed as "Booked By". The channel ("INTERNAL" if a caller sends none) marks this as an order, not the till.
+        dto.setAttributionUserId(r.getBookedByUserId());
+        dto.setRepId(r.getRepId());
+        dto.setKeyedByName(r.getKeyedByName());
+        dto.setRecordChannel(r.getChannel() == null || r.getChannel().isBlank() ? "INTERNAL" : r.getChannel());
 
         SaleRecordRequest.Customer c = r.getCustomer();
         if (c != null) {

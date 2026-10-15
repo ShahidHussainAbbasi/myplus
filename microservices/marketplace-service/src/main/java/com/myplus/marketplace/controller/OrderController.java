@@ -130,6 +130,7 @@ public class OrderController {
      */
     @PostMapping("/booking")
     public ApiResponse<OrderDTO> book(@RequestBody OrderDTO dto) {
+        dropRepUnlessManager(dto);
         return ApiResponse.success(
                 orderService.book(dto, CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()),
                 "Order booked");
@@ -147,6 +148,7 @@ public class OrderController {
      */
     @PutMapping("/{id}")
     public ApiResponse<OrderDTO> amend(@PathVariable Long id, @RequestBody OrderDTO dto) {
+        dropRepUnlessManager(dto);
         return ApiResponse.success(orderService.amend(id, dto,
                 CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()), "Order amended");
     }
@@ -254,6 +256,23 @@ public class OrderController {
         requireAuthorityFor(requested);
         return ApiResponse.success(
                 orderService.updateStatus(id, requested, CurrentUser.organizationId(), CurrentUser.userId()), "Status updated");
+    }
+
+    /**
+     * SRA-3 — only a manager of reps (rep.manage; the owner and admins hold it) may name the rep an order is credited
+     * to. Anyone else's choice is DROPPED, not refused: a rep booking signed in is credited by their own login when the
+     * order is invoiced, so their order loses nothing — and a rep can never book a sale in a colleague's name. Because
+     * the gate is here, a rep id that reaches business-service on an order was chosen by a manager.
+     */
+    private static void dropRepUnlessManager(OrderDTO dto) {
+        if (dto == null || dto.getRepId() == null) return;
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean manager = auth != null && auth.getAuthorities().stream().anyMatch(a ->
+                "rep.manage".equals(a.getAuthority())
+                        || "ROLE_OWNER".equals(a.getAuthority())
+                        || "ADMIN_PRIVILEGE".equals(a.getAuthority())
+                        || "SUPER_PRIVILEGE".equals(a.getAuthority()));
+        if (!manager) dto.setRepId(null);
     }
 
     /** A reversal (CANCELLED/RETURNED) needs ADMIN_PRIVILEGE; forward fulfilment does not. */

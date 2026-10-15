@@ -403,6 +403,18 @@ public class OrganizationAdminService {
                 .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
 
         /*
+         * HC-1a — a shape that opens its OWN application (the clinic) is set at creation from the business type and
+         * never by a change: clinic → retail would leave a CLINIC org type on shop features, retail → clinic a shop
+         * on the clinic home. Checked against the STORED shape (raw), so an unset tenant is not mistaken for one.
+         */
+        com.myplus.common.settings.Shape current = com.myplus.common.settings.Shape.byCode(settings
+                .overrideFor(organizationId, com.myplus.common.settings.Shape.settingKey()).orElse(null));
+        if ((shape.ownApplication() || current.ownApplication()) && shape != current) {
+            throw new IllegalArgumentException("A " + (current.ownApplication() ? current : shape).label()
+                    + " business type is chosen when the business is created and cannot be changed here.");
+        }
+
+        /*
          * EX-0a — an OPT-IN module's switch is not the shape's to clear. No preset includes one, so deleting
          * its override would not "apply the new preset" — it would switch the module, and the records behind
          * it, off, with nothing in the confirmation saying so. Kept, and therefore not in the memento either:

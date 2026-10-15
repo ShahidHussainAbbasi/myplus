@@ -163,7 +163,10 @@ public class OrgUserController {
         java.util.Set<String> held = new java.util.HashSet<>();
         if (claim instanceof java.util.Collection<?> col) col.forEach(x -> held.add(String.valueOf(x)));
         boolean everything = isOwner(token) || held.contains("ADMIN_PRIVILEGE") || held.contains("SUPER_PRIVILEGE");
+        Object typeClaim = jwtService.extractClaim(token, c -> c.get("activeOrgType"));
+        String orgType = typeClaim == null ? null : String.valueOf(typeClaim);
         List<Map<String, Object>> out = uiWorkspaceRepository.findAllByOrderBySortOrderAsc().stream()
+                .filter(w -> com.myplus.auth.service.PermissionVisibility.forOrgType(w.getOrgTypes(), orgType))   // HC-1a
                 .filter(w -> com.myplus.auth.service.PermissionVisibility.visible(w.getCapability(), on))
                 .filter(w -> com.myplus.auth.service.PermissionVisibility.opens(w.getCodes(), held, everything))
                 .map(w -> {

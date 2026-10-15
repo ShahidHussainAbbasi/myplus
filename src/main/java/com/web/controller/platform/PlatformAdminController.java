@@ -429,6 +429,19 @@ public class PlatformAdminController {
      * <p>No password is ever issued: {@code AuthService.provisionTenant} sends the owner a password-reset
      * email so no operator-known credential exists for a customer's account.
      */
+    /** HC-1a — the product lines and their business types (auth V35 rows), for the New tenant picker and the row badge. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/businessTypes", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> businessTypes() {
+        try {
+            return authGet("/business-types");
+        } catch (Exception e) {
+            LOGGER.error("platform businessTypes proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/provisionTenant", method = RequestMethod.POST)
     @ResponseBody
@@ -444,6 +457,8 @@ public class PlatformAdminController {
             body.put("plan", request.getParameter("plan"));
             // ONB-1 — mandatory. auth-service refuses a blank or unrecognised value.
             body.put("shape", request.getParameter("shape"));
+            // HC-1a — the business type key (V35 row). When sent, auth takes the org type AND shape from it.
+            body.put("businessType", request.getParameter("businessType"));
             return authPost("/admin/provision-tenant", body);
         } catch (Exception e) {
             LOGGER.error("platform provisionTenant proxy error", e);

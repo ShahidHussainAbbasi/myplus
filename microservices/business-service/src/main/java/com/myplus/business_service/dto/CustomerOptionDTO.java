@@ -59,4 +59,7 @@ public class CustomerOptionDTO {
      * serialises the enum to its name, so the dropdown's {@code data-customer-type} is unchanged.
      */
     private com.myplus.business_service.entity.enums.CustomerType customerType;
+
+    /** SRA-3: the customer's usual sales rep — the sale screen defaults its Rep picker to it. Null = none. */
+    private Long defaultRepId;
 }

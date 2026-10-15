@@ -509,6 +509,15 @@ table renderers that emit ids per row are duplicates in the DOM but appear once 
 runtime check (`document.querySelectorAll('[id="foo"]').length`), not a source scan. Table cells are display-only:
 give them **no id at all** rather than one that collides with a form field.
 
+**D15. Prove every new index on a TEMPORARY copy before it goes in a migration — and check the table's ENGINE.**
+`CREATE TEMPORARY TABLE t LIKE x; INSERT INTO t SELECT * FROM x;` then the `CREATE INDEX` and the `EXPLAIN` — session-only,
+the real table untouched. It proves the plan changes (P1) AND that the DDL builds at all. _2026-10-15 (PERF-R7):
+`customer_history` is **MyISAM** (1,000-byte key limit) and `saga_status` is `VARCHAR(255)` utf8mb4 (1,020 bytes) — the
+full-column index failed to build; shipped, it would have stopped business-service at boot. A prefix
+(`saga_status(16)`, values ≤ 9 chars) built and turned a 3,788-row scan + filesort into a 2-row `ref`._ Also: a
+"self-evident" index cause is a hypothesis — the same day, the suspected `org OR (org IS NULL …)` predicate was shown on a
+temporary copy to use the index already (`ref_or_null`), which saved a 61-query refactor.
+
 **D14. Numeric types — one table, everywhere (the user, 2026-10-14).** Money and quantities are `BigDecimal` in
 Java and `DECIMAL(p,s)` in MySQL. **Never `float`/`double`/`Float`/`Double`** for either: a float cannot hold 0.1, and
 the error is silent and compounds.
@@ -585,6 +594,142 @@ cache and tests nothing.
 **K7. One replica today; more needs broadcast eviction first.** In-process Caffeine is consistent at Terraform
 `desired_count = 1`, with the TTL as the backstop. Scaling a service out needs Redis-broadcast eviction first — optional,
 because local start-all runs without Redis.
+
+**K8. Know which LEVEL a cache lives at, and that it is invalidated there** (the user, 2026-10-15: "keep improving all
+level cache"). From the outside in:
+
+| Level | What | Rule |
+|---|---|---|
+| Browser | static JS/CSS, images | versioned URLs + long `Cache-Control`; a deploy changes the URL (stale assets were a defect — the monolith serves `target/classes`) |
+| Browser, per page | picker lists loaded once per screen | evicted by the screen's own write (PSEL-1, CACHE-1 client side) |
+| Monolith | per-session token/principal | never business data |
+| Service (Caffeine, K1–K7) | master/reference data per tenant | K2 eviction after commit; K3 tenant key |
+| Database | indexes + the buffer pool | the cheapest cache there is: an index on the predicate (D3) beats any application cache |
+
+A new cache is added at the LOWEST level that fixes the measured cost (§1f P1), and never for data K5 forbids.
+
+---
+
+## 1e. Features, menus and permissions — adding or changing a feature (the user, 2026-10-15)
+
+The access model has THREE tiers and one rule. Design: `slices/tier-2-feature-catalogue.md`; review that
+produced it: memory `project_authz_config_review_2026_10_13`.
+
+**Vocabulary (agreed with the user 2026-10-15) — use these words, in code and docs, and no others:**
+
+| Term | Means | Example | Stored |
+|---|---|---|---|
+| **Product line** | the kind of business a tenant runs (what the codebase used to call "module") | Business, Education, Welfare, Agriculture | `organizations.type` / `userType` |
+| **Business type** | a kind of tenant within a product line — decides which modules it can have | Healthcare → *Hospital / Clinic*, *Pharmacy & Pharmaceutical* | `organizations.type` + shape |
+| **Module** | a MAIN MENU — a group of features | Sales, Purchasing, Inventory, Expenses | `module` row |
+| **Feature** | a SUB-MENU (a screen group) — or a BEHAVIOUR with no screen of its own | New Sale, Sale Returns; *Expiry tracking* (behaviour) | `feature` row (`kind` SCREEN / BEHAVIOUR) |
+| **Action** | what a person may do with a feature | View, Create, Edit, Delete, Approve/Void | fixed list |
+| **Permission** | a feature + an action — what the owner's matrix assigns | `sales.new-sale.void` | `permission` row |
+
+**V1. A permission is a FEATURE × an ACTION, never the feature alone.** The owner's matrix is rows = features (grouped
+by module), columns = actions — so a cashier can sell without being able to void or delete (Salesforce object × CRUD,
+Odoo model × read/write/create/unlink, Zoho module × view/create/edit/delete).
+**V2. Behaviour features** (batch/expiry/serial tracking, loose selling, Rx required …) belong to a module and are
+granted by the operator, but have no menu entry and no row in the members' matrix — they change how screens behave.
+Dashboard tiles and reports attach to the feature they show.
+**V3. Grants are stored PER FEATURE; a module is only a grouping.** "Grant the whole module" ticks every feature of the
+module AT THAT MOMENT. So a feature MOVED to another module (the user's requirement: any sub-menu may move) changes
+only where it is DISPLAYED — never which tenants have it or who may use it.
+**V5. Settings and Team are features the operator may withhold — but two SAFETY actions are never blocked:** removing /
+deactivating a member and resetting a member's password (an owner can always lock a departed person out). (User, 2026-10-15.)
+**V6. One business = one tenant; related businesses are LINKED, never combined.** A clinic and a pharmacy are two tenants
+(two business types of Healthcare). A link is requested by one, ACCEPTED by the other, ended by either, audited; only the
+records addressed to the other side cross (e.g. a prescription to that pharmacy) — never patients, stock or prices
+wholesale. (User, 2026-10-15: the combined clinic+pharmacy tenant is dropped — "not professional" UI/UX.)
+**V7. One email = one tenant owner, today.** A person running two businesses registers each with its own email; one login
+across tenants is a later slice (needs owner status + permission set per ORGANIZATION, not per person).
+**V4. A main menu is shown** ⇔ ≥ 1 of its features is shown; **a sub-menu is shown** ⇔ the tenant has the feature ∧
+the user holds at least its View permission. The server applies the same rule to every API call.
+
+| Tier | Who | Decides | Stored in |
+|---|---|---|---|
+| 1 · Platform | `admin@myplus.com` — the ONLY operator account, every action audited; **2FA: designed (`slices/tier-1-operator-mfa.md`), DEFERRED by the user 2026-10-15 — an open risk** | which FEATURES a tenant has (the ceiling) | `org_entitlement` (org, feature, ACTIVE/SUSPENDED, from–to, reason, granted_by) |
+| 2 · Tenant | the owner (`owner.business@`, `owner.pharma@` …) | switches an entitled feature on for the business; builds permission sets | `org_setting org.cap.*`, `permission_set` |
+| 3 · Member | the owner's admins and users | what each person may do, within the tenant's features | `user_permission_set` |
+
+**THE RULE — checked on the SERVER, deny by default; the menu is derived from it, never the other way round:**
+- a menu, tile or report is SHOWN ⇔ tenant entitled to its feature ∧ owner switched it on ∧ the user holds ≥ 1 of its codes
+- an API call is ALLOWED ⇔ tenant entitled to the route's feature ∧ the user holds the route's code (in the service)
+- the owner's matrix OFFERS a code ⇔ the tenant is entitled to that code's feature
+- switching a feature OFF hides and refuses (403 "not included in your plan"); it NEVER deletes data
+
+**F1. The operator assigns FEATURES, not menu items.** A feature is one key (`expenseManagement`) that every artefact
+of it carries; a menu is only one window onto it. The operator's screen lists each feature WITH the menus, tiles and
+reports it unlocks. Features may be fine-grained (one per screen group); they are never a raw menu tick-list — a menu
+renamed or split must not silently drop a tenant's access, and hiding a menu does not stop its API.
+
+**F2. Adding a feature (e.g. a new "Expense Management" menu) — the checklist.** One release carries the code AND one
+Flyway migration that inserts:
+1. `feature` — key, name, description, module, plans that include it, default OFF for existing tenants;
+2. `ui_menu` rows for every menu and dashboard tile, each with `feature` = the key and its `codes`;
+3. `permission` rows for every action (`expense.view/create/approve/pay`), each with `feature` = the key;
+4. `endpoint_permission` rows for every route (`POST /expense/vouchers → expense.create`);
+5. the gate: entitled+permitted sees and can do it; not entitled → menu absent AND API 403; entitled but no code →
+   menu absent AND API 403; switching OFF keeps the data.
+After deploy the operator sees the feature automatically — no manual setup in production (the user's rule).
+
+**F3. Nothing in this model is code.** Feature keys, menu rows, codes and route rules are DATA (the user's ruling:
+roles and permissions are rows, never names in code). A hardcoded `sec:authorize` or `data-capability` menu is a defect to
+convert. _Measured 2026-10-15: features are still a Java enum (19 keys); 47 business menus are rows, education and
+other modules hardcode ~90; 10 of 99 codes carry a feature; 29 routes have rules; services check no codes;
+Expense Management has a key but 0 menu rows and 0 codes._
+
+**F4. Changing a feature.** Renaming or splitting a menu changes `ui_menu` rows only. Moving a screen to another feature
+is a migration that moves its rows AND re-grants existing tenants who had the old feature (never silently remove
+access). Retiring a feature: SUSPEND everywhere first, delete rows only after its data has a home.
+
+**F5. A business type is a ROW that decides org type AND shape together (HC-1a, 2026-10-15).** `business_type`
+(auth V35) maps one key to `organizations.type` (which application opens) and `org.shape` (which features it starts
+with). A screen that creates a tenant sends that ONE key — never a type and a shape it chose separately, which is how a
+clinic org type could be paired with a shop shape. New business type = a row (+ its modules, + a router entry if it has
+its own home). Rows nobody has provisioned through the console yet stay `INACTIVE` until a gate proves them.
+
+**F6. A business type with its OWN application (`Shape.ownApplication()`, today Hospital / Clinic) is chosen at
+creation only.** It is not offered in the owner's Configuration list, and a business-type change to or from it is
+refused (`applyShape`): clinic → retail would leave a clinic org on shop features. Such a shape may preset and floor
+its own opt-in module — the one exception to "no shape presets an opt-in", because the module IS the business.
+
+**F7. Every reader of a new org type, before it ships (Rule 0).** For `CLINIC` there were 7: `ModuleRouter`,
+`PermissionService.moduleOf`, `AuthService.tradeTenant` (→ `rowScopedTenant`), `Shape`, the console picker, the sign-in
+tile landing, the `ui_workspace.org_types` filter. Grep `"PHARMA"` — every place naming the nearest existing type is a
+place the new one must be decided.
+
+---
+
+## 1f. Performance standard (the user: "performance on priority", 2026-07; "100% review", 2026-10-15)
+
+Detail and history: `performance-at-scale-analysis.md`, `frontend-performance-audit.md`, `slices/perf-*.md`,
+`slices/cache-1-tenant-cache-aside.md`.
+
+**P1. Measure before changing.** A performance fix starts from a number: the slowest queries
+(`performance_schema.events_statements_summary_by_digest`), the slowest endpoints (request timings), the browser's
+waterfall. "This looks slow" is not a finding. Record before → after in the slice.
+
+**P2. Fix the work before caching it.** In order: an index on the predicate (D3) → a set-based query instead of a loop
+(no N+1, no per-row cross-service call) → a narrower payload (only the columns the screen shows) → paging → only then a
+cache (§1d), and only for data K5 allows.
+
+**P3. No per-row work in a hot path.** A query, HTTP call or catalogue lookup inside a loop over lines/rows is a defect in
+a sale, purchase, report or list path; batch it (`findAllById`, one `IN (...)`, one call for N ids).
+
+**P4. Lists are paged on the server.** No endpoint returns an unbounded list to a grid; the grid asks for a page and a
+count.
+
+**P5. The browser loads once and fills later.** A screen renders before its pickers finish; pickers load once per screen
+(PSEL-1, PERF-8); no request per keystroke without a debounce.
+
+**P6. Transactions are short and read-only where they read.** `open-in-view: false`; `@Transactional(readOnly = true)` on
+reads; no remote call inside a write transaction unless the design says why.
+
+**P7. Every outbound call has a timeout** (D3e) and a hot-path call has a fallback that does not fail the screen.
+
+**P8. A performance slice is gated like any other:** a case that measures (count of queries, time budget, or a cache hit
+per K6) red before and green after.
 
 ---
 

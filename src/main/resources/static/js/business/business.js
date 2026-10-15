@@ -811,6 +811,11 @@ function loadSellForEdit(sellId){
 		if(inDD){ $('#sellCustomerDD').val(String(custId)); }
 		$("#sellCN").val(inv.customer ? (inv.customer.name || '') : '');     // the save reads name/contact
 		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
+		// SRA-3: the rep STAMPED on this invoice (not the customer's usual rep — that may have changed since). Only a
+		// rep.manage holder may change it; the server refuses anyone else, so the picker is locked for them.
+		if(window.SalesReps) SalesReps.setSaleRep(inv.repId);
+		$('#sellRepId').prop('disabled', $('#sellRepId').attr('data-rep-manage') !== 'true');
+		if(typeof refreshSearchableSelect === 'function') refreshSearchableSelect($('#sellRepId'));
 		// SF-1/SF-2: show what was already paid on this invoice; "Amount Received" now means ADDITIONAL payment
 		// (the server keeps the prior payment and adds the new tender). Received stays empty by default.
 		// TRADE-DISC-1: show the invoice's OWN trade discount. Before, the box kept whatever the last sale left
@@ -931,6 +936,7 @@ function exitSellEditMode(){
 	$('#sellItemDD').prop('disabled', false);
 	if($('#sellItemDD').data('selectpicker')) repaintPicker('#sellItemDD');   // PSEL-1 F3: unlock = repaint, not rebuild
 	$('#sellCustomerDD').prop('disabled', false);   // unlock the customer controls
+	$('#sellRepId').prop('disabled', false);         // SRA-3: the rep picker is locked only while editing
 	$('#sellCN').prop('disabled', false);
 	$('#sellCC').prop('disabled', false);
 }
@@ -2747,7 +2753,7 @@ function loadSellCustomers(ddId) {
 				// the server re-checks against the current balance, which another till may have moved.
 				// B2B-P2-UI: carry customerType too — a TIER price rule matches on it, and the till must quote
 				// with the same inputs the server does or the two can disagree about the price.
-				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '">' + escHtml(c.name) + '</option>');
+				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '" data-rep-id="' + (c.defaultRepId || '') + '">' + escHtml(c.name) + '</option>');
 			});
 		}
 		// The widget will NOT redraw on its own: a `global: false` request is excluded from the
@@ -2774,12 +2780,15 @@ function onSellCustomerSelect(sel) {
 		var lim = opt.attr('data-credit-limit');
 		window.selectedCustomerLimit = (lim === '' || lim == null || isNaN(Number(lim))) ? null : Number(lim);
 		loadCustomerCredit(customerId);                      // SF-5 Model B: show/offer store credit
+		// SRA-3: default the rep to the customer's usual rep — never while editing (the invoice keeps its stamped rep).
+		if(!window.editingInvoice && window.SalesReps) SalesReps.setSaleRep(opt.attr('data-rep-id') || null);
 	} else {
 		$("#sellCN").val('');
 		$("#sellCC").val('');
 		window.selectedCustomerDue = null;                   // no account context (nothing picked)
 		window.selectedCustomerLimit = null;
 		$('#sellStoreCreditWrap').hide(); $('#sellStoreCredit').val('');
+		if (!window.editingInvoice && window.SalesReps) SalesReps.setSaleRep(null);   // SRA-3: no customer, no usual rep
 	}
 	refreshAccountDuePreview();
 	// B2B-P2-UI: who is buying decides the price. Re-price anything already in the cart, and the line being
@@ -2941,6 +2950,8 @@ function onCustomerModeChange(mode) {
 	}
 	// Switching mode clears the selected customer, so drop the account-balance preview.
 	window.selectedCustomerDue = null;
+	// SRA-3: …and the rep that customer brought with them (an edit sets the invoice's own rep right after this).
+	if (window.SalesReps) SalesReps.setSaleRep(null);
 	if (typeof refreshAccountDuePreview === 'function') refreshAccountDuePreview();
 }
 

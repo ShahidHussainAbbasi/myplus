@@ -99,13 +99,22 @@
 
         $('[data-sales-rep-picker]').each(function () {
             var $p = $(this), keep = $p.val() || '0';
-            var html = '<option value="0">' + esc(tr('ui.js.noRep', '— Nobody (shared) —')) + '</option>';
+            // SRA-3: who took an order — the sale screen ("sale": none = a counter sale) and the booking screen ("order":
+            // none = the office's own order). The customer form's "Usual rep" (no value) says nobody covers the outlet.
+            var variant = $p.attr('data-sales-rep-picker');
+            var none = variant === 'sale' ? tr('ui.js.noRepCounter', '— No rep (counter) —')
+                     : variant === 'order' ? tr('ui.js.noRepOffice', '— No rep (office order) —')
+                     : tr('ui.js.noRep', '— Nobody (shared) —');
+            var html = '<option value="0">' + esc(none) + '</option>';
             state.reps.forEach(function (r) {
                 if (active(r) || String(r.id) === keep)
                     html += '<option value="' + esc(r.id) + '">' + esc(r.name) + (active(r) ? '' : ' (' + esc(tr('ui.js.inactive', 'inactive')) + ')') + '</option>';
             });
             $p.html(html).val(keep);
             if ($p.val() == null) $p.val('0');
+            // A business with no reps never sees the sale picker. The WRAPPER is toggled (a bootstrap-select button
+            // cannot be hidden itself); an edit of an invoice made by a since-deactivated rep still shows it.
+            if (variant) $p.closest('[data-sales-rep-wrap]').toggle(state.reps.some(active) || keep !== '0');
             refresh($p);
         });
     }
@@ -353,5 +362,21 @@
         if ($p.length) setTimeout(function () { refresh($p); }, 0);
     });
 
-    global.SalesReps = { load: loadReps, byId: repById };
+    /**
+     * SRA-3: set a rep picker (the sale screen's by default) to a rep id, or null/0 for none, and repaint so an inactive
+     * rep still shows by name.
+     */
+    function setSaleRep(repId, selector) {
+        var $p = $(selector || '#sellRepId');
+        if (!$p.length) return;
+        $p.val(repId ? String(repId) : '0');
+        if (repId && $p.val() !== String(repId)) {   // not in the list yet (inactive, or the list still loading)
+            $p.append('<option value="' + esc(repId) + '"></option>').val(String(repId));
+            loadReps().always(paintRepPickers);
+            return;
+        }
+        refresh($p);
+    }
+
+    global.SalesReps = { load: loadReps, byId: repById, setSaleRep: setSaleRep };
 })(window);

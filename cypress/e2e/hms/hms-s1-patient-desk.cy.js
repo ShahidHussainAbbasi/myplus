@@ -94,10 +94,10 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
     cy.intercept('GET', '**/clinic/patients?phone=*').as('lookup')
     cy.intercept('POST', '**/clinic/patients').as('register')
 
-    // 1. Pharmacy menu → Clinic reception.
-    cy.visit('/businessDashboard')
-    cy.get('#snavPharmacy > .snav-btn').should('be.visible').click()
-    cy.get('#navClinic').should('be.visible').click()
+    // 1. Workspaces → Front desk. (HC-1a removed the pharmacy's "Clinic reception" menu; a pharmacy still running a
+    //    clinic enters through its Front desk tile until HC-1e splits it.)
+    cy.visit('/workspaces')
+    cy.get('#wsTiles [data-ws="frontdesk"]').should('be.visible').click()
     cy.location('pathname').should('eq', '/clinicDashboard')
     cy.get('#ReceptionDiv').should('be.visible')
     cy.screenshot('hms-s1/S1-01-1-reception', { capture: 'viewport' })

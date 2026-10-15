@@ -137,6 +137,11 @@ public class DispatchInvoiceService {
                         .idempotencyKey(key)
                         .organizationId(order.getOrganizationId())
                         .channel("FIELD")
+                        // SRA-3 — who booked it: the booker's login (credited if they are a rep), the rep the office
+                        // chose for a paper order, and who keyed it. Without these the invoice named the DISPATCHER.
+                        .bookedByUserId(order.getBookedByUserId())
+                        .repId(order.getRepId())
+                        .keyedByName(order.getBookedByName())
                         .customer(SaleRecordRequest.Customer.builder()
                                 // O7 D2c — THE TRADE ACCOUNT, by id.
                                 //

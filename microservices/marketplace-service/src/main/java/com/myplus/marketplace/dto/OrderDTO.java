@@ -74,6 +74,8 @@ public class OrderDTO {
     private Long bookedByUserId;
     /** The rep's name as stamped at booking — not resolved at read, so it survives them leaving. */
     private String bookedByName;
+    /** SRA-3 — in: the rep the office chose for a paper order (ignored when the booker is a rep); out: as stored. */
+    private Long repId;
 
     /**
      * Why this amendment was made (in) — recorded on the amendment trail, never stored on the order itself.

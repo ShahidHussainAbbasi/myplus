@@ -88,6 +88,19 @@ public class SaleRecordRequest {
     private String notes;
 
     /**
+     * SRA-3 — WHO booked it, so the invoice credits the right sales rep (design: sra-sales-by-rep-and-area.md §6).
+     *
+     * <p>{@code bookedByUserId} is the login that took the order (an order's {@code booked_by_user_id}); business-service
+     * credits the rep linked to that login. {@code repId} is the rep the office chose for a paper order — used only when
+     * the booker is not a rep, and checked against the business's own rep list. {@code keyedByName} is who typed the
+     * order in, printed as "Booked By" — without it the invoice named whoever DISPATCHED the order (defect D1).
+     * All three null = no rep (a storefront order): the invoice says so.
+     */
+    private Long bookedByUserId;
+    private Long repId;
+    private String keyedByName;
+
+    /**
      * The buyer. {@code partyId} links to the shared contact master when the channel already knows it;
      * otherwise business-service resolves or creates the customer from name + contact as it does at the till.
      */

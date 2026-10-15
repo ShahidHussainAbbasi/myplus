@@ -39,6 +39,21 @@ public class ClinicController {
     @Autowired
     private ClinicRestClient clinic;
 
+    @Autowired
+    private com.web.security.WorkspaceService workspaces;
+
+    /**
+     * HC-1a — the Hospital / Clinic home: where a clinic tenant signs in to (ModuleRouter CLINIC). Today it offers
+     * the clinic's workspaces (front desk, doctor, administration — auth rows, V27/V34, already filtered to this
+     * person and to the clinic type); its own page so clinic-only options can be added here later.
+     */
+    @GetMapping("/clinicHome")
+    public ModelAndView clinicHome(jakarta.servlet.http.HttpServletRequest request) {
+        ModelAndView mv = new ModelAndView("clinicHome");
+        mv.addObject("list", workspaces.load(request.getSession(true)));
+        return mv;
+    }
+
     @GetMapping("/clinicDashboard")
     public ModelAndView clinicDashboard() {
         return new ModelAndView("clinicDashboard");

@@ -59,6 +59,17 @@ class PermissionModuleTest {
     }
 
     @Test
+    @DisplayName("HC-1a: a Hospital / Clinic reads the BUSINESS catalogue, trades, and is row-scoped — like the pharmacy")
+    void clinicSharesTheBusinessVocabulary() {
+        // The clinic.* codes and the Doctor / Clinic reception sets live in the BUSINESS catalogue. Without these
+        // a clinic owner has no matrix and a receptionist no code, so every code-gated clinic menu is hidden.
+        assertThat(PermissionService.moduleOf("CLINIC")).isEqualTo("BUSINESS");
+        assertThat(PermissionService.moduleOf("clinic")).isEqualTo("BUSINESS");
+        assertThat(AuthService.tradeTenant("CLINIC")).isTrue();
+        assertThat(AuthService.rowScopedTenant("CLINIC")).as("same answer the combined pharmacy+clinic has today").isTrue();
+    }
+
+    @Test
     @DisplayName("⭐⭐ a module with no catalogue gets NO codes — V14's fail-back, still intact")
     void modulesWithoutACatalogueMintNothing() {
         /*

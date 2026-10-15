@@ -41,6 +41,10 @@ public class UiWorkspace {
     @Column(name = "capability", length = 64)
     private String capability;
 
+    /** HC-1a (V34) — the business types (organization types) this tile is for; empty = every type. */
+    @Column(name = "org_types", length = 160)
+    private String orgTypes;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 }

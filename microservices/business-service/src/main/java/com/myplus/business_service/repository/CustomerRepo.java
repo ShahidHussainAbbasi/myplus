@@ -78,7 +78,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
     * included. A picker that scoped differently from the master read would show a customer the operator
     * cannot otherwise see — or hide one they can — and neither is visible on the screen itself.
     */
-   @Query("select new com.myplus.business_service.dto.CustomerOptionDTO(c.customerId, c.name, c.contact, c.dueAmount, c.creditLimit, c.customerType) from Customer c "
+   @Query("select new com.myplus.business_service.dto.CustomerOptionDTO(c.customerId, c.name, c.contact, c.dueAmount, c.creditLimit, c.customerType, c.defaultRepId) from Customer c "
         + "where c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId) "
         + "order by c.name asc")
    java.util.List<com.myplus.business_service.dto.CustomerOptionDTO> findOptionsScoped(
@@ -90,7 +90,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
     * <p>Both variants exist because the endpoint is role-aware: a whole-org viewer sees the org, everyone
     * else sees only what they created. Serving one projection to both roles is precisely how a read leaks.
     */
-   @Query("select new com.myplus.business_service.dto.CustomerOptionDTO(c.customerId, c.name, c.contact, c.dueAmount, c.creditLimit, c.customerType) from Customer c "
+   @Query("select new com.myplus.business_service.dto.CustomerOptionDTO(c.customerId, c.name, c.contact, c.dueAmount, c.creditLimit, c.customerType, c.defaultRepId) from Customer c "
         + "where c.userId = :userId and (c.organizationId = :orgId or c.organizationId is null) "
         + "order by c.name asc")
    java.util.List<com.myplus.business_service.dto.CustomerOptionDTO> findOwnOptionsScoped(

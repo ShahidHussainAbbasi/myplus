@@ -51,7 +51,7 @@
                   <span class="glyphicon glyphicon-cog"></span><span th:text="#{ui.clinicSettings}">Clinic settings</span>
                 </button>
               </div>
-              <div class="snav-dd" th:if="${@perm.menu('clinic.pharmacy')}">
+              <div class="snav-dd" th:if="${@perm.menu('clinic.pharmacy') and !@perm.ownHome()}">
                 <a class="snav-btn" id="clinNavPharmacy" th:href="@{/businessDashboard}">
                   <span class="glyphicon glyphicon-shopping-cart"></span><span th:text="#{ui.clinicToPharmacy}">Pharmacy</span>
                 </a>

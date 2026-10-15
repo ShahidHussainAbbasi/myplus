@@ -57,6 +57,47 @@
 		}[String(code || '').toLowerCase()] || code;
 	}
 
+	/*
+	 * HC-1a — the product lines and business types, from the auth rows (V35). Loaded once per page: the New tenant
+	 * picker offers the ACTIVE ones, and the row badge names a tenant by the business type its org type + shape
+	 * match ("Pharmacy & Pharmaceutical", "Hospital / Clinic"), falling back to the shape's own words.
+	 */
+	var businessLines = [];
+	function loadBusinessTypes() {
+		return $.get(serverContext + 'platform/businessTypes').then(function (res) {
+			businessLines = apiOk(res) ? (apiData(res) || []) : [];
+		}, function () { businessLines = []; });
+	}
+	function businessTypeLabel(orgType, shape) {
+		var ot = String(orgType || '').toUpperCase(), sh = String(shape || '').toLowerCase();
+		for (var i = 0; i < businessLines.length; i++) {
+			var types = businessLines[i].types || [];
+			for (var j = 0; j < types.length; j++) {
+				if (String(types[j].orgType).toUpperCase() === ot && String(types[j].shape).toLowerCase() === sh) {
+					return t(types[j].nameKey, types[j].name);
+				}
+			}
+		}
+		return shapeLabel(shape);
+	}
+	function fillProductLines() {
+		var $line = $('#provProductLine');
+		$line.empty().append($('<option value=""></option>').text(t('ui.js.chooseProductLine', '-- choose a product line --')));
+		businessLines.forEach(function (l) {
+			if (l.active) $line.append($('<option></option>').val(l.key).text(t(l.nameKey, l.name)));
+		});
+		fillBusinessTypes('');
+	}
+	function fillBusinessTypes(lineKey) {
+		var $type = $('#provBusinessType');
+		$type.empty().append($('<option value=""></option>').text(t('ui.js.chooseBusinessType', '-- choose a business type --')));
+		var line = businessLines.filter(function (l) { return l.key === lineKey; })[0];
+		(line ? line.types || [] : []).forEach(function (bt) {
+			if (bt.active) $type.append($('<option></option>').val(bt.key).text(t(bt.nameKey, bt.name)));
+		});
+		$type.prop('disabled', !line);
+	}
+
 	/**
 	 * ONB-3 — the DATA consequences of a business-type change, as sentences.
 	 *
@@ -762,7 +803,7 @@
 			 */
 			var shapeBadge = (o.shapeSet !== false && o.shape)
 				? '<span class="plat-badge plat-badge--shape" data-testid="tenant-shape">'
-					+ esc(shapeLabel(o.shape)) + '</span>'
+					+ esc(businessTypeLabel(o.type, o.shape)) + '</span>'
 				: '';
 
 			html += '<div class="plat-row" data-testid="tenant-row" data-org="' + esc(o.id) + '">'
@@ -857,9 +898,14 @@
 			+ '<section class="plat-card">'
 			+   '<header class="plat-card__head"><h4>' + esc(t('ui.js.businessType', 'Business type')) + '</h4></header>'
 			+   '<div class="plat-card__body plat-plan">'
-			+     '<select class="form-control" id="platShapeSelect">' + shapeOptions + '</select>'
-			+     '<button type="button" class="btn btn-default" id="platShapeSave">'
-			+       esc(t('ui.js.changeBusinessType', 'Change business type')) + '</button>'
+			// HC-1a — a Hospital / Clinic opens its own application: its type is set at creation and not
+			// changeable here (auth refuses it too — OrganizationAdminService.applyShape).
+			+     (currentShape === 'clinic'
+				? '<span class="plat-badge plat-badge--shape" data-testid="detail-business-type">'
+					+ esc(businessTypeLabel(d.type || 'CLINIC', currentShape)) + '</span>'
+				: '<select class="form-control" id="platShapeSelect">' + shapeOptions + '</select>'
+					+ '<button type="button" class="btn btn-default" id="platShapeSave">'
+					+ esc(t('ui.js.changeBusinessType', 'Change business type')) + '</button>')
 			+   '</div>'
 			+ '</section>'
 			/*
@@ -1107,7 +1153,7 @@
 	// ── wiring ──────────────────────────────────────────────────────────────────────────────────
 
 	$(function () {
-		loadTenants();
+		loadBusinessTypes().always(function () { fillProductLines(); loadTenants(); });
 
 		// Focus the search only on a real pointer device. focus-flow's rule: no auto-focus on touch or
 		// below 992px, because a keyboard springing up on open is hostile on a phone.
@@ -1389,8 +1435,10 @@
 		$('#platProvisionBtn').on('click', function () {
 			$('#platTenants').hide();
 			$('#platDetail').hide();
+			$('#provError').hide().text('');
 			$('#platProvision').show();
 		});
+		$('#provProductLine').on('change', function () { fillBusinessTypes($(this).val()); });
 		$('#platProvisionBack').on('click', function () {
 			$('#platProvision').hide();
 			$('#platTenants').show();
@@ -1403,17 +1451,18 @@
 				firstName: $('#provFirstName').val(),
 				lastName: $('#provLastName').val(),
 				plan: $('#provPlan').val(),
-				shape: $('#provShape').val(),
-				userType: 'BUSINESS'
+				// HC-1a — one key; auth takes the org type and the shape from its row (V35).
+				businessType: $('#provBusinessType').val()
 			}).done(function (res) {
-				if (!apiOk(res)) { global.uiAlert(apiMessage(res, '')); return; }
+				if (!apiOk(res)) { $('#provError').text(apiMessage(res, '')).show(); return; }
+				$('#provError').hide().text('');
 				global.uiAlert(apiMessage(res, t('ui.js.tenantProvisioned', 'Tenant provisioned.')));
 				$('#platProvision').hide();
 				$('#platTenants').show();
 				state.q = '';
 				$('#platSearch').val('');
 				loadTenants();
-			}).fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, '')); });
+			}).fail(function (xhr) { $('#provError').text(apiFailMessage(xhr, '')).show(); });
 		});
 	});
 })(window);

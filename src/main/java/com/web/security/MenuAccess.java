@@ -43,6 +43,17 @@ public class MenuAccess {
         return allows(auth.getAuthorities(), codes);
     }
 
+    /**
+     * HC-1a — is the signed-in person working in a business that has its OWN home (the Hospital / Clinic)? A clinic is
+     * its own tenant, so the clinic screen's in-tenant "Pharmacy" link (to the shop dashboard) has no place there;
+     * sending to the LINKED pharmacy replaces it in HC-1d. Read from the router, never a type named in a page.
+     */
+    public boolean ownHome() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof com.persistence.model.User u)) return false;
+        return com.web.util.ModuleRouter.CLINIC_HOME.equals(com.web.util.ModuleRouter.dashboardFor(u));
+    }
+
     static boolean allows(Collection<? extends GrantedAuthority> held, List<String> codes) {
         if (held == null) return false;
         for (GrantedAuthority a : held) if (EVERYTHING.contains(a.getAuthority())) return true;

@@ -182,7 +182,10 @@ class CapabilityServiceTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("org.shape is not published in the catalog"));
 
-        assertThat(shape.options()).hasSize(Shape.values().length);
+        // HC-1a — every shape EXCEPT one that opens its own application (the clinic), which is chosen at creation.
+        long offered = java.util.Arrays.stream(Shape.values()).filter(s -> !s.ownApplication()).count();
+        assertThat(shape.options()).hasSize((int) offered);
+        assertThat(shape.options()).extracting(SettingEntry.Option::value).doesNotContain(Shape.CLINIC.code());
         assertThat(shape.defaultValue())
                 .as("the default shape must be the permissive one, or the deploy narrows every tenant")
                 .isEqualTo(Shape.GENERAL.code());

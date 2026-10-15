@@ -51,6 +51,7 @@ public class CapabilityCatalog implements SettingsCatalogProvider {
         // this behaves exactly as it did before C4 existed. See Shape.GENERAL.
         List<SettingEntry.Option> shapes = new ArrayList<>();
         for (Shape s : Shape.values()) {
+            if (s.ownApplication()) continue;   // HC-1a — chosen at creation, never from this list (Shape.ownApplication)
             shapes.add(new SettingEntry.Option(s.code(), s.label()));
         }
         out.add(SettingEntry.select(Shape.settingKey(), "Type of business",

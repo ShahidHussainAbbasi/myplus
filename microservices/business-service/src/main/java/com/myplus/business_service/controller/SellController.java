@@ -675,6 +675,10 @@ public class SellController {
 			// TRADE-DISC-1: the edit screen must show the invoice's own trade discount. Without it the box kept
 			// the previous sale's value, and saving the edit sent THAT over this invoice's discount.
 			out.setTradeDiscount(ch.getTradeDiscount());
+			// SRA-3: the edit screen shows who is credited; saving sends it back unchanged unless a rep.manage holder changed it.
+			out.setRepId(ch.getRepId());
+			out.setRepName(ch.getRepName());
+			out.setSaleSource(ch.getSaleSource());
 			if (ch.getCustomer() != null) {
 				out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 			}
@@ -780,6 +784,9 @@ public class SellController {
 			out.setTradeDiscount(ch.getTradeDiscount());     // B2B-P3g (V35): invoice-level concession
 			out.setShippingFee(ch.getShippingFee());         // V39: delivery, added after tax — must print
 			out.setBookedByName(ch.getBookedByName());       // stamped at write, never resolved at print
+			out.setRepId(ch.getRepId());                     // SRA-3: the rep credited (stamped) and how the sale came in
+			out.setRepName(ch.getRepName());
+			out.setSaleSource(ch.getSaleSource());
 			// B2B-P4b: the buyer's PO, carried from the quote. It must reach the PRINTED invoice — that is the
 			// number their accounts-payable clerk matches against their own purchase order.
 			out.setCustomerPoNumber(ch.getCustomerPoNumber());

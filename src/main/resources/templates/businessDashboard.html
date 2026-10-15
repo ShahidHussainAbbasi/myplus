@@ -57,6 +57,7 @@ tr.row-voided .js-edit-row{display:none !important}
 .cmode-row .cmode-field-customer{width:280px}
 .cmode-row .cmode-field-name{width:220px}
 .cmode-row .cmode-field-mobile{width:170px}
+.cmode-row .cmode-field-rep{width:220px}
 /* sellCustomerDD is enhanced into a bootstrap-select at runtime (searchable-selects.js), so the thing on
    screen is the plugin's wrapper div, not the select. The plugin writes its own width inline, which is why
    this needs !important to reach the field width above. */
@@ -277,8 +278,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li th:if="${@perm.menu('pharmacy.prescriptions')}" data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
 								<li th:if="${@perm.menu('pharmacy.clinical')}" data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
 								<li th:if="${@perm.menu('pharmacy.alerts')}" data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
-								<!-- HMS S1: the clinic's front desk (its own page), for a pharmacy that also runs a clinic. -->
-								<li th:if="${@perm.menu('pharmacy.clinic')}" data-capability="clinic"><a id="navClinic" th:href="@{/clinicDashboard}"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.clinicOpen}">Clinic reception</span></a></li>
+								<!-- HC-1a: "Clinic reception" removed — a clinic is its own tenant (Healthcare → Hospital / Clinic). A
+								     pharmacy still running a clinic reaches it from its workspaces (Front desk) until HC-1e splits it. -->
 							</ul>
 						</div>
 						<!-- Till / cash drawer — cashier day-close (slice 39). Available to any commerce user. -->
@@ -2510,6 +2511,19 @@ tr.row-voided .js-edit-row{display:none !important}
 										<input type="radio" name="customerInputMode" value="manual">
 										<span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.enterManually}">Enter Manually</span>
 									</label>
+								</div>
+								<!--
+									SRA-3: WHICH SALES REP took this order — the office keying a rep's hand-written order picks the rep
+									here; it defaults to the customer's usual rep. Blank = a counter sale (no rep). The server decides the
+									credit (SalesRepAttribution): a booker whose login IS a rep is credited themselves whatever this says.
+									Shown only when the business has active reps (territory.js paints it and toggles THIS wrapper — a
+									bootstrap-select button cannot be hidden itself). In the Enter chain after the customer (pos-keyboard.js).
+								-->
+								<div class="form-group" id="sellRepWrap" data-sales-rep-wrap style="display: none;">
+									<div class="cmode-field-rep">
+										<span class="field-label" th:text="#{ui.salesRep}">Sales rep</span>
+										<select class="form-control" id="sellRepId" data-sales-rep-picker="sale" th:attr="data-rep-manage=${@perm.menu('action.rep.assign')}"></select>
+									</div>
 								</div>								
 							</div>
 						</div>
@@ -3271,6 +3285,13 @@ tr.row-voided .js-edit-row{display:none !important}
 						<!-- Credit standing, BEFORE any line is entered (finding B3) — hidden entirely when the
 						     outlet has no limit, because "0 of 0" would train reps to ignore the banner. -->
 						<div id="bkCredit" class="alert alert-info" style="display:none"></div>
+						<!-- SRA-3: the office keying a rep's paper order names the rep (defaults to the shop's usual rep). Only for
+						     rep.manage holders (ui_menu action.rep.assign): a rep booking signed in is credited themselves, and
+						     the server ignores a choice from them. Hidden while the business has no reps (territory.js). -->
+						<div class="form-group" id="bkRepWrap" data-sales-rep-wrap style="display:none" th:if="${@perm.menu('action.rep.assign')}">
+							<label for="bkRepId" th:text="#{ui.salesRep}">Sales rep</label>
+							<select class="form-control input-lg" id="bkRepId" data-sales-rep-picker="order"></select>
+						</div>
 
 						<div class="form-group">
 							<label for="bkContact" th:text="#{ui.contact}">Contact</label>

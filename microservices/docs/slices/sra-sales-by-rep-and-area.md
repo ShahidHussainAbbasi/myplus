@@ -172,6 +172,27 @@ admin, rep = the rep** · dispatch invoice carries the order's rep (the D1 case,
 dispatcher's name must NOT appear as the rep) · a rep cannot book as another rep · another tenant's rep id
 refused.
 
+### 6.1 SRA-3 as built (2026-10-15) — deployed, GREEN: gate 6/6, regression 192/192
+
+| Where | What |
+|---|---|
+| business-service V85 | `customer_history.rep_id`, `rep_name` (STAMPED), `sale_source` + `idx_ch_org_rep_dated (organization_id, rep_id, dated)` for SRA-4. No backfill |
+| marketplace-service V36 | `orders.rep_id` only — the rep the office chose for a paper order. The NAME is stamped on the invoice, not the order (business-service owns the rep list) |
+| business-service | `SalesRepAttribution` — the one rule (table above); `SagaSaleWriter.stampRep` on every new invoice (till, its invoice-number retry, an order invoiced at dispatch) and on edit (unchanged unless sent; a change needs rep.manage, audited `SALE_REP_CHANGE`, source → REP_PAPER); `getSellInvoice` + `getReceipt` return `repId/repName/saleSource`; `/customerOptions` carries `defaultRepId`; `/outlets` carries `defaultRepId` **to rep managers only** (a rep's picker must not say which colleague owns which shop) |
+| commerce-contracts | `SaleRecordRequest.bookedByUserId`, `repId`, `keyedByName` — differs from the plan's `repName`/`source`: the receiver decides both, the channel only states who booked |
+| marketplace-service | `Order.repId` (book, amend — audited as change "rep"); `OrderController.dropRepUnlessManager` — a non-manager's rep choice is DROPPED at book/amend, so a rep id on an order was always chosen by a manager (and may override a manager-who-is-a-rep's own login at invoicing); `DispatchInvoiceService` sends the booker, the rep and **keyedByName = the order's booker → fixes D1** |
+| monolith | `CustomerHistoryDTO.repId` twin (the proxy re-serialises a typed DTO); sale screen **Sales rep** picker `#sellRepId` beside the customer (shown only when the business has reps; defaults to the customer's usual rep; "— No rep (counter) —"; in the Enter chain after the customer and in PICKERS; locked on edit unless rep.manage); booking screen picker `#bkRepId` (rep.manage only, defaults to the shop's usual rep); i18n `ui.salesRep`, `ui.js.noRepCounter`, `ui.js.noRepOffice` ×6 |
+| tests | `SalesRepAttributionTest` (6 cases incl. PORTAL); gate `sra-rep-on-sale.cy.js` C1–C6 |
+
+**Deviations from the plan above, on purpose:** the portal setting `sales.rep.creditPortalOrders` is not built
+(no portal ordering exists yet) — a portal order is PORTAL with no rep. The backfill of past field-order invoices
+through `booked_by_user_id` is not built — every past sale reads "Not recorded" until the owner asks for it.
+Route sheet salesman → SRA-3b.
+
+**Known edges:** a rep id on an order is checked against the business's reps when the order is INVOICED (at
+dispatch), not at booking — only a manager can set it, from their own list. `OpeningBalanceService` writes invoices
+with no rep and no source — SRA-4 must exclude opening balances as every sales report already does.
+
 ## 7. SRA-4 — The analysis report
 
 ### 7.1 Dimensions (filter AND group by) and measures

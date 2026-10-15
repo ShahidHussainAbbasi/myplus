@@ -80,7 +80,18 @@ public enum Shape {
 
     /** Selling to the public online. Orders arrive without anybody at a till. */
     STOREFRONT("storefront", "Online storefront",
-            EnumSet.of(Capability.DEALER_PRICING));
+            EnumSet.of(Capability.DEALER_PRICING)),
+
+    /**
+     * HC-1a — Hospital / Clinic (product line Healthcare, org type {@code CLINIC}). The one shape whose module IS the
+     * business: a clinic without the clinic module is nothing, so {@link Capability#CLINIC} — opt-in for every other
+     * shape — is this shape's preset AND its floor.
+     *
+     * <p>{@linkplain #ownApplication() Its own application}: it lands on the clinic home, not the shop dashboard, so
+     * it is chosen when the tenant is created and never by a business-type change (to or from it).
+     */
+    CLINIC("clinic", "Hospital / Clinic",
+            EnumSet.of(Capability.CLINIC), EnumSet.of(Capability.CLINIC), true);
 
     /*
      * ⚠ WHY THERE IS NO "RESTAURANT" / FOOD_SERVICE SHAPE HERE (decided 2026-09-25, RST vertical)
@@ -111,17 +122,31 @@ public enum Shape {
     private final String label;
     private final Set<Capability> preset;
     private final Set<Capability> mandatory;
+    private final boolean ownApplication;
 
     Shape(String code, String label, Set<Capability> preset) {
         this(code, label, preset, EnumSet.noneOf(Capability.class));
     }
 
     Shape(String code, String label, Set<Capability> preset, Set<Capability> mandatory) {
+        this(code, label, preset, mandatory, false);
+    }
+
+    Shape(String code, String label, Set<Capability> preset, Set<Capability> mandatory, boolean ownApplication) {
         this.code = code;
         this.label = label;
         this.preset = Collections.unmodifiableSet(preset);
         this.mandatory = Collections.unmodifiableSet(mandatory);
+        this.ownApplication = ownApplication;
     }
+
+    /**
+     * HC-1a — true for a shape that opens its OWN application (today only {@link #CLINIC}). Such a shape is set when
+     * the tenant is created, from its business type, and is never offered by the owner's Configuration list nor
+     * accepted by a business-type change: swapping a clinic to "retail" would leave a clinic org type on shop
+     * features, and the reverse a shop on the clinic home.
+     */
+    public boolean ownApplication() { return ownApplication; }
 
     /** The stored value, e.g. {@code retail}. */
     public String code() { return code; }
@@ -141,8 +166,8 @@ public enum Shape {
      * EXP-1 — capabilities this shape may not switch OFF, whatever the tenant saved.
      *
      * <p>A preset is a starting point an owner may change; this is a floor they may not go below, because for
-     * this kind of business the capability is not a preference. Only {@link #PHARMACY} declares one today
-     * ({@code EXPIRY_TRACKING}), and anything mandatory is necessarily also in the preset — a shape cannot
+     * this kind of business the capability is not a preference. {@link #PHARMACY} declares one
+     * ({@code EXPIRY_TRACKING}) and {@link #CLINIC} its own module (HC-1a), and anything mandatory is necessarily also in the preset — a shape cannot
      * require what it does not start with.
      *
      * <p>⚠ It does NOT outrank the platform ceiling. A capability the operator has revoked stays off: the

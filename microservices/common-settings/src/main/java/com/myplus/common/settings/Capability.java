@@ -31,7 +31,8 @@ package com.myplus.common.settings;
  * the GENERAL preset and the business-type change all read one fact instead of three lists that drift.
  *
  * <p>An opt-in module is the owner's decision, not a property of the kind of business: no {@link Shape}
- * presets one, and a business-type change never clears one (see {@link #isOptInKey}).
+ * presets one, and a business-type change never clears one (see {@link #isOptInKey}). The one exception is a shape
+ * whose module IS the business — {@link Shape#CLINIC} presets and floors {@link #CLINIC} (HC-1a).
  */
 public enum Capability {
 

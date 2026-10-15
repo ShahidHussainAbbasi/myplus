@@ -570,7 +570,8 @@ public class CustomerController {
 			 * ⚠ It used to ask seesAllOrg() — the set's "Sees: All" ROW scope — which is not the question: a member
 			 * whose set had scope ALL was never narrowed and could assign territories (the D6a red gate).
 			 */
-			com.myplus.business_service.entity.SalesRep rep = requestUtil.holds("rep.manage") ? null
+			boolean manager = requestUtil.holds("rep.manage");
+			com.myplus.business_service.entity.SalesRep rep = manager ? null
 					: salesRepService.repForUser(org, me).orElse(null);
 			List<Customer> rows = (rep == null)
 					? customerService.findOutletsForOrg(org)
@@ -578,7 +579,8 @@ public class CustomerController {
 			List<OutletDTO> out = new ArrayList<>();
 			for (Customer c : rows) {
 				out.add(new OutletDTO(c.getCustomerId(), c.getName(), c.getContact(), c.getAddress(),
-						rep != null && rep.getId().equals(c.getDefaultRepId())));
+						rep != null && rep.getId().equals(c.getDefaultRepId()),
+						manager ? c.getDefaultRepId() : null));   // SRA-3: the usual rep, for a manager's Rep picker only
 			}
 			return new GenericResponse("SUCCESS", "Outlets", null, out);
 		} catch (Exception e) {
