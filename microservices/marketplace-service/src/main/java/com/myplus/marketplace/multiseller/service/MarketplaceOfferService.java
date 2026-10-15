@@ -92,14 +92,20 @@ public class MarketplaceOfferService {
                 .orElseThrow(() -> new ResourceNotFoundException("No such marketplace product."));
         MarketplaceProductSource source = matchedSource(org, product.getId());
 
-        // MKT-3a: the source follows WHO lists it. The warehouse's offers are PLATFORM stock; no one else's can be.
+        // MKT-3a / 4a: the source follows WHO lists it. The warehouse's offers are PLATFORM stock and a marked supplier's
+        // are SUPPLIER stock; no one else's can be either. An offer kept from before a supplier was unmarked is MERCHANT.
         boolean warehouse = settings.warehouseOrg().filter(org::equals).isPresent();
+        boolean supplier = !warehouse && sellers.isSupplier(org);
         StockSourceType asked = req.stockSourceType() == null ? null : parseSource(req.stockSourceType());
         if (asked == StockSourceType.PLATFORM && !warehouse)
             throw new ValidationException("Only the MaxTheService warehouse sells MaxTheService's own stock.");
-        StockSourceType stockSource = warehouse ? StockSourceType.PLATFORM : asked != null ? asked
-                : (o.getStockSourceType() == null ? StockSourceType.MERCHANT : parseSource(o.getStockSourceType()));
-        rule(() -> PHASE.checkOffer(stockSource, Regulated.valueOf(product.getRegulatedStatus()), warehouse));
+        if (asked == StockSourceType.SUPPLIER && !supplier)
+            throw new ValidationException("Only a business MaxTheService has marked as a supplier sells supplier stock.");
+        StockSourceType kept = o.getStockSourceType() == null ? null : parseSource(o.getStockSourceType());
+        StockSourceType stockSource = warehouse ? StockSourceType.PLATFORM : supplier ? StockSourceType.SUPPLIER
+                : asked != null ? asked
+                : kept == null || kept == StockSourceType.SUPPLIER ? StockSourceType.MERCHANT : kept;
+        rule(() -> PHASE.checkOffer(stockSource, Regulated.valueOf(product.getRegulatedStatus()), warehouse, supplier));
 
         // ── terms (a partial edit keeps what it does not mention) ──
         if (req.marketplacePrice() != null) o.setMarketplacePrice(req.marketplacePrice().setScale(2, java.math.RoundingMode.HALF_UP));

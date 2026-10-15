@@ -116,6 +116,24 @@ public class MarketplaceSellerController {
         }
     }
 
+    /** MKT-4a — mark a seller as a supplier. Body: {organizationId, supplier, stockReliable, version}. */
+    @RequestMapping(value = "/platform/mkt/sellerSupplier", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> sellerSupplier(@RequestBody final Map<String, Object> body) {
+        try {
+            Object org = body == null ? null : body.get("organizationId");
+            if (org == null || !String.valueOf(org).matches("\\d+")) return refusal("Choose the business.");
+            Map<String, Object> rest = new HashMap<>(body);
+            rest.remove("organizationId");
+            return client.postJson("/mkt/operator/sellers/" + org + "/supplier", rest);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not save the supplier setting.");
+        } catch (Exception e) {
+            LOGGER.error("mkt sellerSupplier proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     // ── MKT-1b: product proposals and match review ─────────────────────────────────────────────────────────
 
     /** Propose one of the seller's catalog products. Body: {sourceProductId, brand, model, variant, colour, …}. */

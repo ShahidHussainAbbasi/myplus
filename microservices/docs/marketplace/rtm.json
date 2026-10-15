@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 68,
- "cypress": 64,
- "automated": 69,
+ "unit": 69,
+ "cypress": 66,
+ "automated": 70,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -155,8 +155,19 @@
    "req": "MKT-R4.3",
    "phase": "4",
    "text": "SUPPLIER: owner = custodian = supplier; fulfiller supplier or its carrier",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "MarketplaceOfferServiceTest.supplierStock",
+    "SupplierServiceTest.mark",
+    "SupplierServiceTest.refused",
+    "SupplierServiceTest.sourceSwitch"
+   ],
+   "cypress": [
+    "MKT-4a-01",
+    "MKT-4a-02",
+    "MKT-4a-03",
+    "MKT-4a-05",
+    "MKT-4a-06"
+   ],
    "manual": [
     "M-4-01"
    ]
@@ -167,9 +178,16 @@
    "text": "Supplier stock is never shown as immediately available unless the supplier gives reliable availability and accepts within a defined time",
    "unit": [
     "OfferEligibilityTest.phaseSources",
-    "MarketplaceOfferServiceTest.phaseOne"
+    "MarketplaceOfferServiceTest.phaseOne",
+    "MarketplaceSettingsServiceTest.supplierWindow",
+    "OfferProjectionServiceTest.supplierStockConfirmed",
+    "SupplierServiceTest.reliable"
    ],
-   "cypress": [],
+   "cypress": [
+    "MKT-4a-02",
+    "MKT-4a-03",
+    "MKT-4a-04"
+   ],
    "manual": [
     "M-4-01"
    ]
@@ -1532,7 +1550,6 @@
    "unit": [],
    "cypress": [],
    "manual": [
-    "M-4-01",
     "M-5-01"
    ]
   },

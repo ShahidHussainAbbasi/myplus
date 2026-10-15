@@ -1558,17 +1558,21 @@
 
 ## MKT-4
 
-### M-4-01 Supplier stock is never "in stock today" without a promise
+### M-4-01 MaxTheService marks a dropship supplier; shoppers are told who confirms the stock
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 4. A distributor offer with a 20-minute acceptance window.  
-**Covers:** MKT-R4.3, MKT-R4.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator → Customer  
+**Before:** Phone Supplier (owner.supplier@myplus.com) is an approved marketplace seller with a live offer for a phone that delivers to Karachi. It is not marked as a supplier yet.  
+**Covers:** MKT-R4.3, MKT-R4.4  
+**Evidence:** recorded 2026-10-15 19:24 UTC  
+**Automated by:** MKT-4a-01, MKT-4a-02, MKT-4a-04, MKT-4a-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Open the product. | The supplier offer shows "Ships from supplier · confirmation within 20 minutes", never "In stock, today". |
-| C1 | Nothing to undo. | — |
+| 1 | Operator: Platform → Marketplace sellers → Approved → Phone Supplier. Tick "Supplier: ships its own stock to customers" (leave "Its stock counts are reliable" unticked) and press Save. | "Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order." After a refresh the row carries a "Supplier" tag. |
+| 2 | Customer: open the phone on the marketplace, city Karachi. | The offer reads "Phone Supplier", "Shipped by the supplier" and "The supplier confirms the stock within 20 minutes of your order". It does not say "Stock checked". |
+| 3 | Operator: back on Phone Supplier, tick "Its stock counts are reliable" and press Save. | "Phone Supplier is a supplier. Customers see its stock as checked." |
+| 4 | Customer: open the phone again. | Still "Shipped by the supplier", and now "Stock checked …" instead of the supplier-confirms sentence. |
+| C1 | Operator: on Phone Supplier, untick "Supplier: ships its own stock to customers" and press Save. | "Phone Supplier sells its own stock as a seller." The reliable box is cleared and greyed out. |
 
 ### M-4-02 A slow supplier API does not hang checkout
 

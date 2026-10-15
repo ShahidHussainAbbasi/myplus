@@ -274,6 +274,8 @@
 		var who = el('span', 'o-seller', o.sellerName);
 		// MKT-3a (R4.2): MaxTheService's own stock, from its warehouse; under the name, so the row keeps its grid
 		if (o.soldByMaxTheService) who.appendChild(el('small', 'o-platform', tr('ui.js.mktSoldByUs', 'Sold and shipped by MaxTheService')));
+		// MKT-4a (R4.3): a supplier owns, holds and ships what it sells
+		if (o.dropship) who.appendChild(el('small', 'o-supplier', tr('ui.js.mktShippedBySupplier', 'Shipped by the supplier')));
 		label.appendChild(who);
 		label.appendChild(el('span', 'o-price', money(o.price)));
 		var facts = el('span', 'o-facts');
@@ -290,7 +292,10 @@
 			? tr('ui.js.mktReturnsDays', 'Returns within {0} days', o.returnDays) : tr('ui.js.mktNoReturns', 'No returns')));
 		facts.appendChild(el('span', null, o.rating ? tr('ui.js.mktRating', 'Rated {0} / 5', o.rating)
 			: tr('ui.js.mktNoRating', 'No ratings yet')));
-		facts.appendChild(el('span', 'mkt-stock-checked', checked(o.checkedSecondsAgo)));
+		// MKT-4a (R4.4): a supplier's stock is never shown as checked until the operator trusts its counts
+		facts.appendChild(o.stockConfirmed === false
+			? el('span', 'mkt-stock-unconfirmed', tr('ui.js.mktSupplierConfirms', 'The supplier confirms the stock within {0} minutes of your order', o.confirmMinutes))
+			: el('span', 'mkt-stock-checked', checked(o.checkedSecondsAgo)));
 		label.appendChild(facts);
 		li.appendChild(label);
 		return li;

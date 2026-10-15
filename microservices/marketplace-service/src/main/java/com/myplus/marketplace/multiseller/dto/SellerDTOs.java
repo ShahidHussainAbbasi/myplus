@@ -17,7 +17,12 @@ public final class SellerDTOs {
     }
 
     public record Account(Long organizationId, String displayName, String status, String statusReason,
-            LocalDateTime appliedAt, LocalDateTime decidedAt, Integer version) {
+            LocalDateTime appliedAt, LocalDateTime decidedAt, Integer version, boolean supplier,
+            boolean supplierStockReliable) {
+    }
+
+    /** MKT-4a — the operator marks a seller as a supplier, and says whether its stock counts are reliable. */
+    public record SupplierRequest(Boolean supplier, Boolean stockReliable, Integer version) {
     }
 
     /**

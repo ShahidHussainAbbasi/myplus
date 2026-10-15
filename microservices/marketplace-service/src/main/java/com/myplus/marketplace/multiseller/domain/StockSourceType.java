@@ -34,6 +34,14 @@ public enum StockSourceType {
      * the warehouse itself, not a phase number (raising the phase would also lift Phase 1's one-seller checkout).
      */
     public boolean enabledIn(int enabledPhase, boolean platformStock) {
-        return launchPhase <= enabledPhase || (this == PLATFORM && platformStock);
+        return enabledIn(enabledPhase, platformStock, false);
+    }
+
+    /**
+     * MKT-4a — as above, and SUPPLIER is sellable once the operator has marked a supplier ({@code supplierStock}). The
+     * same shape as PLATFORM: only a marked supplier's offers are SUPPLIER stock, so the operator's mark is the switch.
+     */
+    public boolean enabledIn(int enabledPhase, boolean platformStock, boolean supplierStock) {
+        return launchPhase <= enabledPhase || (this == PLATFORM && platformStock) || (this == SUPPLIER && supplierStock);
     }
 }

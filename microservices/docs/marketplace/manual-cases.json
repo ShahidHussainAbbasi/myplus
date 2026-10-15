@@ -7263,32 +7263,57 @@
   {
    "id": "M-4-01",
    "slice": "MKT-4",
-   "title": "Supplier stock is never \"in stock today\" without a promise",
-   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 4. A distributor offer with a 20-minute acceptance window.",
+   "title": "MaxTheService marks a dropship supplier; shoppers are told who confirms the stock",
+   "persona": "MaxTheService operator → Customer",
+   "pre": "Phone Supplier (owner.supplier@myplus.com) is an approved marketplace seller with a live offer for a phone that delivers to Karachi. It is not marked as a supplier yet.",
+   "reqs": [
+    "MKT-R4.3",
+    "MKT-R4.4"
+   ],
+   "auto": [
+    "MKT-4a-01",
+    "MKT-4a-02",
+    "MKT-4a-04",
+    "MKT-4a-06"
+   ],
+   "recordedAt": "2026-10-15T19:24:28.748Z",
+   "startedAt": "2026-10-15T19:24:00.777Z",
+   "result": "passed",
    "steps": [
     {
      "n": 1,
-     "do": "Open the product.",
-     "expect": "The supplier offer shows \"Ships from supplier · confirmation within 20 minutes\", never \"In stock, today\"."
+     "do": "Operator: Platform → Marketplace sellers → Approved → Phone Supplier. Tick \"Supplier: ships its own stock to customers\" (leave \"Its stock counts are reliable\" unticked) and press Save.",
+     "expect": "\"Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order.\" After a refresh the row carries a \"Supplier\" tag.",
+     "shot": "shots/M-4-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the phone on the marketplace, city Karachi.",
+     "expect": "The offer reads \"Phone Supplier\", \"Shipped by the supplier\" and \"The supplier confirms the stock within 20 minutes of your order\". It does not say \"Stock checked\".",
+     "shot": "shots/M-4-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Operator: back on Phone Supplier, tick \"Its stock counts are reliable\" and press Save.",
+     "expect": "\"Phone Supplier is a supplier. Customers see its stock as checked.\"",
+     "shot": "shots/M-4-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Customer: open the phone again.",
+     "expect": "Still \"Shipped by the supplier\", and now \"Stock checked …\" instead of the supplier-confirms sentence.",
+     "shot": "shots/M-4-01/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
-     "expect": "—"
+     "do": "Operator: on Phone Supplier, untick \"Supplier: ships its own stock to customers\" and press Save.",
+     "expect": "\"Phone Supplier sells its own stock as a seller.\" The reliable box is cleared and greyed out.",
+     "shot": "shots/M-4-01/c01.jpg"
     }
    ],
-   "reqs": [
-    "MKT-R4.3",
-    "MKT-R4.4",
-    "MKT-R20.5"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-4.",
-   "warn": false,
-   "auto": []
+   "evidence": "recorded"
   },
   {
    "id": "M-4-02",

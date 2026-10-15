@@ -166,7 +166,8 @@ public class MarketplaceCheckoutService {
         boolean multiSeller = settings.multiSeller();
         rule(() -> MarketplaceCatalogService.PHASE.checkCheckout(items.stream().map(i -> new PhaseGuard.CheckoutLine(
                 i.offer().getId(), i.offer().getSellerOrganizationId(), StockSourceType.valueOf(i.offer().getStockSourceType()),
-                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller, settings.platformStock()));
+                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller, settings.platformStock(),
+                settings.supplierStock()));
 
         // one part per seller, in the order the shopper added them
         Map<Long, List<Item>> bySeller = new LinkedHashMap<>();
@@ -238,8 +239,9 @@ public class MarketplaceCheckoutService {
                     move(so, SellerOrder.OFFERED);
                     so.setHeld(true);
                     // MKT-2-06: each seller's window follows the value of ITS part, not the whole basket
+                    List<MarketplaceOrderLine> partLines = lines.findBySellerOrderIdOrderByIdAsc(so.getId());
                     so.setAcceptBy(now.plusMinutes(settings.acceptMinutesFor(so.getSellerOrganizationId(),
-                            partTotal(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))));
+                            partTotal(partLines), supplierStock(partLines))));
                 }
             }
             fresh.forEach(sellerOrders::save);
@@ -536,6 +538,11 @@ public class MarketplaceCheckoutService {
     }
 
     /** What one part costs the shopper. Phase 1: delivery is in the seller's price, so it is the sum of its lines. */
+    /** MKT-4a — a part of supplier stock: the supplier has its own window to confirm it (see the settings service). */
+    static boolean supplierStock(List<MarketplaceOrderLine> ls) {
+        return ls.stream().anyMatch(l -> StockSourceType.SUPPLIER.name().equals(l.getStockSourceType()));
+    }
+
     static BigDecimal partTotal(List<MarketplaceOrderLine> ls) {
         return ls.stream().map(MarketplaceOrderLine::getLineTotal).filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

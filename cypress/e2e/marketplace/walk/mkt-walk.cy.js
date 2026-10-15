@@ -4101,4 +4101,77 @@ on('MKT manual walk — recorded', () => {
       })
     cleanup('Nothing to undo: the phones now belong to the warehouse, as a received transfer should leave them.', 'Nothing to undo.', () => {}, { screen: false })
   })
+
+  const SUPPLIER = 'owner.supplier@myplus.com'
+  const SU = {}
+  const sellersList = () => {
+    asOperator(); cy.visit('/platformDashboard')
+    cy.get('#platMktSellersBtn').click()
+    cy.get('#platMktStatus button[data-status="APPROVED"]').click()
+    return cy.then(() => cy.get(`#platMktSellerList .plat-row[data-org="${SU.org}"]`).should('be.visible')
+      .scrollIntoView({ offset: { top: -160, left: 0 } }))
+  }
+  const supplierRow = () => `#platMktSellerList .plat-row[data-org="${SU.org}"]`
+  const productPage = () => {
+    customer()
+    cy.then(() => cy.visit(`${UI.publicPage}?product=${SU.offer.mktProductId}&city=Karachi`))
+    return cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${SU.offer.offerId}"]`).should('be.visible')
+      .scrollIntoView({ offset: { top: -160, left: 0 } }))
+  }
+  walk({ id: 'M-4-01', slice: 'MKT-4', title: 'MaxTheService marks a dropship supplier; shoppers are told who confirms the stock',
+    persona: 'MaxTheService operator → Customer',
+    reqs: ['MKT-R4.3', 'MKT-R4.4'],
+    pre: 'Phone Supplier (owner.supplier@myplus.com) is an approved marketplace seller with a live offer for a phone that delivers to Karachi. It is not marked as a supplier yet.',
+    auto: ['MKT-4a-01', 'MKT-4a-02', 'MKT-4a-04', 'MKT-4a-06'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: the supplier lists a phone as any seller does (M-1c walks those screens)
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: false }))
+      seedPolicies(`${run}s`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}s`, price: 48000, qty: 5,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { SU.offer = o })
+    })
+    step('Operator: Platform → Marketplace sellers → Approved → Phone Supplier. Tick "Supplier: ships its own stock to customers" (leave "Its stock counts are reliable" unticked) and press Save.',
+      '"Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order." After a refresh the row carries a "Supplier" tag.', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').check()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order.')
+        }))
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).find('.mkt-supplier-tag').should('have.text', 'Supplier'))
+      })
+    step('Customer: open the phone on the marketplace, city Karachi.',
+      'The offer reads "Phone Supplier", "Shipped by the supplier" and "The supplier confirms the stock within 20 minutes of your order". It does not say "Stock checked".', () => {
+        productPage()
+        cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${SU.offer.offerId}"]`).should('contain', 'Phone Supplier')
+          .and('contain', 'Shipped by the supplier').and('contain', 'The supplier confirms the stock within 20 minutes of your order')
+          .find('.mkt-stock-checked').should('not.exist'))
+      })
+    step('Operator: back on Phone Supplier, tick "Its stock counts are reliable" and press Save.',
+      '"Phone Supplier is a supplier. Customers see its stock as checked."', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-reliable').check()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier is a supplier. Customers see its stock as checked.')
+        }))
+      })
+    step('Customer: open the phone again.',
+      'Still "Shipped by the supplier", and now "Stock checked …" instead of the supplier-confirms sentence.', () => {
+        productPage()
+        cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${SU.offer.offerId}"]`).should('contain', 'Shipped by the supplier')
+          .and('contain', 'Stock checked').and('not.contain', 'The supplier confirms the stock'))
+      })
+    cleanup('Operator: on Phone Supplier, untick "Supplier: ships its own stock to customers" and press Save.',
+      '"Phone Supplier sells its own stock as a seller." The reliable box is cleared and greyed out.', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+          cy.get('.mkt-supplier-reliable').should('be.disabled').and('not.be.checked')
+        }))
+      })
+  })
 })

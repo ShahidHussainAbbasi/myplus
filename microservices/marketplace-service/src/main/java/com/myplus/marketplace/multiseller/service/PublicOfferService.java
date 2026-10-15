@@ -122,7 +122,8 @@ public class PublicOfferService {
                 qty == null || qty.signum() <= 0 ? BigDecimal.ONE : qty, Instant.now());
         EligibilityContext ctx = new EligibilityContext(base.city(), base.quantity(), product.getPriceFloor(),
                 product.getPriceCeiling(), base.enabledPhase(), base.blockRegulated(), base.staleAfter(), base.now(),
-                settings.platformStock());                                  // MKT-3a: the warehouse's offers
+                settings.platformStock(),                                   // MKT-3a: the warehouse's offers
+                settings.supplierStock());                                  // MKT-4a: marked suppliers' offers
         return OfferRanker.rank(rows.stream().map(p -> candidate(p, performance.acceptanceRate(p.getSellerOrganizationId()))).toList(),
                 sort, ctx);
     }
@@ -163,6 +164,10 @@ public class PublicOfferService {
                 p.getWarrantyExcludes(), p.getReturnDays(), List.copyOf(areas(p.getDeliveryAreas())), p.getLastSyncAt(),
                 p.getLastSyncAt() == null ? null
                         : Math.max(0, java.time.Duration.between(p.getLastSyncAt(), java.time.LocalDateTime.now()).getSeconds()),
-                StockSourceType.PLATFORM.name().equals(p.getStockSourceType()));                // MKT-3a
+                StockSourceType.PLATFORM.name().equals(p.getStockSourceType()),                 // MKT-3a
+                StockSourceType.SUPPLIER.name().equals(p.getStockSourceType()),                 // MKT-4a: dropship
+                // (named so, not "supplier": R9.2 keeps a shop's own suppliers out of every public field, by name)
+                !Boolean.FALSE.equals(p.getStockConfirmed()),
+                StockSourceType.SUPPLIER.name().equals(p.getStockSourceType()) ? MarketplaceSettingsService.supplierConfirmMinutes() : null);
     }
 }

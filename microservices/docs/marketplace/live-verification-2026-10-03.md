@@ -448,3 +448,18 @@ Migration V37 applied. Unit: marketplace-service 451 / 451, business-service 572
 **Open (3c):** any `AsOrg` call carries no capabilities (pre-existing, row 76 fixed only the warehouse's purchase);
 the ownership ruling (bought, the default taken, vs consignment) awaits confirmation.
 
+## 20. MKT-4a — dropship suppliers (run 2026-10-15)
+
+**Gate `mkt-4a-supplier-offers.cy.js`: 6 / 6.** Re-run on the same build: 1c 11 / 11, 1d 10 / 10, 1e 10 / 10,
+2b 8 / 8, 2-06 7 / 7, 3a 6 / 6, 3c 6 / 6. Migration V38 applied. Unit: marketplace-service 458 / 458.
+
+**Walk M-4-01: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 78 | gate MKT-1c-06 (regression) | the first name of the public flag, `supplierStock`, put "supplier" in the public offer's keys, which R9.2 forbids | renamed `dropship` | gate MKT-1c-06, MKT-4a-01 |
+| 79 | walk M-4-01 (first recording) | "Phone SupplierShipped by the supplier" ran together on the shopper's offer row | the label sits on its own line, as "Sold and shipped by MaxTheService" does | walk M-4-01 step 2 |
+| 80 | the trace against design case M-4-01 | the plan's 20-minute supplier window (`AcceptanceTerms`) was defined and never read: a supplier would have had a shop's window | a part of supplier stock gets 20 minutes; the shopper is told so | unit `supplierWindow`, gate MKT-4a-03 |
+
+**Open (4a):** the warehouse's row shows the supplier boxes (saving is refused in a sentence).
+

@@ -36,7 +36,7 @@ import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRep
 @ExtendWith(MockitoExtension.class)
 class PlatformWarehouseServiceTest {
 
-    static final long SHOP = 7L, EMPTY = 9L, PENDING = 11L;
+    static final long SHOP = 7L, EMPTY = 9L, PENDING = 11L, SUPPLIER = 13L;
 
     @Mock MarketplaceSettingsService settings;
     @Mock MarketplaceSellerAccountRepository accounts;
@@ -61,11 +61,12 @@ class PlatformWarehouseServiceTest {
     }
 
     static MarketplaceSellerAccount account(long org) {
-        if (org != SHOP && org != EMPTY && org != PENDING) return null;
+        if (org != SHOP && org != EMPTY && org != PENDING && org != SUPPLIER) return null;
         MarketplaceSellerAccount a = new MarketplaceSellerAccount();
         a.setOrganizationId(org);
         a.setDisplayName(org == SHOP ? "Shahzad Mobile Shop" : org == EMPTY ? "Central warehouse" : "New shop");
         a.setStatus(org == PENDING ? "PENDING_APPROVAL" : "APPROVED");
+        a.setSupplier(org == SUPPLIER);
         return a;
     }
 
@@ -92,6 +93,9 @@ class PlatformWarehouseServiceTest {
                 .hasMessage("This organisation already has offers of its own. Choose one with none: its offers would become MaxTheService's.");
         assertThatThrownBy(() -> service.set(new SellerDTOs.WarehouseRequest(PENDING))).hasMessage("Choose an approved seller account.");
         assertThatThrownBy(() -> service.set(new SellerDTOs.WarehouseRequest(404L))).hasMessage("Choose an approved seller account.");
+        // MKT-4a: a supplier owns what it sells, so it cannot hold MaxTheService's stock
+        assertThatThrownBy(() -> service.set(new SellerDTOs.WarehouseRequest(SUPPLIER)))
+                .hasMessage("A supplier sells its own stock, so it cannot be the MaxTheService warehouse.");
         verify(settings, never()).saveWarehouseOrg(any());
     }
 

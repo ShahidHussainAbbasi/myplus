@@ -68,6 +68,8 @@ public class PlatformWarehouseService {
             MarketplaceSellerAccount a = accounts.findByOrganizationId(org).orElse(null);
             if (a == null || !SellerAccount.APPROVED.name().equals(a.getStatus()))
                 throw new ValidationException("Choose an approved seller account.");
+            if (Boolean.TRUE.equals(a.getSupplier()))   // MKT-4a: a supplier owns what it sells; the warehouse sells MaxTheService's
+                throw new ValidationException("A supplier sells its own stock, so it cannot be the MaxTheService warehouse.");
             if (!offers.findByOrganizationId(org).isEmpty())
                 throw new ValidationException("This organisation already has offers of its own. Choose one with none: "
                         + "its offers would become MaxTheService's.");

@@ -58,8 +58,11 @@
 		var $r = $('<div class="plat-row"></div>').attr('data-org', a.organizationId);
 		$r.append($('<div class="plat-row__main"></div>')
 			.append($('<strong></strong>').text(a.displayName || ''))
+			.append(a.supplier ? $('<span class="label label-info mkt-supplier-tag" style="margin-left:6px"></span>')
+				.text(tr('ui.js.mktSupplierTag', 'Supplier')) : null)
 			.append($('<span class="plat__hint"></span>').text(' · #' + a.organizationId + ' · ' + fmt(a.appliedAt)))
-			.append(a.statusReason ? $('<div class="plat__hint"></div>').text(a.statusReason) : null));
+			.append(a.statusReason ? $('<div class="plat__hint"></div>').text(a.statusReason) : null)
+			.append(a.status === 'APPROVED' ? supplierBox(a) : null));
 		var $act = $('<div class="plat-row__actions"></div>');
 		var $reason = $('<input type="text" class="form-control input-sm" maxlength="500">')
 			.attr('placeholder', tr('ui.js.mktReasonPh', 'Reason the seller will see'))
@@ -77,6 +80,41 @@
 		var $msg = $('<span class="plat__hint" role="status"></span>');
 		$act.append($msg);
 		return $r.append($act);
+	}
+
+	/**
+	 * MKT-4a — the operator marks an approved seller as a supplier (its offers become supplier stock) and says whether
+	 * its stock counts are reliable; until then customers are told the supplier confirms stock when it accepts.
+	 */
+	function supplierBox(a) {
+		var $box = $('<div class="mkt-supplier" style="margin-top:6px"></div>');
+		var $sup = $('<input type="checkbox" class="mkt-supplier-on">').prop('checked', !!a.supplier);
+		var $rel = $('<input type="checkbox" class="mkt-supplier-reliable">').prop('checked', !!a.supplierStockReliable)
+			.prop('disabled', !a.supplier);
+		$sup.on('change', function () { $rel.prop('disabled', !this.checked); if (!this.checked) $rel.prop('checked', false); });
+		var $msg = $('<span class="plat__hint mkt-supplier-msg" role="status" style="margin-left:6px"></span>');
+		var $save = $('<button type="button" class="btn btn-xs btn-default mkt-supplier-save"></button>')
+			.text(tr('ui.js.mktSupplierSave', 'Save'));
+		$save.on('click', function () {
+			$save.prop('disabled', true);
+			$.ajax({ url: ctx() + 'platform/mkt/sellerSupplier', type: 'POST', contentType: 'application/json', dataType: 'json',
+				data: JSON.stringify({ organizationId: a.organizationId, supplier: $sup.prop('checked'),
+					stockReliable: $rel.prop('checked'), version: a.version }) })
+				.done(function (res) {
+					if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+					var d = data(res) || {};
+					a.version = d.version; a.supplier = d.supplier; a.supplierStockReliable = d.supplierStockReliable;
+					$msg.css('color', '').text(message(res, ''));
+				})
+				.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+				.always(function () { $save.prop('disabled', false); });
+		});
+		return $box
+			.append($('<label style="font-weight:normal;margin-right:10px"></label>').append($sup)
+				.append(' ' + tr('ui.js.mktSupplierOn', 'Supplier: ships its own stock to customers')))
+			.append($('<label style="font-weight:normal;margin-right:10px"></label>').append($rel)
+				.append(' ' + tr('ui.js.mktSupplierReliable', 'Its stock counts are reliable')))
+			.append($save).append($msg);
 	}
 
 	function decide(a, decision, $reason, $btn, $msg) {

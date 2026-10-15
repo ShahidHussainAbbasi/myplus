@@ -44,6 +44,8 @@ public class MarketplacePlatformSetting {
     public static final String COD_STOP_WHEN_OVERDUE = "cod.stopWhenOverdue";
     /** MKT-3a — the organisation that is the MaxTheService warehouse (sells PLATFORM stock). Empty: none. */
     public static final String WAREHOUSE_ORG = "platform.warehouseOrg";
+    /** MKT-4a — "true" while at least one seller is marked as a supplier; written by SupplierService only. */
+    public static final String SUPPLIER_STOCK = "platform.supplierStock";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

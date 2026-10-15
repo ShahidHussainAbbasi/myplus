@@ -328,7 +328,8 @@ public class MarketplaceShortageService {
         MarketplaceCheckoutService.move(np, SellerOrder.OFFERED);
         // MKT-2-06: the new seller's window follows the value of the part it is offered
         BigDecimal value = ls.stream().map(n -> n.price().multiply(BigDecimal.valueOf(n.qty()))).reduce(BigDecimal.ZERO, BigDecimal::add);
-        np.setAcceptBy(LocalDateTime.now().plusMinutes(settings.acceptMinutesFor(seller, value)));
+        boolean supplierStock = ls.stream().anyMatch(n -> com.myplus.marketplace.multiseller.domain.StockSourceType.SUPPLIER.name().equals(n.offer().getStockSourceType()));
+        np.setAcceptBy(LocalDateTime.now().plusMinutes(settings.acceptMinutesFor(seller, value, supplierStock)));
         np = sellerOrders.saveAndFlush(np);
         for (NewLine n : ls) lines.save(checkout.snapshot(np, n.offer(), n.product(), n.price(), n.qty()));
         return np;
