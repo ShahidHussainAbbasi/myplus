@@ -799,18 +799,21 @@
    "text": "Shortage responsibility by cause (merchant stale stock, supplier stale, platform sync defect, custodian count, carrier loss, customer invalid combination)",
    "unit": [
     "SellerPerformanceTest.excusedAndDisputed",
-    "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly"
+    "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly",
+    "MarketplaceOrderFlowTest.supplierOwnsItsShortage"
    ],
    "cypress": [
     "MKT-2b-01",
     "MKT-2b-07",
     "MKT-2e-03",
-    "MKT-2e-04"
+    "MKT-2e-04",
+    "MKT-4d-01"
    ],
    "manual": [
     "M-2b-01",
     "M-2b-07",
-    "M-2e-02"
+    "M-2e-02",
+    "M-4-05"
    ]
   },
   {
@@ -878,7 +881,8 @@
    "cypress": [
     "MKT-1f-04",
     "MKT-1f-05",
-    "MKT-2a-06"
+    "MKT-2a-06",
+    "MKT-4d-02"
    ],
    "manual": [
     "M-1e2-05",
@@ -907,7 +911,8 @@
     "MKT-1f-07",
     "MKT-1f-10",
     "MKT-3d-02",
-    "MKT-3d-03"
+    "MKT-3d-03",
+    "MKT-4d-02"
    ],
    "manual": [
     "M-1f-03",
@@ -1068,7 +1073,8 @@
    ],
    "cypress": [
     "MKT-1g-01",
-    "MKT-1g-06"
+    "MKT-1g-06",
+    "MKT-4d-03"
    ],
    "manual": [
     "M-1g-01",
@@ -1553,6 +1559,7 @@
    "text": "Phase 4 supplier stock: supplier API/portal, acceptance, tracking, SLA, returns, settlement · Phase 5 consignment: agreements, roles, consigned stock ledger, custodian counts, sell-through, shrinkage claims, ownership transfer, unsold return",
    "unit": [
     "SellerPerformanceTest.dispatch",
+    "MarketplaceOrderFlowTest.supplierOwnsItsShortage",
     "SupplierDispatchServiceTest.stamp",
     "SupplierDispatchServiceTest.clock",
     "SupplierDispatchServiceTest.verdict",
@@ -1565,11 +1572,15 @@
     "MKT-4b-03",
     "MKT-4b-04",
     "MKT-4b-05",
-    "MKT-4b-06"
+    "MKT-4b-06",
+    "MKT-4d-01",
+    "MKT-4d-02",
+    "MKT-4d-03"
    ],
    "manual": [
     "M-4-03",
     "M-4-04",
+    "M-4-05",
     "M-5-01"
    ]
   },

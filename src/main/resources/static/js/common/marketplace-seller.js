@@ -405,7 +405,12 @@
 			// MKT-2b: why it cannot be fulfilled — recorded against the seller (R11.4), never debited (R12.4)
 			var $cause = $('<select class="form-control input-sm mkt-reject-cause" style="margin-top:4px"></select>')
 				.attr('aria-label', tr('ui.js.mktCauseLabel', 'Cause'));
-			CAUSES.forEach(function (c) { $cause.append($('<option></option>').val(c[0]).text(tr(c[1], c[2]))); });
+			// MKT-4d: a supplier's own stock has no supplier behind it to blame
+			var ownSupply = (so.lines || []).some(function (l) { return l.line && l.line.stockSourceType === 'SUPPLIER'; });
+			CAUSES.forEach(function (c) {
+				if (ownSupply && c[0] === 'SUPPLIER_STALE_STOCK') return;
+				$cause.append($('<option></option>').val(c[0]).text(tr(c[1], c[2])));
+			});
 			$act.append($cause);
 			$('<button type="button" class="btn btn-xs btn-default mkt-reject" style="margin-top:4px"></button>')
 				.text(tr('ui.js.mktReject', 'Reject'))

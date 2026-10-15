@@ -494,3 +494,15 @@ replaces the design case of the same id, written for an outside supplier API bef
 
 No defects found.
 
+## 23. MKT-4d — a supplier answers for its own shortages, returns and settlement (run 2026-10-15)
+
+**Gate `mkt-4d-supplier-returns.cy.js`: 3 / 3** on the usual clock, after marketplace-service and the monolith were
+rebuilt with the change. Regression after the change: MKT-2b 8/8, MKT-4a 6/6, MKT-1f 12/12. Unit: 60/60 in
+`MarketplaceOrderFlowTest`.
+
+**Walk M-4-05: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+**Defect found and fixed:** a marked supplier could reject naming "My supplier could not deliver". The miss was then
+recorded with no responsible business and excused on its scorecard. Now refused by the server and not offered in the
+picker; a shop is unaffected.
+

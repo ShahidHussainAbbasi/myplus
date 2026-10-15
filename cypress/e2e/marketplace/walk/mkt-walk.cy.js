@@ -4389,4 +4389,70 @@ on('MKT manual walk — recorded', () => {
         }))
       })
   })
+  // ── MKT-4d: a supplier is its own supplier, so it cannot reject blaming one
+  const OS = {}
+  walk({ id: 'M-4-05', slice: 'MKT-4', title: 'A supplier that cannot fulfil an order names its own shop as the cause; "My supplier" is not offered',
+    persona: 'a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)',
+    reqs: ['MKT-R11.4', 'MKT-R20.5'],
+    pre: 'Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.',
+    auto: ['MKT-4d-01'] }, (step, call, cleanup) => {
+    OS.name = `Ali ${M}r`
+    OS.phone = phone(93)
+    cy.then(() => {   // the precondition: marked (M-4-01 walks that screen) and listing a phone
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: true }))
+      seedPolicies(`${run}o`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}o`, price: 48000, qty: 5,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { OS.offer = o })
+    })
+    const row = () => cy.contains(`${UI.incoming} tbody tr`, OS.order)
+    step(`Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "${'Ali ' + M + 'r'}", phone ${phone(93)}, address "1 Clifton". Press "Place order".`,
+      '"Waiting for Phone Supplier to confirm", with an order number MKT-….', () => {
+        customer()
+        cy.visit(page(`product=${OS.offer.mktProductId}&city=Karachi`))
+        buy(OS.offer.offerId, { name: OS.name, ph: OS.phone })
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for Phone Supplier to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { OS.order = no })
+      })
+    step('As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". On the order, open the "Cause" list under "Reject".',
+      'Two causes only: "Out of stock in my shop" and "MaxTheService showed the wrong stock". "My supplier could not deliver" is not offered: Phone Supplier is the supplier.', () => {
+        as(SUPPLIER)
+        openMarketplace()
+        cy.then(() => row().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-reject-cause option')).then(($o) => {
+          expect([...$o].map((x) => x.textContent)).to.deep.eq(['Out of stock in my shop', 'MaxTheService showed the wrong stock'])
+        })
+      })
+    step('Type "none left on the shelf" as the reason, keep "Out of stock in my shop", press "Reject". Then show "Rejected".',
+      'The row leaves the waiting list. Under Rejected it reads "Cause: Out of stock in my shop" and "Recorded", with a "Dispute" button.', () => {
+        cy.then(() => row().within(() => {
+          cy.get('input[placeholder="Why you cannot fulfil it"]').type('none left on the shelf')
+          cy.get('.mkt-reject-cause').select('MERCHANT_STALE_STOCK')
+          cy.get(UI.rejectBtn).click()
+        }))
+        cy.intercept('GET', '**/mkt/incomingOrders*status=REJECTED*').as('osRejected')
+        cy.get('#mktIncomingStatus').select('REJECTED', { force: true })
+        cy.wait('@osRejected')
+        cy.then(() => row().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-so-shortage')
+          .should('contain', 'Cause: Out of stock in my shop').and('contain', 'Recorded'))
+      })
+    step('Customer: open the order page again.',
+      '"Cancelled" and "The seller could not fulfil this order."', () => {
+        customer()
+        cy.visit(UI.publicPage)
+        cy.visit(page(`order=${encodeURIComponent(OS.order)}&phone=${OS.phone}`))
+        cy.location('pathname').should('eq', UI.publicPage)
+        cy.contains('The seller could not fulfil this order.').should('be.visible')
+        cy.contains('Cancelled').should('be.visible')
+      })
+    cleanup('Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save.',
+      '"Phone Supplier sells its own stock as a seller."', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+        }))
+      })
+  })
 })

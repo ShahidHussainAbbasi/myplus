@@ -190,6 +190,10 @@ public class SellerOrderService {
         if (reason.length() > 300) throw new ValidationException("Keep the reason under 300 characters.");
         com.myplus.marketplace.multiseller.entity.MarketplaceShortage.Cause cause =
                 MarketplaceShortageService.sellerCause(req == null ? null : req.cause());      // before anything changes
+        // MKT-4d: a supplier is its own supplier, so "my supplier could not deliver" would excuse its own miss (R11.4)
+        if (cause == com.myplus.marketplace.multiseller.entity.MarketplaceShortage.Cause.SUPPLIER_STALE_STOCK
+                && MarketplaceCheckoutService.supplierStock(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))
+            throw new ValidationException("You are the supplier of these items, so the stock is yours: choose \"Out of stock in my shop\".");
 
         boolean[] moving = new boolean[1];
         tx().executeWithoutResult(s -> {

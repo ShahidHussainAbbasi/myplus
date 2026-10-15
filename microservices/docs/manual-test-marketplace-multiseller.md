@@ -1624,6 +1624,22 @@
 | 5 | Customer: open the order page again. | "On its way from Phone Supplier" and "Leopards · tracking LP-W65801. Pay Rs. 47,000 in cash when it arrives." The late sentence is gone. |
 | C1 | As owner.supplier@: Sale → Orders, press "Mark DELIVERED" on the order. Operator: Marketplace sellers → Approved → Phone Supplier, untick "Supplier" and Save. | The order reads DELIVERED; "Phone Supplier sells its own stock as a seller." |
 
+### M-4-05 A supplier that cannot fulfil an order names its own shop as the cause; "My supplier" is not offered
+
+**Who:** a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)  
+**Before:** Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.  
+**Covers:** MKT-R11.4, MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4d-01
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "Ali W51167r", phone 030065116793, address "1 Clifton". Press "Place order". | "Waiting for Phone Supplier to confirm", with an order number MKT-…. |
+| 2 | As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". On the order, open the "Cause" list under "Reject". | Two causes only: "Out of stock in my shop" and "MaxTheService showed the wrong stock". "My supplier could not deliver" is not offered: Phone Supplier is the supplier. |
+| 3 | Type "none left on the shelf" as the reason, keep "Out of stock in my shop", press "Reject". Then show "Rejected". | The row leaves the waiting list. Under Rejected it reads "Cause: Out of stock in my shop" and "Recorded", with a "Dispute" button. |
+| 4 | Customer: open the order page again. | "Cancelled" and "The seller could not fulfil this order." |
+| C1 | Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save. | "Phone Supplier sells its own stock as a seller." |
+
 
 ## MKT-5
 

@@ -7483,6 +7483,57 @@
    ]
   },
   {
+   "id": "M-4-05",
+   "slice": "MKT-4",
+   "title": "A supplier that cannot fulfil an order names its own shop as the cause; \"My supplier\" is not offered",
+   "persona": "a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)",
+   "pre": "Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.",
+   "reqs": [
+    "MKT-R11.4",
+    "MKT-R20.5"
+   ],
+   "auto": [
+    "MKT-4d-01"
+   ],
+   "recordedAt": "2026-10-15T21:08:46.772Z",
+   "startedAt": "2026-10-15T21:08:12.274Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer (incognito): open the phone (Karachi), choose Phone Supplier, \"Buy\", name \"Ali W51167r\", phone 030065116793, address \"1 Clifton\". Press \"Place order\".",
+     "expect": "\"Waiting for Phone Supplier to confirm\", with an order number MKT-….",
+     "shot": "shots/M-4-05/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.supplier@myplus.com: Sale → Marketplace → \"Incoming marketplace orders\". On the order, open the \"Cause\" list under \"Reject\".",
+     "expect": "Two causes only: \"Out of stock in my shop\" and \"MaxTheService showed the wrong stock\". \"My supplier could not deliver\" is not offered: Phone Supplier is the supplier.",
+     "shot": "shots/M-4-05/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Type \"none left on the shelf\" as the reason, keep \"Out of stock in my shop\", press \"Reject\". Then show \"Rejected\".",
+     "expect": "The row leaves the waiting list. Under Rejected it reads \"Cause: Out of stock in my shop\" and \"Recorded\", with a \"Dispute\" button.",
+     "shot": "shots/M-4-05/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Customer: open the order page again.",
+     "expect": "\"Cancelled\" and \"The seller could not fulfil this order.\"",
+     "shot": "shots/M-4-05/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Operator: Marketplace sellers → Phone Supplier, untick \"Supplier\" and Save.",
+     "expect": "\"Phone Supplier sells its own stock as a seller.\"",
+     "shot": "shots/M-4-05/c01.jpg"
+    }
+   ]
+  },
+  {
    "id": "M-5-01",
    "slice": "MKT-5",
    "title": "Consignment: owner and holder are different",

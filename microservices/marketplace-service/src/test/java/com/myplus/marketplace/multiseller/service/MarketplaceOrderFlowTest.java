@@ -1042,6 +1042,21 @@ class MarketplaceOrderFlowTest {
     }
 
     @Test
+    @DisplayName("[MKT-R11.4] [MKT-R20.5] MKT-4d: a supplier cannot blame its supplier for its own supplier stock; its own cause is recorded against it")
+    void supplierOwnsItsShortage() {
+        checkout.checkout(req("s4d"));
+        lineTable.forEach(l -> l.setStockSourceType("SUPPLIER"));                 // the order was of supplier stock
+        MarketplaceSellerOrder a = part(SELLER);
+        assertThatThrownBy(() -> sellerSide.reject(a.getId(), new MarketplaceOrderDTOs.RejectRequest(a.getVersion(), "none left", "SUPPLIER_STALE_STOCK")))
+                .hasMessage("You are the supplier of these items, so the stock is yours: choose \"Out of stock in my shop\".");
+        assertThat(a.getAcceptanceStatus()).isEqualTo("OFFERED");
+        sellerSide.reject(a.getId(), new MarketplaceOrderDTOs.RejectRequest(a.getVersion(), "none left", "MERCHANT_STALE_STOCK"));
+        var sh = shortageOf(a);
+        assertThat(sh.getResponsibleRole()).isEqualTo("MERCHANT");
+        assertThat(sh.getResponsibleOrgId()).isEqualTo(SELLER);
+    }
+
+    @Test
     @DisplayName("[MKT-R11.1] [MKT-R11.3] same product, cheaper and no later: moved to the other seller without asking; a card gets the difference back")
     void silentReassign() {
         rerouteTo("51500", 4);
