@@ -144,6 +144,22 @@ public class SellController {
         }
     }
 
+    /** SRA-4c: the sale report as Excel — raw passthrough (bytes), every filter riding in the query string, like the CSV. */
+    @RequestMapping(value = "/saleReport.xlsx", method = {RequestMethod.GET, RequestMethod.POST})
+    public org.springframework.http.ResponseEntity<byte[]> saleReportXlsx(final HttpServletRequest request) {
+        try {
+            String qs = request.getQueryString();
+            org.springframework.http.ResponseEntity<byte[]> r = client.getBytes("/saleReport.xlsx", qs == null ? "" : qs);
+            return org.springframework.http.ResponseEntity.status(r.getStatusCode())
+                    .header("Content-Disposition", "attachment; filename=\"sale-report.xlsx\"")
+                    .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    .body(r.getBody());
+        } catch (Exception e) {
+            LOGGER.error("saleReport.xlsx proxy error", e);
+            return org.springframework.http.ResponseEntity.status(502).body("Could not build the report.".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
     @RequestMapping(value = "/loadSR", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> loadSR(final SellDTO dto, final HttpServletRequest request) {

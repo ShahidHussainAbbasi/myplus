@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<!--
+  HC-1c (2026-10-15) — the clinic ↔ pharmacy link (two separate businesses). Owner / admin only; auth-service decides
+  everything (/api/auth/links). Driven by /js/common/org-links.js. Design: slices/hc-1cd-clinic-pharmacy-link.md.
+-->
+
+<!-- The PHARMACY's side: Pharmacy → Linked clinics. -->
+<div th:fragment="pharmacy" id="LinkedClinicsDiv" class="formDiv" style="display:none"
+     sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+	<h3 class="dash-page-title" th:text="#{ui.lc.title}">Linked clinics</h3>
+	<div id="lcMsg" class="alert" role="status" style="display:none"></div>
+	<div class="checkbox" style="margin:6px 0 4px">
+		<label><input type="checkbox" id="lcAccept"/> <strong th:text="#{ui.lc.accept}">Clinics may send us prescriptions</strong></label>
+	</div>
+	<p class="text-muted" th:text="#{ui.lc.acceptHelp}">When this is on, a clinic can find this pharmacy by its name and ask to link. Nothing is shared until you accept — and then only the prescriptions a clinic's doctors send here.</p>
+	<table class="table table-bordered" id="lcLinks">
+		<thead><tr><th th:text="#{ui.lc.clinic}">Clinic</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.lc.since}">Since</th><th></th></tr></thead>
+		<tbody></tbody>
+	</table>
+</div>
+
+<!-- The CLINIC's side: Linked pharmacy. -->
+<section th:fragment="clinic" id="PharmacyLinkDiv" class="formDiv" style="display:none"
+         sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+	<div class="clin-card">
+		<h3 th:text="#{ui.pl.title}">Linked pharmacy</h3>
+		<div id="plMsg" class="alert" role="status" style="display:none"></div>
+		<p id="plStatus" class="clin-help"><span th:text="#{ui.pl.none}">No pharmacy linked.</span></p>
+		<div id="plFindWrap">
+			<p class="clin-help" th:text="#{ui.pl.help}">Find your pharmacy by its name. Only pharmacies that accept clinics are listed; your doctors can send them prescriptions once they accept.</p>
+			<div class="input-group" style="max-width:520px">
+				<input type="search" id="plSearch" class="form-control" autocomplete="off" th:placeholder="#{ui.pl.searchPh}" placeholder="Pharmacy name"/>
+				<span class="input-group-btn"><button type="button" id="plFind" class="btn btn-primary" th:text="#{ui.pl.find}">Find</button></span>
+			</div>
+			<table class="table table-bordered" id="plResults" style="margin-top:12px;max-width:720px"><tbody></tbody></table>
+		</div>
+		<button type="button" id="plEnd" class="btn btn-default" style="display:none" th:text="#{ui.link.end}">End link</button>
+	</div>
+</section>
+</body>
+</html>

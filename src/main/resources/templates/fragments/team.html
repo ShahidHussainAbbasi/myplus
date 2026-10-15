@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<!--
+  HC-1b (2026-10-15) — Team & Users, ONE copy for every product: the shop (businessDashboard), the school
+  (educationDashboard) and the clinic (clinicDashboard). It was two hand-kept copies with the same ids, and a clinic
+  would have made three. /js/common/team.js and /js/common/permissions.js drive it unchanged.
+
+  vertical: 'shop' | 'school' | 'clinic' — the words, and two behaviours:
+    · locations: a shop assigns stores, a school branches; a clinic assigns none (no #teamStores → team.js skips
+      the picker and the column).
+    · "Sees": a school's is FIXED to ALL and hidden (see the note on it below); a shop and a clinic choose.
+-->
+<div th:fragment="team(vertical)" id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none"
+     th:with="school=${vertical == 'school'}, clinic=${vertical == 'clinic'}">
+	<h3 class="dash-page-title" th:text="#{ui.teamAndUsers}">Team &amp; Users</h3>
+	<div id="teamMsg" class="alert" style="display:none"></div>
+	<!-- .form-toolbar (see /css/responsive.css): wraps as a unit at every width. The plain 12-column
+	     .row put the Add button in a col-sm-1 — 64px on a tablet, which clipped its label. -->
+	<div class="row form-toolbar" style="margin-bottom:14px">
+		<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name" th:placeholder="#{ui.firstName}"/></div>
+		<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name" th:placeholder="#{ui.lastName}"/></div>
+		<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email" th:placeholder="#{ui.email}"/></div>
+		<div class="col-sm-2">
+			<select id="teamRole" class="form-control">
+				<option value="USER" th:text="${school} ? #{ui.teacher} : #{ui.user}">User</option>
+				<!-- Only an owner may create an admin (server-enforced) — so don't offer an admin a
+				     choice that can only fail. -->
+				<option value="ADMIN" sec:authorize="hasAuthority('ROLE_OWNER')" th:text="${school} ? #{ui.adminPrincipal} : #{ui.admin}">Admin</option>
+			</select>
+		</div>
+		<div class="col-sm-1">
+			<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()" th:text="#{ui.add}">Add</button>
+		</div>
+	</div>
+	<div class="row" style="margin-bottom:14px" th:unless="${clinic}">
+		<div class="col-sm-6">
+			<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block"
+			       th:text="${school} ? #{ui.assignToBranchEs} : #{ui.assignToStoreS}">Assign to store(s)</label>
+			<!-- Toggle-chip picker (see /js/common/team.js) — replaces a ctrl+click <select multiple>. -->
+			<div id="teamStores" class="locpick"></div>
+		</div>
+	</div>
+	<!--
+		PERM-1 — the permission matrix. OWNER ONLY, and that is not a nicety: if an admin could edit
+		sets, an admin holding team.edit could grant themselves finance (or fees). Only the owner grants, and the
+		owner already holds everything, so there is nothing to escalate to. Owner-gated in the MARKUP: for an admin
+		the block is not in the DOM at all, so permissions.js has nothing to fill.
+	-->
+	<div id="permWrap" sec:authorize="hasAuthority('ROLE_OWNER')" th:attr="data-scope-fixed=${school} ? 'ALL' : null" style="margin:22px 0 26px">
+		<h4 class="dash-sub-title" th:text="#{ui.permissions}">Permissions</h4>
+		<div id="permMsg" class="alert" style="display:none"></div>
+
+		<div class="perm-bar">
+			<div class="perm-field">
+				<label th:text="#{ui.permissionSet}">Permission set</label>
+				<select id="permSetPicker" class="form-control"></select>
+			</div>
+			<div class="perm-field">
+				<label th:text="#{ui.name}">Name</label>
+				<input id="permSetName" class="form-control" maxlength="64"/>
+			</div>
+			<!-- WHICH ROWS, not which actions. A different question from the matrix, so a control of its own.
+			     ⚠ FIXED AND HIDDEN FOR A SCHOOL, not removed: `scope` means "rows this member CREATED", and a teacher
+			     created none of the student records — OWN would show a teacher an empty screen. AuthService mints
+			     EDUCATION as scope.ALL regardless (rowScopedTenant is false for it). It stays in the DOM because
+			     savePermissionSet() reads its value. -->
+			<div class="perm-field" th:style="${school} ? 'display:none' : null">
+				<label th:text="#{ui.sees}">Sees</label>
+				<select id="permScope" class="form-control">
+					<option th:unless="${school}" value="OWN" th:text="#{ui.onlyOwnRecords}">Only their own records</option>
+					<option value="ALL" th:attr="selected=${school} ? 'selected' : null"
+					        th:text="${school} ? #{ui.allRecordsInSchool} : (${clinic} ? #{ui.allRecordsInClinic} : #{ui.allRecordsInShop})">All records in this shop</option>
+				</select>
+			</div>
+			<div class="perm-actions">
+				<button type="button" id="permSave" class="btn btn-success" onclick="savePermissionSet()"
+				        th:text="#{ui.save}">Save</button>
+				<button type="button" class="btn btn-default" onclick="duplicatePermissionSet()"
+				        th:text="#{ui.duplicate}">Duplicate</button>
+			</div>
+		</div>
+
+		<div id="permBuiltinNote" class="perm-builtin" style="display:none"
+		     th:text="#{ui.builtinSetNote}">This is a built-in set and cannot be changed. Duplicate it and edit the copy.</div>
+
+		<!-- A PLAIN table, deliberately: twelve rows do not need paging, and a DataTable rebuilds its
+		     cells on every draw, which wipes checkbox state on a sort or a search. -->
+		<div class="table-responsive">
+			<table id="permMatrix" class="table perm-matrix">
+				<thead>
+					<tr>
+						<th th:text="#{ui.area}">Area</th>
+						<th th:text="#{ui.view}">View</th>
+						<th th:text="#{ui.create}">Create</th>
+						<th th:text="#{ui.edit}">Edit</th>
+						<th th:text="#{ui.delete}">Delete</th>
+						<th th:text="#{ui.special}">Special</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<div id="permNote" class="perm-note" style="display:none"></div>
+
+		<!-- The preview. A matrix is abstract; a sidebar is not. -->
+		<div class="perm-preview">
+			<div class="perm-preview__cap" th:text="#{ui.whatTheyWillSee}">What they will see</div>
+			<div id="permPreviewOn" class="perm-preview__nav"></div>
+			<div id="permPreviewScope" class="perm-preview__scope"></div>
+			<div id="permPreviewOff" class="perm-preview__off"></div>
+		</div>
+	</div>
+
+	<!-- One header per column team.js draws: the location column only where there is a picker, and the
+	     permission-set column wherever the owner's matrix is (team.js asks for #permWrap). The school's copy
+	     lacked this header while team.js drew the cell, so its rows ran one column past the header. -->
+	<table id="tableTeam" class="table table-bordered table-striped">
+		<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.email}">Email</th><th th:text="#{ui.role}">Role</th><th th:text="#{ui.status}">Status</th><th th:unless="${clinic}" th:text="${school} ? #{ui.branches} : #{ui.stores}">Stores</th><th sec:authorize="hasAuthority('ROLE_OWNER')" th:text="#{ui.permissionSet}">Permission set</th><th></th></tr></thead>
+		<tbody></tbody>
+	</table>
+</div>
+</body>
+</html>

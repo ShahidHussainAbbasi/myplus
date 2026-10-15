@@ -133,24 +133,69 @@
 
 		// B2B-P3e-2 (#6): group-by lives in the SHARED rail too — every report that gains grouping inherits
 		// the same control and the same value name (groupBy) the backend binds.
-		var groupBy = null;
+		var groupBy = null, thenBy = [], splitBy = null;
+		var GROUPINGS = null;
 		if (dims.indexOf('groupBy') !== -1) {
 			groupBy = select('rfGroupBy', t('ui.js.noGrouping'));
-			[['DAY','ui.js.groupDay'],['MONTH','ui.js.groupMonth'],['CUSTOMER','ui.js.groupCustomer'],
+			GROUPINGS = [['DAY','ui.js.groupDay'],['MONTH','ui.js.groupMonth'],['CUSTOMER','ui.js.groupCustomer'],
 			 ['PRODUCT','ui.js.groupProduct'],['CATEGORY','ui.js.groupCategory'],
 			 ['COMPANY','ui.js.groupCompany'],['CHANNEL','ui.js.groupChannel'],
 			 // SRA-4a — offered only where the page asks for the rep dimensions (the sale report).
 			 ].concat(dims.indexOf('rep') === -1 ? [] : [
 			 ['REP','ui.js.groupRep'],['SOURCE','ui.js.groupSource'],['KEYED_BY','ui.js.groupKeyedBy'],
-			 ['AREA','ui.js.groupArea'],['CITY','ui.js.groupCity'],['SUPPLIER','ui.js.groupSupplier']])
-				.forEach(function(pair){
+			 ['AREA','ui.js.groupArea'],['CITY','ui.js.groupCity'],['SUPPLIER','ui.js.groupSupplier']]);
+			var fillGroupings = function (sel) {
+				GROUPINGS.forEach(function(pair){
 					var o = document.createElement('option');
 					o.value = pair[0];
 					o.textContent = t(pair[1]);
-					groupBy.appendChild(o);
+					sel.appendChild(o);
 				});
+			};
+			fillGroupings(groupBy);
 			host.appendChild(field(t('ui.js.groupBy'), groupBy));
 			ids.groupBy = 'rfGroupBy';
+
+			/*
+			 * SRA-4b — "then by" (up to four levels, Odoo-style) and one COLUMN split, on the sale report only. Each
+			 * "then by" is shown once the level above it is chosen, and a level already used is not offered again —
+			 * the server ignores a repeat, but a picker offering one invites a question nobody can answer.
+			 */
+			if (dims.indexOf('rep') !== -1) {
+				[2, 3, 4].forEach(function (n) {
+					var sel = select('rfGroupBy' + n, t('ui.js.thenByNothing'));
+					fillGroupings(sel);
+					var f = field(t('ui.js.thenBy'), sel);
+					f.setAttribute('data-then-by', String(n));
+					f.style.display = 'none';
+					host.appendChild(f);
+					thenBy.push(sel);
+				});
+				splitBy = select('rfSplitBy', t('ui.js.noColumnSplit'));
+				fillGroupings(splitBy);
+				host.appendChild(field(t('ui.js.columnsBy'), splitBy));
+				ids.splitBy = 'rfSplitBy';
+			}
+		}
+
+		/** SRA-4b: show each "then by" only under a chosen level; clear the ones below a cleared level. */
+		function syncThenBy() {
+			var chain = [groupBy].concat(thenBy), used = [];
+			for (var i = 1; i < chain.length; i++) {
+				var above = chain[i - 1], me = chain[i];
+				// The FIELD, not parentNode: bootstrap-select wraps the select, so its parent is the widget, and hiding that
+				// would leave the label standing over nothing.
+				var fieldOf = function (sel) { return sel.closest('.sr-field') || sel.parentNode; };
+				var show = !!(above && above.value) && fieldOf(above).style.display !== 'none';
+				if (above && above.value) used.push(above.value);
+				fieldOf(me).style.display = show ? '' : 'none';
+				if (!show && me.value) { me.value = ''; refreshPicker(me); }
+				Array.prototype.forEach.call(me.options, function (o) { o.disabled = !!o.value && used.indexOf(o.value) !== -1; });
+				refreshPicker(me);
+			}
+		}
+		function refreshPicker(sel) {
+			if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect(sel);
 		}
 
 		var customer = add('customer', 'rfCustomer', t('ui.js.allCustomers'));
@@ -241,7 +286,10 @@
 				category    : category && category.value ? category.value : '',
 				manufacturer: company  && company.value  ? company.value  : '',
 				customerType: channel  && channel.value  ? channel.value  : '',
-				groupBy     : groupBy  && groupBy.value  ? groupBy.value  : '',
+				// SRA-4b: the levels as one comma list ("REP,AREA,PRODUCT") — one name is today's single grouping.
+				groupBy     : [groupBy].concat(thenBy).filter(function (s) { return s && s.value; })
+				                .map(function (s) { return s.value; }).join(','),
+				splitBy     : splitBy  && splitBy.value  ? splitBy.value  : '',
 				// SRA-4a — the names loadSR binds (SellDTO).
 				repId       : rep      && rep.value      ? rep.value      : '',
 				saleSource  : source   && source.value   ? source.value   : '',
@@ -263,14 +311,37 @@
 			host.appendChild(field(' ', exportLink));
 		}
 
+		// SRA-4c — the same report as an Excel workbook (built by the server from the same answer) and as a PDF (built here
+		// from what is on screen). Offered only where the page asks for them (the sale report).
+		var xlsxLink = null;
+		if (typeof opts.exportXlsxUrl === 'function') {
+			xlsxLink = document.createElement('a');
+			xlsxLink.id = 'rfExportXlsx';
+			xlsxLink.className = 'btn btn-default';
+			xlsxLink.textContent = t('ui.js.exportExcel');
+			xlsxLink.setAttribute('href', opts.exportXlsxUrl(values()));
+			host.appendChild(field(' ', xlsxLink));
+		}
+		if (typeof opts.onExportPdf === 'function') {
+			var pdfBtn = document.createElement('button');
+			pdfBtn.type = 'button';
+			pdfBtn.id = 'rfExportPdf';
+			pdfBtn.className = 'btn btn-default';
+			pdfBtn.textContent = t('ui.js.reportPdf');
+			pdfBtn.addEventListener('click', function () { opts.onExportPdf(values()); });
+			host.appendChild(field(' ', pdfBtn));
+		}
+
 		function refreshExport() {
 			if (exportLink && typeof opts.exportUrl === 'function') {
 				exportLink.setAttribute('href', opts.exportUrl(values()));
 			}
+			if (xlsxLink) xlsxLink.setAttribute('href', opts.exportXlsxUrl(values()));
 		}
 
-		[customer, product, category, channel, groupBy, rep, source, area, city, supplier, bonus].forEach(function (s) {
+		[customer, product, category, channel, groupBy, rep, source, area, city, supplier, bonus, splitBy].concat(thenBy).forEach(function (s) {
 			if (s) s.addEventListener('change', function () {
+				if (s === groupBy || thenBy.indexOf(s) !== -1) syncThenBy();   // SRA-4b
 				refreshExport();                       // the file must always match what is on screen
 				if (typeof opts.onApply === 'function') opts.onApply(values());
 			});

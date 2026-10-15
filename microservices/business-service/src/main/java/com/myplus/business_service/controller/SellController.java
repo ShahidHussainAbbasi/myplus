@@ -109,7 +109,10 @@ public class SellController {
 	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line display fields from catalog
 
 	@Autowired
-	com.myplus.business_service.service.SaleReportDimensions reportDimensions;   // SRA-4a: rep / area / supplier / bonus + who sees which rows
+	com.myplus.business_service.service.SaleReportDimensions reportDimensions;
+
+	@Autowired
+	com.myplus.business_service.service.InvoiceLinesCache invoiceLines;   // INV-CACHE: a printed invoice's lines, cache-aside   // SRA-4a: rep / area / supplier / bonus + who sees which rows
 
 	/**
 	 * M4d (slice 94): batch-resolve catalog ProductRef by productId for the read screens (name/sku/description),
@@ -745,8 +748,10 @@ public class SellController {
 			if (!seesAllOrg() && ch.getUserId() != null && !ch.getUserId().equals(userId()))
 				return new GenericResponse("NOT_FOUND", "Invoice not found");           // role-aware
 
-			List<Sell> lines = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
-			if (appUtil.isEmptyOrNull(lines)) return new GenericResponse("NOT_FOUND", "No line items found");
+			// INV-CACHE: the LINES (with catalog names, batches, store credit) come from a cache-aside per invoice, evicted by every
+			// writer of a sale line or payment after commit (InvoiceLinesEvictor). The header below — every money figure — is live.
+			com.myplus.business_service.service.InvoiceLinesCache.Lines core = invoiceLines.get(orgId(), ch.getCustomer_history_id(), () -> buildReceiptLines(ch));
+			if (core == null || appUtil.isEmptyOrNull(core.sales())) return new GenericResponse("NOT_FOUND", "No line items found");
 
 			CustomerHistoryDTO out = new CustomerHistoryDTO();
 			out.setCustomer_history_id(ch.getCustomer_history_id());
@@ -768,9 +773,7 @@ public class SellController {
 			if (ch.getCustomer() != null) out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 
 			// SF-5 Model B: store credit applied on this sale (Σ STORE_CREDIT tenders) — printed on the receipt.
-			out.setStoreCreditApplied(paymentService.forInvoice(ch.getCustomer_history_id()).stream()
-					.filter(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT)
-					.map(p -> nzbd(p.getAmount())).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+			out.setStoreCreditApplied(core.storeCreditApplied());
 
 			var ts = taxService.settingsFor(orgId());                                  // tax label/reg-no for the header
 			out.setTaxLabel(ts.getTaxLabel());
@@ -865,47 +868,61 @@ public class SellController {
 				LOGGER.error("Could not attach a document layout to invoice {}", ch.getInvoiceNo(), e);
 			}
 
-			// M4d (slice 94): line names from catalog ProductRef (a printed receipt needs no itemId) — no Item load.
-			java.util.List<Long> sagaProductIds = lines.stream()
-					.filter(s -> s.getProductId() != null)
-					.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
-			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
-			// B2B-P3b-2 (#4): every batch for every line of this invoice in ONE query, then grouped in
-			// memory. A per-line query would put N round trips on a receipt print.
-			java.util.Map<Long, java.util.List<com.myplus.business_service.dto.SellBatchDTO>> batchesBySell =
-					new java.util.HashMap<>();
-			try {
-				java.util.List<Long> sellIds = lines.stream().map(Sell::getSellId)
-						.filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
-				if (!sellIds.isEmpty()) {
-					for (com.myplus.business_service.entity.SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
-						batchesBySell.computeIfAbsent(b.getSellId(), k -> new java.util.ArrayList<>())
-								.add(new com.myplus.business_service.dto.SellBatchDTO(
-										b.getBatchNo(), b.getExpiryDate(), b.getQuantity(), b.getUnitCost()));
-					}
-				}
-			} catch (Exception e) {
-				// Traceability is decoration ON a receipt, never a reason to fail printing one.
-				LOGGER.error("Could not load batch traceability for invoice {}", ch.getInvoiceNo(), e);
-			}
 			out.setBalanceAfter(ch.getBalanceAfter());
-
-			List<SellDTO> sales = new java.util.ArrayList<>();
-			for (Sell s : lines) {
-				SellDTO sd = saleScreenMapper.toDto(s);
-				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
-				// B2B-P3g: `packing` is the catalog product's existing unit — the ProductRef is already loaded
-				// here for the line name, so the trade invoice's Packing column costs no extra query.
-				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); sd.setPacking(p.getUnit()); }
-				sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
-				sales.add(sd);
-			}
-			out.setSales(sales);
+			out.setSales(core.sales());
 			return new GenericResponse("SUCCESS", "Receipt loaded", out);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getReceipt " + e.getMessage(), e);
 			return new GenericResponse("ERROR", "Could not load the receipt.");
 		}
+	}
+
+	/**
+	 * INV-CACHE — the cacheable part of a printed invoice: its lines (catalog name, SKU, packing, batches) and the store
+	 * credit applied. Reads the database and catalog-service; called on a cache miss only (InvoiceLinesCache).
+	 */
+	private com.myplus.business_service.service.InvoiceLinesCache.Lines buildReceiptLines(CustomerHistory ch) {
+		List<Sell> lines = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId());
+		if (appUtil.isEmptyOrNull(lines)) return new com.myplus.business_service.service.InvoiceLinesCache.Lines(java.util.List.of(), java.math.BigDecimal.ZERO);
+		java.math.BigDecimal storeCredit = paymentService.forInvoice(ch.getCustomer_history_id()).stream()
+				.filter(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT)
+				.map(p -> nzbd(p.getAmount())).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+		// M4d (slice 94): line names from catalog ProductRef (a printed receipt needs no itemId) — no Item load.
+		java.util.List<Long> sagaProductIds = lines.stream()
+				.filter(s -> s.getProductId() != null)
+				.map(Sell::getProductId).distinct().collect(java.util.stream.Collectors.toList());
+		java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
+		// B2B-P3b-2 (#4): every batch for every line of this invoice in ONE query, then grouped in
+		// memory. A per-line query would put N round trips on a receipt print.
+		java.util.Map<Long, java.util.List<com.myplus.business_service.dto.SellBatchDTO>> batchesBySell =
+				new java.util.HashMap<>();
+		try {
+			java.util.List<Long> sellIds = lines.stream().map(Sell::getSellId)
+					.filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
+			if (!sellIds.isEmpty()) {
+				for (com.myplus.business_service.entity.SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
+					batchesBySell.computeIfAbsent(b.getSellId(), k -> new java.util.ArrayList<>())
+							.add(new com.myplus.business_service.dto.SellBatchDTO(
+									b.getBatchNo(), b.getExpiryDate(), b.getQuantity(), b.getUnitCost()));
+				}
+			}
+		} catch (Exception e) {
+			// Traceability is decoration ON a receipt, never a reason to fail printing one.
+			LOGGER.error("Could not load batch traceability for invoice {}", ch.getInvoiceNo(), e);
+		}
+
+		List<SellDTO> sales = new java.util.ArrayList<>();
+		for (Sell s : lines) {
+			SellDTO sd = saleScreenMapper.toDto(s);
+			com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
+			// B2B-P3g: `packing` is the catalog product's existing unit — the ProductRef is already loaded
+			// here for the line name, so the trade invoice's Packing column costs no extra query.
+			if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); sd.setPacking(p.getUnit()); }
+			sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
+			sales.add(sd);
+		}
+
+		return new com.myplus.business_service.service.InvoiceLinesCache.Lines(java.util.Collections.unmodifiableList(sales), storeCredit);
 	}
 
 	@RequestMapping(value = "/loadSR", method = RequestMethod.POST)
@@ -1048,11 +1065,14 @@ public class SellController {
 			// same query — one round trip, and the two views cannot disagree because they are the same rows.
 			// Aggregates the FILTERED rows, so narrowing the report narrows its subtotals too.
 			// An unrecognised groupBy simply means ungrouped; a stale bookmark must not fail a report.
-			com.myplus.business_service.dto.SaleReportGrouping grouping =
-					com.myplus.business_service.dto.SaleReportGrouping.from(dto.getGroupBy());
+			// SRA-4b: groupBy is a comma list of up to four levels ("REP,AREA,PRODUCT"); one name is today's grouping.
+			// splitBy cuts every group the other way (one column per value). Both over the SAME filtered rows.
+			java.util.List<com.myplus.business_service.dto.SaleReportGrouping> levels =
+					com.myplus.business_service.dto.SaleReportGrouping.levels(dto.getGroupBy());
 			GenericResponse ok = new GenericResponse("SUCCESS",
 					messages.getMessage("message.userNotFound", null, request.getLocale()), reportRows);
-			if (grouping != null) ok.setObject(grouping.aggregate(reportRows));
+			if (!levels.isEmpty()) ok.setObject(com.myplus.business_service.dto.SaleReportGrouping.tree(reportRows, levels,
+					com.myplus.business_service.dto.SaleReportGrouping.from(dto.getSplitBy())));
 			return ok;
 		} catch (Exception e) {
 			appUtil.le(this.getClass(),e);
@@ -1082,27 +1102,16 @@ public class SellController {
 
 			// B2B-P3e-2 (#6): if the screen is grouped, the file is grouped. A grouped screen with a
 			// detail-level export would hand the customer a different document from the one they can see.
-			com.myplus.business_service.dto.SaleReportGrouping grouping =
-					com.myplus.business_service.dto.SaleReportGrouping.from(dto.getGroupBy());
-			if (grouping != null) {
-				java.util.List<java.util.List<?>> grouped = new java.util.ArrayList<>();
+			java.util.List<com.myplus.business_service.dto.SaleReportGrouping> levels =
+					com.myplus.business_service.dto.SaleReportGrouping.levels(dto.getGroupBy());
+			if (!levels.isEmpty()) {
+				com.myplus.business_service.dto.SaleReportGrouping split =
+						com.myplus.business_service.dto.SaleReportGrouping.from(dto.getSplitBy());
+				java.util.List<com.myplus.business_service.dto.SaleReportGroup> tree = new java.util.ArrayList<>();
 				Object obj = resp != null ? resp.getObject() : null;
-				if (obj instanceof java.util.List) {
-					for (Object o : (java.util.List<?>) obj) {
-						if (!(o instanceof com.myplus.business_service.dto.SaleReportGroup)) continue;
-						com.myplus.business_service.dto.SaleReportGroup g =
-								(com.myplus.business_service.dto.SaleReportGroup) o;
-						// SRA-4a: a group with no name is a CODE (NOT_RECORDED, NO_REP, COUNTER …) — written as the code, stable
-						// for a spreadsheet to filter on. New columns go LAST so a file someone already reads keeps its places.
-						grouped.add(java.util.Arrays.asList(g.getLabel() != null ? g.getLabel() : g.getLabelCode(),
-								g.getInvoices(), com.myplus.business_service.util.Quantities.plain(g.getQuantity()),   // NUM-1: 2, not 2.0000
-								g.getTotal(), g.getTax(), g.getGross(),
-								com.myplus.business_service.util.Quantities.plain(g.getBonusQuantity()), g.getBonusValue()));
-					}
-				}
-				String groupedCsv = com.myplus.common.imports.CsvWriter.write(
-						java.util.Arrays.asList(grouping.name(), "Invoices", "Qty", "Total", "Tax", "Gross", "Bonus qty", "Bonus value"),
-						grouped);
+				if (obj instanceof java.util.List) for (Object o : (java.util.List<?>) obj)
+					if (o instanceof com.myplus.business_service.dto.SaleReportGroup) tree.add((com.myplus.business_service.dto.SaleReportGroup) o);
+				String groupedCsv = com.myplus.business_service.dto.SaleReportCsv.grouped(tree, levels, split);
 				return org.springframework.http.ResponseEntity.ok()
 						.header("Content-Disposition", "attachment; filename=\"sale-report.csv\"")
 						.header("Content-Type", "text/csv; charset=UTF-8")
@@ -1137,6 +1146,71 @@ public class SellController {
 			appUtil.le(this.getClass(), e);
 			return org.springframework.http.ResponseEntity.status(400).body("Could not build the report.");
 		}
+	}
+
+	/**
+	 * SRA-4c — the sale report as an Excel workbook (design §7.3): built from {@link #loadSR} itself, exactly like the CSV,
+	 * so the file cannot disagree with the screen — same scoping (who may see which rows), same filters, same grouping.
+	 * Grouped: the tree with Excel's own outline; ungrouped: the detail lines. Money and quantities are numbers.
+	 */
+	@RequestMapping(value = "/saleReport.xlsx", method = {RequestMethod.GET, RequestMethod.POST})
+	public org.springframework.http.ResponseEntity<byte[]> saleReportXlsx(final SellDTO dto, final HttpServletRequest request) {
+		try {
+			GenericResponse resp = loadSR(dto, request);
+			java.util.Map<String, String> about = reportAbout(dto);
+			java.util.List<com.myplus.business_service.dto.SaleReportGrouping> levels =
+					com.myplus.business_service.dto.SaleReportGrouping.levels(dto.getGroupBy());
+			byte[] file;
+			if (!levels.isEmpty()) {
+				java.util.List<com.myplus.business_service.dto.SaleReportGroup> tree = new java.util.ArrayList<>();
+				Object obj = resp != null ? resp.getObject() : null;
+				if (obj instanceof java.util.List) for (Object o : (java.util.List<?>) obj)
+					if (o instanceof com.myplus.business_service.dto.SaleReportGroup) tree.add((com.myplus.business_service.dto.SaleReportGroup) o);
+				file = com.myplus.business_service.dto.SaleReportXlsx.grouped(about, tree, levels,
+						com.myplus.business_service.dto.SaleReportGrouping.from(dto.getSplitBy()));
+			} else {
+				java.util.List<SellDTO> rows = new java.util.ArrayList<>();
+				Object coll = resp != null ? resp.getCollection() : null;
+				if (coll instanceof java.util.List) for (Object o : (java.util.List<?>) coll) if (o instanceof SellDTO) rows.add((SellDTO) o);
+				file = com.myplus.business_service.dto.SaleReportXlsx.detail(about, rows);
+			}
+			return org.springframework.http.ResponseEntity.ok()
+					.header("Content-Disposition", "attachment; filename=\"sale-report.xlsx\"")
+					.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+					.body(file);
+		} catch (Exception e) {
+			appUtil.le(this.getClass(), e);
+			return org.springframework.http.ResponseEntity.status(400).body("Could not build the report.".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		}
+	}
+
+	/** SRA-4c — what a downloaded report is about, for its header: the period's DATES, every filter set, the grouping. */
+	private java.util.Map<String, String> reportAbout(SellDTO dto) {
+		java.util.Map<String, String> about = new java.util.LinkedHashMap<>();
+		com.myplus.business_service.dto.SaleReportPeriod period = com.myplus.business_service.dto.SaleReportPeriod.from(
+				dto.getRp(), !appUtil.isEmptyOrNull(dto.getSd()) || !appUtil.isEmptyOrNull(dto.getEd()));
+		java.time.LocalDate[] days = period.days(TenantClock.today());
+		about.put("Period", days != null
+				? days[0].format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")) + " to "
+					+ days[1].format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+				: (appUtil.isEmptyOrNull(dto.getSd()) ? "…" : dto.getSd()) + " to " + (appUtil.isEmptyOrNull(dto.getEd()) ? "…" : dto.getEd()));
+		java.util.List<String> f = new java.util.ArrayList<>();
+		if (dto.getCustomerId() != null) f.add("Customer #" + dto.getCustomerId());
+		if (dto.getProductId() != null) f.add("Product #" + dto.getProductId());
+		if (!appUtil.isEmptyOrNull(dto.getCategory())) f.add("Category " + dto.getCategory());
+		if (!appUtil.isEmptyOrNull(dto.getManufacturer())) f.add("Company " + dto.getManufacturer());
+		if (!appUtil.isEmptyOrNull(dto.getCustomerType())) f.add("Channel " + dto.getCustomerType());
+		if (dto.getRepId() != null) f.add(dto.getRepId() == 0L ? "No rep" : "Rep #" + dto.getRepId());
+		if (!appUtil.isEmptyOrNull(dto.getSaleSource())) f.add("Source " + dto.getSaleSource());
+		if (dto.getAreaId() != null) f.add(dto.getAreaId() == 0L ? "No area" : "Area #" + dto.getAreaId());
+		if (dto.getCityId() != null) f.add("City #" + dto.getCityId());
+		if (dto.getSupplierId() != null) f.add(dto.getSupplierId() == 0L ? "No supplier" : "Supplier #" + dto.getSupplierId());
+		if (!appUtil.isEmptyOrNull(dto.getBonus())) f.add("Bonus " + dto.getBonus());
+		about.put("Filters", f.isEmpty() ? "none" : String.join("; ", f));
+		about.put("Grouping", appUtil.isEmptyOrNull(dto.getGroupBy()) ? "none" : dto.getGroupBy().replace(",", " > "));
+		if (!appUtil.isEmptyOrNull(dto.getSplitBy())) about.put("Columns", dto.getSplitBy());
+		about.put("Generated", java.time.LocalDateTime.now(TenantClock.zone()).format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm")));
+		return about;
 	}
 
 	@RequestMapping(value = "/getAllSell", method = RequestMethod.GET)

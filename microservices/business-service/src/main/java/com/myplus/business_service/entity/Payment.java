@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
  * by {@code customerHistoryId}.
  */
 @Entity
+// INV-CACHE: a write here evicts the printed invoice's cached lines (InvoiceLinesCache).
+@jakarta.persistence.EntityListeners(com.myplus.business_service.service.InvoiceLinesEvictor.class)
 @Table(name = "payment", indexes = @Index(name = "idx_payment_ch", columnList = "customer_history_id"))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Payment {

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  HC-1b (2026-10-15) — the clinic's three "today" cards, ONE copy: the owner's overview (overview.html, RW-4b) and the
+  Clinic home (clinicHome.html) both include it. Each card is a ui_menu row (overview.*), so who sees it is data; the
+  figures are filled by /js/common/overview.js from /clinic/doctors. The card styles (.ov-*) live on the including page.
+-->
+<th:block th:fragment="cards">
+  <a th:if="${@perm.menu('overview.tokens')}" class="ov-card" id="ovTokensCard" th:href="@{/clinicDashboard(open='QueueDiv')}">
+    <span class="ov-label" th:text="#{ui.ov.tokens}">Tokens today</span>
+    <span class="ov-value" id="ovTokens">—</span>
+  </a>
+  <a th:if="${@perm.menu('overview.waiting')}" class="ov-card" id="ovWaitingCard" th:href="@{/clinicDashboard(open='QueueDiv')}">
+    <span class="ov-label" th:text="#{ui.ov.waiting}">Waiting now</span>
+    <span class="ov-value" id="ovWaiting">—</span>
+  </a>
+  <a th:if="${@perm.menu('overview.doctors')}" class="ov-card" id="ovDoctorsCard" th:href="@{/clinicDashboard(open='DoctorsDiv')}">
+    <span class="ov-label" th:text="#{ui.ov.doctors}">Doctors on duty</span>
+    <span class="ov-value" id="ovDoctors">—</span>
+    <span class="ov-sub" id="ovDoctorsOf"></span>
+  </a>
+</th:block>
+</body>
+</html>

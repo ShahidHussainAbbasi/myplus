@@ -70,6 +70,8 @@
         if (id === 'QueueDiv') startBoard();
         if (id === 'DoctorsDiv') loadDoctorTable();
         if (id === 'ReceptionDiv') { loadPatients(); $('#clinPatPhone').trigger('focus'); }
+        if (id === 'TeamDiv' && typeof global.showTeam === 'function') global.showTeam();   // HC-1b: /js/common/team.js
+        if (id === 'PharmacyLinkDiv' && typeof global.showPharmacyLink === 'function') global.showPharmacyLink();   // HC-1c
     }
 
     // ── the phone first ─────────────────────────────────────────────────────────────────────────────────
@@ -650,7 +652,8 @@
     var openMyQueueWhenKnown = false;
     // RW-3: a workspace tile asks for its screen (?open=MyQueueDiv); honoured only when this person has that screen
     var OPENABLE = { ReceptionDiv: '#clinNavReception', QueueDiv: '#clinNavQueue', DoctorsDiv: '#clinNavDoctors',
-                     ClinicSettingsDiv: '#clinNavSettings' };
+                     ClinicSettingsDiv: '#clinNavSettings', TeamDiv: '#clinNavTeam',
+                     PharmacyLinkDiv: '#clinNavPharmacyLink' };
     function openFirst() {
         var wanted = null;
         try { wanted = new URLSearchParams(global.location.search).get('open'); } catch (e) { /* old browser */ }

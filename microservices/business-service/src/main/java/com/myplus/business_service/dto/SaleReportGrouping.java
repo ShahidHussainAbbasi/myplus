@@ -2,7 +2,6 @@ package com.myplus.business_service.dto;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,31 +85,81 @@ public enum SaleReportGrouping {
      * report's own ordering rather than an arbitrary hash order.
      */
     public List<SaleReportGroup> aggregate(List<SellDTO> rows) {
-        Map<String, SaleReportGroup> byKey = new LinkedHashMap<>();
-        Map<String, Set<String>> invoicesByKey = new LinkedHashMap<>();
+        return tree(rows, List.of(this), null);
+    }
 
+    /** SRA-4b: the group key of one line — a name, or a CODE-marked gap (see {@link #code}). */
+    public String keyOf(SellDTO row) {
+        return keyOf.apply(row);
+    }
+
+    /** The most levels the screen offers — deeper is unreadable on paper (design §7.2). */
+    public static final int MAX_LEVELS = 4;
+
+    /**
+     * SRA-4b — "Rep, then Area, then Product": the request's comma list, unknown names dropped, a repeat dropped, at
+     * most {@link #MAX_LEVELS}. Empty = ungrouped. A single name is exactly today's one-level grouping.
+     */
+    public static List<SaleReportGrouping> levels(String value) {
+        List<SaleReportGrouping> out = new ArrayList<>();
+        if (value == null) return out;
+        for (String part : value.split(",")) {
+            SaleReportGrouping g = from(part);
+            if (g != null && !out.contains(g) && out.size() < MAX_LEVELS) out.add(g);
+        }
+        return out;
+    }
+
+    /**
+     * SRA-4b — the grouped report as a TREE: one node per value of the first level, each holding the next level's
+     * nodes, down to the last; every node carries the same measures, so each level adds up to the one above (that
+     * is the gate's first check). With a column {@code split}, every node also carries one cell per split value —
+     * the same rows, cut the other way. Groups keep the order they first appear in, as the one-level report did.
+     *
+     * <p>Pure arithmetic over rows already filtered and scoped by loadSR — no query, no visibility decision here.
+     */
+    public static List<SaleReportGroup> tree(List<SellDTO> rows, List<SaleReportGrouping> levels, SaleReportGrouping split) {
+        if (levels == null || levels.isEmpty()) return new ArrayList<>();
+        Map<String, List<SellDTO>> byKey = new LinkedHashMap<>();
+        SaleReportGrouping level = levels.get(0);
         for (SellDTO row : rows) {
             if (row == null) continue;
-            String key = keyOf.apply(row);
-            SaleReportGroup g = byKey.computeIfAbsent(key, k -> {
-                SaleReportGroup ng = new SaleReportGroup(k, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
-                if (k.startsWith(CODE)) { ng.setLabel(null); ng.setLabelCode(k.substring(CODE.length())); }
-                return ng;
-            });
+            byKey.computeIfAbsent(level.keyOf(row), k -> new ArrayList<>()).add(row);
+        }
+        List<SaleReportGroup> out = new ArrayList<>();
+        List<SaleReportGrouping> rest = levels.subList(1, levels.size());
+        for (Map.Entry<String, List<SellDTO>> e : byKey.entrySet()) {
+            SaleReportGroup g = measure(e.getKey(), e.getValue());
+            g.setChildren(tree(e.getValue(), rest, split));
+            if (split != null) {
+                Map<String, List<SellDTO>> cells = new LinkedHashMap<>();
+                for (SellDTO row : e.getValue()) cells.computeIfAbsent(split.keyOf(row), k -> new ArrayList<>()).add(row);
+                List<SaleReportGroup> cols = new ArrayList<>();
+                cells.forEach((k, v) -> cols.add(measure(k, v)));
+                g.setCols(cols);
+            }
+            out.add(g);
+        }
+        return out;
+    }
 
+    /** One node's measures over its rows: quantity, money, free goods, and the DISTINCT invoices behind them. */
+    private static SaleReportGroup measure(String key, List<SellDTO> rows) {
+        SaleReportGroup g = new SaleReportGroup(key, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        if (key.startsWith(CODE)) { g.setLabel(null); g.setLabelCode(key.substring(CODE.length())); }
+        Set<String> invoices = new java.util.TreeSet<>();
+        for (SellDTO row : rows) {
             g.setQuantity(g.getQuantity().add(nz(row.getQuantity())));   // NUM-1: exact, no double hop
             g.setTotal(g.getTotal().add(nz(row.getTotalAmount())));
             g.setTax(g.getTax().add(nz(row.getTaxAmount())));
             g.setBonusQuantity(g.getBonusQuantity().add(nz(row.getBonusQuantity())));   // SRA-4a
             g.setBonusValue(g.getBonusValue().add(nz(row.getBonusValue())));
-
             // Count DISTINCT invoices: a three-line sale is one transaction, not three.
-            if (row.getInvoiceNo() != null && !row.getInvoiceNo().isEmpty()) {
-                invoicesByKey.computeIfAbsent(key, k -> new HashSet<>()).add(row.getInvoiceNo());
-                g.setInvoices(invoicesByKey.get(key).size());
-            }
+            if (row.getInvoiceNo() != null && !row.getInvoiceNo().isEmpty()) invoices.add(row.getInvoiceNo());
         }
-        return new ArrayList<>(byKey.values());
+        g.setInvoices(invoices.size());
+        g.setInvoiceNos(new ArrayList<>(invoices));
+        return g;
     }
 
     private static BigDecimal nz(BigDecimal v) {

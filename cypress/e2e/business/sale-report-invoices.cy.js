@@ -128,6 +128,65 @@ describe('Sale Detail Report — invoice documents', () => {
     })
   })
 
+  it('⭐ the buttons cover EVERY row the report holds, not the page on screen (15 Oct)', () => {
+    /*
+     * Owner, 15 Oct: "It should fetch real time and complete data." The set used to be read from the rendered
+     * <tbody> — the grid's current PAGE, 10 rows by default — so a report of 25 invoices printed ten. Compared here
+     * with the server's own answer for the same report, and the report must hold more than one page of invoices,
+     * or this case could pass on a report that fits on a page (eligibility, not existence).
+     */
+    openReportWithRows()
+    cy.request({ method: 'POST', url: '/loadSR', form: true, body: { rp: 3 } }).then((r) => {
+      const server = [...new Set((r.body.collection || []).map((x) => x.invoiceNo).filter(Boolean))].sort()
+      expect(server.length, 'eligible: more invoices than one page of the grid shows').to.be.greaterThan(10)
+      cy.window().then((w) => {
+        expect(w.$('#tableSellReport tbody tr').length, 'the grid renders one page').to.be.at.most(10)
+        expect([...w.srVisibleInvoiceNos()].sort(), 'every invoice of the report, across all pages').to.deep.eq(server)
+      })
+    })
+  })
+
+  it('⭐ INV-CACHE — a printed invoice is cached, yet never stale: an edit and a payment show on the very next print', () => {
+    /*
+     * Owner, 15 Oct: printed invoices are cached so a reprint does not rebuild them from the database. The LINES are
+     * cached (evicted by every write to a sale line or payment, after commit); the header — every money figure — is
+     * always read live. This proves the cache can never print an old line or an old balance.
+     */
+    const stamp = String(Date.now()).slice(-6)
+    const receipt = (no) => cy.request(`/getReceipt?invoiceNo=${encodeURIComponent(no)}`).then((r) => {
+      expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.eq('SUCCESS')
+      return r.body.object
+    })
+    cy.seedProduct({ name: 'InvCache_' + stamp, sellingPrice: 100, stock: 20 }).then((p) => {
+      const customer = { name: 'InvCache Buyer ' + stamp, contact: '0311' + stamp + '1' }
+      cy.request({ method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+        body: { customer, sales: [{ productId: p.productId, quantity: 1, sellRate: 100, totalAmount: 100 }],
+          tenders: [], paidAmount: 0, grandTotal: 100, idempotencyKey: 'cy-invcache-' + stamp } }).then((r) => {
+        expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.eq('SUCCESS')
+        const no = r.body.object
+        receipt(no).then((inv) => {
+          expect(inv.sales[0].quantity, 'first print').to.eq(1)
+          receipt(no).its('sales.0.quantity').should('eq', 1)   // the reprint, from the cache
+          // Edit the line: 1 → 2. The cached lines must be evicted, not reprinted.
+          cy.request({ method: 'POST', url: '/updateSell', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+            body: { customer_history_id: inv.customer_history_id, customer: inv.customer,
+              sales: [{ productId: p.productId, quantity: 2, sellRate: 100, totalAmount: 200 }] } })
+            .its('body.status').should('eq', 'SUCCESS')
+          receipt(no).then((after) => {
+            expect(after.sales[0].quantity, 'the edited quantity, not the cached one').to.eq(2)
+            expect(Number(after.grandTotal), 'and the new total').to.eq(200)
+            // A payment: the balance on the next print is the live one.
+            cy.request({ method: 'POST', url: '/receivePayment', form: true, failOnStatusCode: false,
+              body: { customerId: inv.customer.customerId || inv.customer.id, amount: 50, method: 'CASH' } })
+              .its('body.status').should('eq', 'SUCCESS')
+            receipt(no).then((paid) => expect(Number(paid.paidAmount), 'the payment shows at once').to.be.greaterThan(Number(after.paidAmount || 0)))
+            cy.request({ method: 'POST', url: '/voidSell', form: true, failOnStatusCode: false, body: { invoiceNo: no, reason: 'CY INV-CACHE' } })
+          })
+        })
+      })
+    })
+  })
+
   it('both buttons refuse an empty report rather than half-working', () => {
     cy.visit('/businessDashboard')
     cy.get('#sellType', { timeout: 30000 }).should('exist')

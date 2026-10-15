@@ -282,6 +282,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li th:if="${@perm.menu('pharmacy.prescriptions')}" data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
 								<li th:if="${@perm.menu('pharmacy.clinical')}" data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
 								<li th:if="${@perm.menu('pharmacy.alerts')}" data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
+								<!-- HC-1c: the clinics linked to this pharmacy (owner / admin) — they send prescriptions here (HC-1d). -->
+								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a id="navLinkedClinics" onclick="showLinkedClinics();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-link"></span> <span th:text="#{ui.lc.title}">Linked clinics</span></a></li>
 								<!-- HC-1a: "Clinic reception" removed — a clinic is its own tenant (Healthcare → Hospital / Clinic). A
 								     pharmacy still running a clinic reaches it from its workspaces (Front desk) until HC-1e splits it. -->
 							</ul>
@@ -1322,105 +1324,10 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 			</div>
 
-			<div id="TeamDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
-				<h3 class="dash-page-title" th:text="#{ui.teamAndUsers}">Team &amp; Users</h3>
-				<div id="teamMsg" class="alert" style="display:none"></div>
-				<!-- .form-toolbar (see /css/responsive.css): wraps as a unit at every width. The plain 12-column
-				     .row put the Add button in a col-sm-1 — 64px on a tablet, which clipped its label. -->
-				<div class="row form-toolbar" style="margin-bottom:14px">
-					<div class="col-sm-3"><input id="teamFirstName" class="form-control" placeholder="First name" th:placeholder="#{ui.firstName}"/></div>
-					<div class="col-sm-3"><input id="teamLastName" class="form-control" placeholder="Last name" th:placeholder="#{ui.lastName}"/></div>
-					<div class="col-sm-3"><input id="teamEmail" type="email" class="form-control" placeholder="Email" th:placeholder="#{ui.email}"/></div>
-					<div class="col-sm-2">
-						<select id="teamRole" class="form-control">
-							<option value="USER" th:text="#{ui.user}">User</option>
-							<!-- Only an owner may create an admin (server-enforced) — so don't offer an admin a
-							     choice that can only fail. -->
-							<option value="ADMIN" sec:authorize="hasAuthority('ROLE_OWNER')" th:text="#{ui.admin}">Admin</option>
-						</select>
-					</div>
-					<div class="col-sm-1">
-						<button type="button" id="addTeamUser" class="btn btn-success" onclick="addTeamUser()" th:text="#{ui.add}">Add</button>
-					</div>
-				</div>
-				<div class="row" style="margin-bottom:14px">
-					<div class="col-sm-6">
-						<label style="font-weight:600;font-size:12px;color:#7a889c;margin-bottom:4px;display:block" th:text="#{ui.assignToStoreS}">Assign to store(s)</label>
-						<!-- Toggle-chip picker (see /js/common/team.js) — replaces a ctrl+click <select multiple>. -->
-						<div id="teamStores" class="locpick"></div>
-					</div>
-				</div>
-				<!--
-					PERM-1 — the permission matrix. OWNER ONLY, and that is not a nicety: if an admin could edit
-					sets, an admin holding team.edit could grant themselves finance. Only the owner grants, and the
-					owner already holds everything, so there is nothing to escalate to.
-				-->
-				<div id="permWrap" sec:authorize="hasAuthority('ROLE_OWNER')" style="margin:22px 0 26px">
-					<h4 class="dash-sub-title" th:text="#{ui.permissions}">Permissions</h4>
-					<div id="permMsg" class="alert" style="display:none"></div>
-
-					<div class="perm-bar">
-						<div class="perm-field">
-							<label th:text="#{ui.permissionSet}">Permission set</label>
-							<select id="permSetPicker" class="form-control"></select>
-						</div>
-						<div class="perm-field">
-							<label th:text="#{ui.name}">Name</label>
-							<input id="permSetName" class="form-control" maxlength="64"/>
-						</div>
-						<div class="perm-field">
-							<!-- WHICH ROWS, not which actions. A different question from the matrix, so a control
-							     of its own rather than a reading somebody has to guess. -->
-							<label th:text="#{ui.sees}">Sees</label>
-							<select id="permScope" class="form-control">
-								<option value="OWN" th:text="#{ui.onlyOwnRecords}">Only their own records</option>
-								<option value="ALL" th:text="#{ui.allRecordsInShop}">All records in this shop</option>
-							</select>
-						</div>
-						<div class="perm-actions">
-							<button type="button" id="permSave" class="btn btn-success" onclick="savePermissionSet()"
-							        th:text="#{ui.save}">Save</button>
-							<button type="button" class="btn btn-default" onclick="duplicatePermissionSet()"
-							        th:text="#{ui.duplicate}">Duplicate</button>
-						</div>
-					</div>
-
-					<div id="permBuiltinNote" class="perm-builtin" style="display:none"
-					     th:text="#{ui.builtinSetNote}">This is a built-in set and cannot be changed. Duplicate it and edit the copy.</div>
-
-					<!-- A PLAIN table, deliberately: twelve rows do not need paging, and a DataTable rebuilds its
-					     cells on every draw, which wipes checkbox state on a sort or a search. -->
-					<div class="table-responsive">
-						<table id="permMatrix" class="table perm-matrix">
-							<thead>
-								<tr>
-									<th th:text="#{ui.area}">Area</th>
-									<th th:text="#{ui.view}">View</th>
-									<th th:text="#{ui.create}">Create</th>
-									<th th:text="#{ui.edit}">Edit</th>
-									<th th:text="#{ui.delete}">Delete</th>
-									<th th:text="#{ui.special}">Special</th>
-								</tr>
-							</thead>
-							<tbody></tbody>
-						</table>
-					</div>
-					<div id="permNote" class="perm-note" style="display:none"></div>
-
-					<!-- The preview. A matrix is abstract; a sidebar is not. -->
-					<div class="perm-preview">
-						<div class="perm-preview__cap" th:text="#{ui.whatTheyWillSee}">What they will see</div>
-						<div id="permPreviewOn" class="perm-preview__nav"></div>
-						<div id="permPreviewScope" class="perm-preview__scope"></div>
-						<div id="permPreviewOff" class="perm-preview__off"></div>
-					</div>
-				</div>
-
-				<table id="tableTeam" class="table table-bordered table-striped">
-					<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.email}">Email</th><th th:text="#{ui.role}">Role</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.stores}">Stores</th><th sec:authorize="hasAuthority('ROLE_OWNER')" th:text="#{ui.permissionSet}">Permission set</th><th></th></tr></thead>
-					<tbody></tbody>
-				</table>
-			</div>
+			<!-- HC-1c — the pharmacy's side of the clinic ↔ pharmacy link (fragments/org-links.html). -->
+			<div th:replace="~{fragments/org-links :: pharmacy}"></div>
+			<!-- HC-1b — Team & Users is ONE shared fragment (fragments/team.html) for the shop, the school and the clinic. -->
+			<div th:replace="~{fragments/team :: team('shop')}"></div>
 
 			<div id="CompanyDiv" class="formDiv">
 				<!-- <h3 th:text="#{label.company.form.heading}">Company Registration Form</h3> -->
@@ -4688,6 +4595,11 @@ tr.row-voided .js-edit-row{display:none !important}
 					#SRDiv #tableSellReport td.num,#SRDiv #tableSellReport th.num{text-align:right;white-space:nowrap}
 					#SRDiv .sr-empty{padding:32px;text-align:center;color:#64748b}
 					#SRDiv .sr-inv{font-weight:700;color:#1f4e8c}
+					/* SRA-4b: the grouped tree — rows without a toggle keep their labels aligned; the grand total stands apart */
+					#SRDiv .sr-toggle-gap{display:inline-block;width:22px}
+					#SRDiv .sr-tree .sr-toggle{padding:0 4px;text-decoration:none}
+					#SRDiv .sr-tree .sr-grand td{border-top:2px solid currentColor}
+					#SRDiv .sr-drill-chip{display:flex;align-items:center;gap:8px}
 					#SRDiv .sr-due-owing{color:#c62828;font-weight:700}
 					#SRDiv .sr-due-clear{color:#16a34a}
 				</style>
@@ -4868,6 +4780,7 @@ tr.row-voided .js-edit-row{display:none !important}
          offering them would be a lie. An owner still gets every store. -->
     <script>window.TEAM_LOCATIONS_URL = 'getMyStores'; window.TEAM_LOCATION_NOUN = 'store';</script>
     <script th:src="@{/js/common/team.js}"></script>
+    <script th:src="@{/js/common/org-links.js}"></script>
     <script th:src="@{/js/common/permissions.js}"></script>
     <script th:src="@{/js/common/org-switcher.js}"></script>
     <!-- SESS-1: fills the "N / 5 devices" chip in the header fragment. Hidden until it answers. -->

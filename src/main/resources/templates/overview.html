@@ -4,19 +4,7 @@
 <link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
 <title th:text="#{ui.ov.title} + ' — MyPlus'">Today at a glance — MyPlus</title>
 <th:block th:replace="~{fragments/header :: header-css}"></th:block>
-<style>
-  /* RW-4b — the owner's overview: number cards, each a ui_menu row (overview.*), each linking to its screen. */
-  .ov-home { max-width: 1040px; margin: 28px auto; padding: 0 16px; }
-  .ov-home h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
-  .ov-home .ov-date { color: #5b6472; margin: 0 0 22px; }
-  .ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
-  .ov-card { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border-radius: 12px; background: #fff;
-             border: 1px solid #dde3ec; color: #0d2353; text-decoration: none; }
-  .ov-card:hover, .ov-card:focus { border-color: #1565C0; text-decoration: none; }
-  .ov-card .ov-label { font-size: .85rem; color: #5b6472; text-transform: uppercase; letter-spacing: .03em; }
-  .ov-card .ov-value { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .ov-card .ov-sub { font-size: .85rem; color: #5b6472; }
-</style>
+<link rel="stylesheet" th:href="@{/css/overview.css}"/>
 </head>
 <body>
   <div id="container">
@@ -25,19 +13,8 @@
       <h1 th:text="#{ui.ov.title}">Today at a glance</h1>
       <p class="ov-date" id="ovDate">&nbsp;</p>
       <div class="ov-grid">
-        <a th:if="${@perm.menu('overview.tokens')}" class="ov-card" id="ovTokensCard" th:href="@{/clinicDashboard(open='QueueDiv')}">
-          <span class="ov-label" th:text="#{ui.ov.tokens}">Tokens today</span>
-          <span class="ov-value" id="ovTokens">—</span>
-        </a>
-        <a th:if="${@perm.menu('overview.waiting')}" class="ov-card" id="ovWaitingCard" th:href="@{/clinicDashboard(open='QueueDiv')}">
-          <span class="ov-label" th:text="#{ui.ov.waiting}">Waiting now</span>
-          <span class="ov-value" id="ovWaiting">—</span>
-        </a>
-        <a th:if="${@perm.menu('overview.doctors')}" class="ov-card" id="ovDoctorsCard" th:href="@{/clinicDashboard(open='DoctorsDiv')}">
-          <span class="ov-label" th:text="#{ui.ov.doctors}">Doctors on duty</span>
-          <span class="ov-value" id="ovDoctors">—</span>
-          <span class="ov-sub" id="ovDoctorsOf"></span>
-        </a>
+        <!-- HC-1b: the clinic's three cards are shared with the Clinic home (fragments/clinic-today.html). -->
+        <th:block th:replace="~{fragments/clinic-today :: cards}"></th:block>
         <a th:if="${@perm.menu('overview.prescriptions')}" class="ov-card" id="ovRxCard" th:href="@{/businessDashboard}">
           <span class="ov-label" th:text="#{ui.ov.rx}">Prescriptions waiting</span>
           <span class="ov-value" id="ovRx">—</span>

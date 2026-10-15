@@ -1,0 +1,12 @@
+/* RW-4b / HC-1b — the overview cards (.ov-*): the owner's overview and the Clinic home (fragments/clinic-today.html). */
+  .ov-home { max-width: 1040px; margin: 28px auto; padding: 0 16px; }
+  .ov-home h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+  .ov-home .ov-date { color: #5b6472; margin: 0 0 22px; }
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+  .ov-card { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border-radius: 12px; background: #fff;
+             border: 1px solid #dde3ec; color: #0d2353; text-decoration: none; }
+  .ov-card:hover, .ov-card:focus { border-color: #1565C0; text-decoration: none; }
+  .ov-card .ov-label { font-size: .85rem; color: #5b6472; text-transform: uppercase; letter-spacing: .03em; }
+  .ov-card .ov-value { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ov-card .ov-sub { font-size: .85rem; color: #5b6472; }
+

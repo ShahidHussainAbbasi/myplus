@@ -63,6 +63,7 @@ public interface SaleScreenMapper extends DisplayDates {
     @Mapping(target = "supplier", ignore = true)
     @Mapping(target = "bonusValue", ignore = true)
     @Mapping(target = "bonus", ignore = true)
+    @Mapping(target = "splitBy", ignore = true)
     SellDTO toDto(Sell sell);
 
     @Mapping(target = "autoCut", ignore = true)

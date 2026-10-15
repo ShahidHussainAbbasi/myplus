@@ -130,6 +130,29 @@ public class ControlPlaneAuditService extends AuditEmitter<AuditOutbox> {
      * {@link AuditActorType#MEMBER}. Stated as a separate method anyway: the two cases read differently at the
      * call site, and a single method taking a nullable subject is how the wrong one gets passed.
      */
+    /**
+     * HC-1c — a step on a clinic ↔ pharmacy link, recorded in the trail of ONE of the two businesses
+     * ({@code subjectOrgId}); the caller records it twice, once per side. The actor is a MEMBER of the business that
+     * acted ({@code actorOrgId} = the caller's org) — on the other side's row the details name that business, so the
+     * row is never read as one of the subject's own staff.
+     */
+    public void linkAction(String action, Long linkId, Long subjectOrgId, String before, String after,
+                           String reason, Long actorUserId, String details) {
+        record(AuditRecord.builder()
+                .action(action)
+                .entityType("ORG_LINK")
+                .entityRef(String.valueOf(linkId))
+                .subjectOrgId(subjectOrgId)
+                .beforeValue(before)
+                .afterValue(after)
+                .reason(reason)
+                .details(details)
+                .actorUserId(actorUserId)
+                .actorOrgId(CurrentUser.organizationId())
+                .actorType(AuditActorType.MEMBER)
+                .build());
+    }
+
     public void tenantAction(String action, String entityType, String entityRef,
                              String before, String after, String details) {
         record(AuditRecord.builder()
