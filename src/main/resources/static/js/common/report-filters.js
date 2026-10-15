@@ -91,6 +91,32 @@
 		});
 	}
 
+	/*
+	 * SRA-4a — the CODES the sale report sends where a value has no name (design sra-sales-by-rep-and-area.md §7): a sale
+	 * source, or a gap. Codes travel, words come from the bundle — so "Not recorded" is translated, and a rep who happens to
+	 * be called "Counter" is never mistaken for the counter. ONE place turns a code into words, for the grid, the groups
+	 * and the filters alike.
+	 */
+	var SALE_SOURCES = ['COUNTER', 'REP_LOGIN', 'REP_PAPER', 'OFFICE', 'PORTAL', 'NOT_RECORDED'];
+	function saleReportCodeLabel(code) {
+		if (code == null || code === '') return '';
+		var key = 'ui.js.srCode' + String(code).toLowerCase().replace(/(^|_)([a-z])/g, function (m, a, b) { return b.toUpperCase(); });
+		var txt = t(key);
+		return txt === key ? String(code) : txt;   // an unknown code still reads as itself, never as a bare key
+	}
+	global.saleReportCodeLabel = saleReportCodeLabel;
+
+	/** Static options: [value, label] pairs appended after the "all" placeholder. */
+	function fillPairs(sel, pairs) {
+		if (!sel) return;
+		pairs.forEach(function (pv) {
+			var o = document.createElement('option');
+			o.value = pv[0];
+			o.textContent = pv[1];
+			sel.appendChild(o);
+		});
+	}
+
 	function mountReportFilters(opts) {
 		var host = el(opts.container);
 		if (!host) return null;
@@ -112,7 +138,11 @@
 			groupBy = select('rfGroupBy', t('ui.js.noGrouping'));
 			[['DAY','ui.js.groupDay'],['MONTH','ui.js.groupMonth'],['CUSTOMER','ui.js.groupCustomer'],
 			 ['PRODUCT','ui.js.groupProduct'],['CATEGORY','ui.js.groupCategory'],
-			 ['COMPANY','ui.js.groupCompany'],['CHANNEL','ui.js.groupChannel']]
+			 ['COMPANY','ui.js.groupCompany'],['CHANNEL','ui.js.groupChannel'],
+			 // SRA-4a — offered only where the page asks for the rep dimensions (the sale report).
+			 ].concat(dims.indexOf('rep') === -1 ? [] : [
+			 ['REP','ui.js.groupRep'],['SOURCE','ui.js.groupSource'],['KEYED_BY','ui.js.groupKeyedBy'],
+			 ['AREA','ui.js.groupArea'],['CITY','ui.js.groupCity'],['SUPPLIER','ui.js.groupSupplier']])
 				.forEach(function(pair){
 					var o = document.createElement('option');
 					o.value = pair[0];
@@ -130,6 +160,18 @@
 		// not from a master list — so the filter can only offer companies the report actually contains.
 		var company  = add('company',  'rfCompany',  t('ui.js.allCompanies'));
 		var channel  = add('channel',  'rfChannel',  t('ui.js.allChannels'));
+		// SRA-4a — who sold it, where, from whom, and with free goods or not. Value 0 = the rows with NONE.
+		var rep      = add('rep',      'rfRep',      t('ui.js.allReps'));
+		var source   = add('source',   'rfSource',   t('ui.js.allSources'));
+		var area     = add('area',     'rfArea',     t('ui.js.allAreas'));
+		var city     = add('city',     'rfCity',     t('ui.js.allCities'));
+		var supplier = add('supplier', 'rfSupplier', t('ui.js.allSuppliers'));
+		var bonus    = add('bonus',    'rfBonus',    t('ui.js.bonusEither'));
+		fillPairs(rep,      [['0', t('ui.js.srNoRepOption')]]);
+		fillPairs(source,   SALE_SOURCES.map(function (c) { return [c, saleReportCodeLabel(c)]; }));
+		fillPairs(area,     [['0', saleReportCodeLabel('NO_AREA')]]);
+		fillPairs(supplier, [['0', saleReportCodeLabel('NO_SUPPLIER')]]);
+		fillPairs(bonus,    [['WITH', t('ui.js.bonusWith')], ['WITHOUT', t('ui.js.bonusWithout')]]);
 
 		/*
 		 * PERF (review 2026-09-26) — the lists load LAZILY, from the SHARED caches.
@@ -157,6 +199,23 @@
 				if (global.ProductPicker) global.ProductPicker.load(function (rows) { fillRows(product, rows, 'id', 'name'); });
 				else fill(product, 'getUserProduct', 'id', 'name');
 			}
+			// SRA-4a — the business's own lists (each small); a rep's own set may read them, the pickers do too.
+			// A rep who has left still has sales in past periods, so an INACTIVE rep stays in the filter — marked, and after
+			// the active ones, so the list a manager scans first is the people working today.
+			if (rep) $.ajax({ url: serverContext + 'getSalesReps', dataType: 'json', global: false }).done(function (resp) {
+				var rows = ((resp && resp.collection) || []).slice().sort(function (a, b) {
+					var ia = String(a.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 0 : 1;
+					var ib = String(b.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 0 : 1;
+					return ia - ib || String(a.name).localeCompare(String(b.name));
+				}).map(function (r) {
+					var active = String(r.status || 'ACTIVE').toUpperCase() === 'ACTIVE';
+					return { id: r.id, name: active ? r.name : r.name + ' (' + t('ui.js.inactive') + ')' };
+				});
+				fillRows(rep, rows, 'id', 'name');
+			});
+			if (area)     fill(area,     'getAreas',     'id', 'name');
+			if (city)     fill(city,     'getCities',    'id', 'name');
+			if (supplier) fill(supplier, 'getUserVender', 'id', 'name');
 		}
 		// On the RAIL, in the capture phase: these selects are upgraded to bootstrap-select, so the operator's click
 		// and focus land on the widget's BUTTON — a listener on the <select> itself would never hear them.
@@ -182,7 +241,14 @@
 				category    : category && category.value ? category.value : '',
 				manufacturer: company  && company.value  ? company.value  : '',
 				customerType: channel  && channel.value  ? channel.value  : '',
-				groupBy     : groupBy  && groupBy.value  ? groupBy.value  : ''
+				groupBy     : groupBy  && groupBy.value  ? groupBy.value  : '',
+				// SRA-4a — the names loadSR binds (SellDTO).
+				repId       : rep      && rep.value      ? rep.value      : '',
+				saleSource  : source   && source.value   ? source.value   : '',
+				areaId      : area     && area.value     ? area.value     : '',
+				cityId      : city     && city.value     ? city.value     : '',
+				supplierId  : supplier && supplier.value ? supplier.value : '',
+				bonus       : bonus    && bonus.value    ? bonus.value    : ''
 			};
 		}
 
@@ -203,7 +269,7 @@
 			}
 		}
 
-		[customer, product, category, channel, groupBy].forEach(function (s) {
+		[customer, product, category, channel, groupBy, rep, source, area, city, supplier, bonus].forEach(function (s) {
 			if (s) s.addEventListener('change', function () {
 				refreshExport();                       // the file must always match what is on screen
 				if (typeof opts.onApply === 'function') opts.onApply(values());

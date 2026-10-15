@@ -4773,6 +4773,12 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th th:text="#{ui.payment}">Payment</th>
 							<th class="num" th:text="#{ui.invoiceDue2}">Invoice&nbsp;due</th>
 							<th class="num" th:text="#{ui.margin}">Margin</th>
+							<!-- SRA-4a: who sold it, where, from whom, and the free goods' value — LAST, so the columns above keep their
+							     positions (the footer sums and the specs address them by index). -->
+							<th th:text="#{ui.salesRep}">Sales rep</th>
+							<th th:text="#{ui.areaCity}">Area</th>
+							<th th:text="#{ui.supplier}">Supplier</th>
+							<th class="num" th:text="#{ui.bonusValue}">Bonus value</th>
 			            </tr>
 			        </thead>
 					<tfoot>
@@ -4790,6 +4796,10 @@ tr.row-voided .js-edit-row{display:none !important}
 			                <th></th>
 			                <th></th>
 			                <th class="num"></th>
+			                <th class="num"></th>
+			                <th></th>
+			                <th></th>
+			                <th></th>
 			                <th class="num"></th>
 			            </tr>
 			        </tfoot>

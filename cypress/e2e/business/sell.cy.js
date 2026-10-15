@@ -351,8 +351,10 @@ describe('Sell Section — Sale Detail Report', () => {
     // identified against the template before touching the number, and asserted by name below, because a count
     // edited to agree with reality without checking WHAT changed tests nothing at all.
     const cols = ['Date', 'Invoice', 'Product', 'Qty', 'List', 'Unit',
-                  'Line total', 'Tax', 'Net', 'Customer', 'Contact', 'Payment', 'due', 'Margin']
-    cy.get('#tableSellReport thead th').should('have.length', 14)
+                  'Line total', 'Tax', 'Net', 'Customer', 'Contact', 'Payment', 'due', 'Margin',
+                  // SRA-4a: 14 → 18, appended last — who sold it, where, from whom, and the free goods' value.
+                  'Sales rep', 'Area', 'Supplier', 'Bonus value']
+    cy.get('#tableSellReport thead th').should('have.length', 18)
     cols.forEach((c) => cy.get('#tableSellReport thead').contains(c, { matchCase: false }))
   })
 

@@ -33,9 +33,25 @@ public class SaleReportFilter {
     /** #18: the manufacturer/company behind the product, from ProductRef. */
     private String manufacturer;
 
+    /*
+     * SRA-4a — who sold it, where, from whom, and whether free goods went with it. Every field optional; an empty filter
+     * returns exactly what the report returned before. An id of 0 asks for the rows with NONE ("Not recorded" / no rep /
+     * no area / no supplier) — the group a report must be able to isolate, or the gap it shows can never be chased.
+     */
+    private Long repId;
+    private String saleSource;     // a SalesRepAttribution code, or NOT_RECORDED (a sale from before SRA-3)
+    private Long areaId;
+    private Long cityId;
+    private Long supplierId;
+    private String bonus;          // WITH | WITHOUT
+
+    public static final String NOT_RECORDED = "NOT_RECORDED";
+
     public boolean isEmpty() {
         return customerId == null && productId == null
-                && isBlank(category) && isBlank(customerType) && isBlank(manufacturer);
+                && isBlank(category) && isBlank(customerType) && isBlank(manufacturer)
+                && repId == null && isBlank(saleSource) && areaId == null && cityId == null && supplierId == null
+                && isBlank(bonus);
     }
 
     /**
@@ -47,7 +63,9 @@ public class SaleReportFilter {
      */
     public Predicate<SellDTO> asPredicate() {
         return row -> matchesCustomer(row) && matchesProduct(row)
-                && matchesCategory(row) && matchesCustomerType(row) && matchesManufacturer(row);
+                && matchesCategory(row) && matchesCustomerType(row) && matchesManufacturer(row)
+                && matchesId(repId, row.getRepId()) && matchesSource(row) && matchesId(areaId, row.getAreaId())
+                && matchesId(cityId, row.getCityId()) && matchesId(supplierId, row.getSupplierId()) && matchesBonus(row);
     }
 
     private boolean matchesCustomer(SellDTO row) {
@@ -68,6 +86,25 @@ public class SaleReportFilter {
 
     private boolean matchesManufacturer(SellDTO row) {
         return isBlank(manufacturer) || manufacturer.equalsIgnoreCase(row.getManufacturer());
+    }
+
+    /** null = any; 0 = the rows with none; otherwise that id. */
+    static boolean matchesId(Long wanted, Long actual) {
+        if (wanted == null) return true;
+        if (wanted == 0L) return actual == null;
+        return wanted.equals(actual);
+    }
+
+    private boolean matchesSource(SellDTO row) {
+        if (isBlank(saleSource)) return true;
+        if (NOT_RECORDED.equalsIgnoreCase(saleSource)) return isBlank(row.getSaleSource());
+        return saleSource.equalsIgnoreCase(row.getSaleSource());
+    }
+
+    private boolean matchesBonus(SellDTO row) {
+        if (isBlank(bonus)) return true;
+        boolean has = row.getBonusQuantity() != null && row.getBonusQuantity().signum() > 0;
+        return "WITH".equalsIgnoreCase(bonus) ? has : "WITHOUT".equalsIgnoreCase(bonus) ? !has : true;
     }
 
     private static boolean isBlank(String s) {

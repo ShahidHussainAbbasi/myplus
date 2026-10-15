@@ -103,6 +103,28 @@ public class SellDTO implements Serializable {
 	/** B2B-P3e-2 (#6): DAY | MONTH | CUSTOMER | PRODUCT | CATEGORY | CHANNEL. Absent = ungrouped detail. */
 	private String groupBy;
 
+	/*
+	 * SRA-4a: the sales-by-rep-and-area dimensions — flattened onto each line by the sale report (loadSR), null
+	 * everywhere else. Design: microservices/docs/slices/sra-sales-by-rep-and-area.md §7.
+	 *   OUT  repName / saleSource / keyedBy are STAMPED on the invoice (SRA-3); area / city are the customer's CURRENT
+	 *        ones (owner's decision); supplier is the product's main supplier, else its first purchase's (the SSR rule);
+	 *        bonusValue = bonus qty × TP, the product's last purchase rate (the SSR convention, so the reports agree).
+	 *   IN   the same names filter the report: repId / areaId / cityId / supplierId (0 = "none / not recorded"),
+	 *        saleSource (a SalesRepAttribution code, or NOT_RECORDED), bonus = WITH | WITHOUT.
+	 */
+	private Long repId;
+	private String repName;
+	private String saleSource;
+	private String keyedBy;
+	private Long areaId;
+	private String area;
+	private Long cityId;
+	private String city;
+	private Long supplierId;
+	private String supplier;
+	private java.math.BigDecimal bonusValue;
+	private String bonus;
+
 	/**
 	 * B2B-P3b-2 (#4): the batch(es) this line drew from, for the receipt and for traceability.
 	 * Server-populated on the way out; ignored on the way in. Empty for a sale recorded before this shipped,

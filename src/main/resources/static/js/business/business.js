@@ -49,7 +49,7 @@ $(document).ready(function() {
             [ '10 rows', '25 rows', '50 rows', 'Show all' ]
         ],
         columnDefs: [
-            { targets: [3,4,5,6,7,8,12,13], className: 'num' },
+            { targets: [3,4,5,6,7,8,12,13,17], className: 'num' },   // 17 = SRA-4a bonus value
             { targets: 0, type: 'date-dmy' },
             // The invoice cell is a <span>; 'html' makes DataTables compare the number, not the markup.
             { targets: 1, type: 'html' }
@@ -90,6 +90,7 @@ $(document).ready(function() {
 	        $( api.column(7).footer() ).html( srMoney( sumCol(7) ) );
 	        $( api.column(8).footer() ).html( srMoney( sumCol(8) ) );
 	        $( api.column(13).footer() ).html( srMoney( sumCol(13) ) );   // SF-10: total margin
+	        $( api.column(17).footer() ).html( srMoney( sumCol(17) ) );   // SRA-4a: free goods at TP
 	    }
     } );
  
@@ -4465,25 +4466,43 @@ function renderSRGroups(groups){
 		+ '<th class="text-right">' + escHtml(t('ui.js.qty2')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.total')) + '</th>'
 		+ '<th class="text-right">' + escHtml(t('ui.js.taxAmount')) + '</th>'
-		+ '<th class="text-right">' + escHtml(t('ui.js.grossSales')) + '</th></tr></thead><tbody>';
+		+ '<th class="text-right">' + escHtml(t('ui.js.grossSales')) + '</th>'
+		// SRA-4a: free goods, quantity and value at TP.
+		+ '<th class="text-right">' + escHtml(t('ui.js.bonusQty')) + '</th>'
+		+ '<th class="text-right">' + escHtml(t('ui.js.bonusValue')) + '</th></tr></thead><tbody>';
 	groups.forEach(function(g){
-		h += '<tr><td>' + escHtml(g.label || '') + '</td>'
+		// SRA-4a: a group with no name carries a CODE (NOT_RECORDED, NO_REP, COUNTER …) — shown in words from the bundle.
+		var label = g.label != null ? g.label : (typeof saleReportCodeLabel === 'function' ? saleReportCodeLabel(g.labelCode) : (g.labelCode || ''));
+		h += '<tr><td>' + escHtml(label || '') + '</td>'
 			+ '<td class="text-right">' + (g.invoices != null ? g.invoices : '') + '</td>'
 			+ '<td class="text-right">' + escHtml(g.soldUnit ? looseQtyText(g)
 					: (g.quantity != null ? String(Number(g.quantity)) : '')) + '</td>'
 			+ '<td class="text-right">' + (g.total != null ? Number(g.total).toFixed(2) : '') + '</td>'
 			+ '<td class="text-right">' + (g.tax != null ? Number(g.tax).toFixed(2) : '') + '</td>'
-			+ '<td class="text-right"><b>' + (g.gross != null ? Number(g.gross).toFixed(2) : '') + '</b></td></tr>';
+			+ '<td class="text-right"><b>' + (g.gross != null ? Number(g.gross).toFixed(2) : '') + '</b></td>'
+			+ '<td class="text-right">' + (Number(g.bonusQuantity) > 0 ? escHtml(String(Number(g.bonusQuantity))) : '') + '</td>'
+			+ '<td class="text-right">' + (Number(g.bonusValue) > 0 ? Number(g.bonusValue).toFixed(2) : '') + '</td></tr>';
 	});
 	host.innerHTML = h + '</tbody></table>';
 	host.style.display = '';
+}
+
+/**
+ * SRA-4a — the Sales rep cell: the rep's name (stamped on the invoice) over how the sale came in. A sale from before
+ * SRA-3 says "Not recorded"; a counter or portal sale says so instead of a name.
+ */
+function srRepCell(o){
+	var src = o.saleSource ? saleReportCodeLabel(o.saleSource) : '';
+	if (o.repName) return escSR(o.repName) + (src ? '<br><small class="text-muted">' + escSR(src) + '</small>' : '');
+	return '<span class="text-muted">' + escSR(o.saleSource ? src : saleReportCodeLabel('NOT_RECORDED')) + '</span>';
 }
 
 function mountSRFilters(){
 	if (window.srFilters || typeof mountReportFilters !== 'function') return;
 	window.srFilters = mountReportFilters({
 		container : 'srFilterRail',
-		dimensions: ['groupBy','customer','product','category','company','channel'],
+		dimensions: ['groupBy','customer','product','category','company','channel',
+		             'rep','source','area','city','supplier','bonus'],   // SRA-4a
 		onApply   : function(){ loadSR(); },
 		exportUrl : function(v){
 			var q = 'rp=' + encodeURIComponent(srPeriod())
@@ -4494,7 +4513,14 @@ function mountSRFilters(){
 				+ '&category=' + encodeURIComponent(v.category || '')
 				+ '&manufacturer=' + encodeURIComponent(v.manufacturer || '')
 				+ '&customerType=' + encodeURIComponent(v.customerType || '')
-				+ '&groupBy=' + encodeURIComponent(v.groupBy || '');
+				+ '&groupBy=' + encodeURIComponent(v.groupBy || '')
+				// SRA-4a — the file carries every filter the screen does, or the two disagree.
+				+ '&repId=' + encodeURIComponent(v.repId || '')
+				+ '&saleSource=' + encodeURIComponent(v.saleSource || '')
+				+ '&areaId=' + encodeURIComponent(v.areaId || '')
+				+ '&cityId=' + encodeURIComponent(v.cityId || '')
+				+ '&supplierId=' + encodeURIComponent(v.supplierId || '')
+				+ '&bonus=' + encodeURIComponent(v.bonus || '');
 			return serverContext + 'saleReport.csv?' + q;
 		}
 	});
@@ -4572,7 +4598,13 @@ function loadSR(){
 					dueCell,
 					// SF-10: per-line margin = net revenue minus COGS (cost x qty); blank when no cost captured.
 					((!isNaN(parseFloat(o.costPrice)) && !isNaN(parseFloat(o.netAmount)) && !isNaN(parseFloat(o.quantity)))
-						? srMoneyCell(parseFloat(o.netAmount) - parseFloat(o.costPrice) * parseFloat(o.quantity)) : '')
+						? srMoneyCell(parseFloat(o.netAmount) - parseFloat(o.costPrice) * parseFloat(o.quantity)) : ''),
+					// SRA-4a — appended last (see the header). Rep with how the sale came in; area with its city.
+					srRepCell(o),
+					o.area ? escSR(o.area) + (o.city ? '<br><small class="text-muted">' + escSR(o.city) + '</small>' : '')
+					       : '<span class="text-muted">' + escSR(saleReportCodeLabel('NO_AREA')) + '</span>',
+					o.supplier ? escSR(o.supplier) : '<span class="text-muted">' + escSR(saleReportCodeLabel('NO_SUPPLIER')) + '</span>',
+					Number(o.bonusValue) > 0 ? srMoneyCell(o.bonusValue) : ''
 				]);
 			});
 			tableSellReport.draw();
