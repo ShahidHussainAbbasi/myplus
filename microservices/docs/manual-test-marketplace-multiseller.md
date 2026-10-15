@@ -1587,6 +1587,38 @@
 | 2 | Repeat 5 times. | The circuit breaker opens; the operator sees it on the integration panel. A retried webhook is processed once. |
 | C1 | Remove the delay. | The breaker closes. |
 
+### M-4-03 A supplier accepts an order and has a day to send it; the shopper is told when
+
+**Who:** a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)  
+**Before:** Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 47,000, delivering to Karachi.  
+**Covers:** MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4b-01, MKT-4b-02
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "Ali W07157d", phone 030050715791, address "1 Clifton". Press "Place order". | "Waiting for Phone Supplier to confirm", with the minutes it has left (20 for a supplier). |
+| 2 | As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order. Then show "Accepted". | The row reads "Accepted" with an invoice number, and "Send within 23:59" (hours and minutes left to send it). |
+| 3 | Customer: open the order page again. | "Phone Supplier sends it within 24 hours" and "Pay Rs. 47,000 in cash when it arrives." |
+| C1 | None: the order is left unsent on purpose; M-4-04 continues it two days later. | — |
+
+### M-4-04 Two days later the supplier has not sent it: both sides are told, the scorecard counts it, then it is sent
+
+**Who:** owner.supplier@myplus.com (Phone Supplier), a customer (incognito), MaxTheService operator  
+**Before:** Two days after M-4-03 (the whole system restarted on a clock two days later). Phone Supplier accepted the order and has not sent it.  
+**Covers:** MKT-R20.5, MKT-R8.2, MKT-R12.4  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4b-04, MKT-4b-05, MKT-4b-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.supplier@: Sale → Marketplace → "Incoming marketplace orders", show "Accepted". | The order's row reads "Late: it was due to leave within 24 hours of accepting. Send it now." in red. |
+| 2 | Customer: open the order page. | "Phone Supplier is late sending this. MaxTheService is chasing it." and "Pay Rs. 47,000 in cash when it arrives." |
+| 3 | Operator: Platform → "Seller performance" (30 days). Find Phone Supplier. | Under "Delivered on time" the row reads "Sent within 24 hours: …" (a rate once five orders are settled, "Not enough orders yet" before). |
+| 4 | As owner.supplier@: Sale → Orders. Search "Ali W65801d", open it, "Ship". Carrier "Leopards", tracking number "LP-W65801". Press "Record shipment". | "Shipment recorded: SHP-…"; the order lists the parcel with Leopards. |
+| 5 | Customer: open the order page again. | "On its way from Phone Supplier" and "Leopards · tracking LP-W65801. Pay Rs. 47,000 in cash when it arrives." The late sentence is gone. |
+| C1 | As owner.supplier@: Sale → Orders, press "Mark DELIVERED" on the order. Operator: Marketplace sellers → Approved → Phone Supplier, untick "Supplier" and Save. | The order reads DELIVERED; "Phone Supplier sells its own stock as a seller." |
+
 
 ## MKT-5
 

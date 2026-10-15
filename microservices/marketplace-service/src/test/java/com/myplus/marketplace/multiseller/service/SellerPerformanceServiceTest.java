@@ -63,7 +63,7 @@ class SellerPerformanceServiceTest {
 
     static Object[] fact(long org, String status, String party, String shortageStatus) {
         return new Object[] { org, status, T, "ACCEPTED".equals(status) ? T.plusMinutes(12) : null,
-                "ACCEPTED".equals(status) ? T.plusHours(5) : null, 24, party, shortageStatus };
+                "ACCEPTED".equals(status) ? T.plusHours(5) : null, 24, party, shortageStatus, null };
     }
 
     /** Seller 7: 6 accepted, 3 missed (67%). Seller 8: 5 accepted. */

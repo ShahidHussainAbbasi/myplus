@@ -4174,4 +4174,134 @@ on('MKT manual walk — recorded', () => {
         }))
       })
   })
+
+  // ── MKT-4b: a supplier's dispatch deadline. M-4-03 today; M-4-04 after the whole stack is restarted two days later
+  // (up.sh +3d when today's clock is +1d), with --env later=1. The order is kept between them in cypress/walk.
+  const DS_STATE = 'cypress/walk/state-M-4-03.json'   // not downloads: Cypress empties that folder before each run
+  const DS = {}
+  const dsOrders = () => {
+    cy.visit('/businessDashboard')
+    cy.get('#snavSell .snav-btn').click()
+    cy.get('#navMarketplaceOrders').should('be.visible').click()
+    cy.get('#ordFilterQ').clear().type(DS.name)
+    cy.get('#ordSearchBtn').click()
+    return cy.get('#ordersBody tr').should('have.length', 1)
+  }
+  const dsTrack = () => {
+    customer()
+    cy.visit(UI.publicPage)      // leave the dashboard first: its last requests, now without a session, would open sign-in
+    cy.visit(page(`order=${encodeURIComponent(DS.order)}&phone=${DS.phone}`))
+    cy.location('pathname').should('eq', UI.publicPage)
+  }
+  const dsAccepted = () => {
+    as(SUPPLIER)
+    openMarketplace()
+    cy.intercept('GET', '**/mkt/incomingOrders*status=ACCEPTED*').as('dsAccepted')
+    cy.get('#mktIncomingStatus').select('ACCEPTED', { force: true })
+    cy.wait('@dsAccepted')
+    return cy.then(() => cy.contains(`${UI.incoming} tbody tr`, DS.order).scrollIntoView({ offset: { top: -160, left: 0 } }))
+  }
+
+  walk({ id: 'M-4-03', slice: 'MKT-4', title: 'A supplier accepts an order and has a day to send it; the shopper is told when',
+    persona: 'a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)',
+    reqs: ['MKT-R20.5'],
+    pre: 'Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 47,000, delivering to Karachi.',
+    auto: ['MKT-4b-01', 'MKT-4b-02'] }, (step, call, cleanup) => {
+    DS.name = `Ali ${M}d`
+    DS.phone = phone(91)
+    cy.then(() => {   // the precondition: marked (M-4-01 walks that screen) and listing a phone
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: true }))
+      seedPolicies(`${run}d`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}d`, price: 47000, qty: 5,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { DS.offer = o })
+    })
+    step(`Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "${'Ali ' + M + 'd'}", phone ${phone(91)}, address "1 Clifton". Press "Place order".`,
+      '"Waiting for Phone Supplier to confirm", with the minutes it has left (20 for a supplier).', () => {
+        customer()
+        cy.visit(page(`product=${DS.offer.mktProductId}&city=Karachi`))
+        buy(DS.offer.offerId, { name: DS.name, ph: DS.phone })
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for Phone Supplier to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { DS.order = no })
+      })
+    step('As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order. Then show "Accepted".',
+      'The row reads "Accepted" with an invoice number, and "Send within 23:59" (hours and minutes left to send it).', () => {
+        as(SUPPLIER)
+        openMarketplace()
+        cy.contains(`${UI.incoming} tr`, DS.order).find(UI.acceptBtn).click()
+        cy.contains(`${UI.incoming} tr`, DS.order).should('contain', 'INV-')
+        dsAccepted().find('.mkt-ship-by').invoke('text').should('match', /^Send within (24:00|23:5\d)$/)
+      })
+    step('Customer: open the order page again.',
+      '"Phone Supplier sends it within 24 hours" and "Pay Rs. 47,000 in cash when it arrives."', () => {
+        dsTrack()
+        cy.get(UI.checkoutStatus).should('have.text', 'Phone Supplier sends it within 24 hours')
+        cy.get('#mktOrderDetail').should('have.text', 'Pay Rs. 47,000 in cash when it arrives.')
+        cy.then(() => cy.writeFile(DS_STATE, { name: DS.name, phone: DS.phone, order: DS.order }))
+      })
+    cleanup('None: the order is left unsent on purpose; M-4-04 continues it two days later.', '—', () => {}, { screen: false })
+  })
+
+  const laterDs = Cypress.env('later') ? walk : (meta) => it.skip(`${meta.id} ${meta.title} (run with later=1, two days later)`)
+  laterDs({ id: 'M-4-04', slice: 'MKT-4', title: 'Two days later the supplier has not sent it: both sides are told, the scorecard counts it, then it is sent',
+    persona: 'owner.supplier@myplus.com (Phone Supplier), a customer (incognito), MaxTheService operator',
+    reqs: ['MKT-R20.5', 'MKT-R8.2', 'MKT-R12.4'],
+    pre: 'Two days after M-4-03 (the whole system restarted on a clock two days later). Phone Supplier accepted the order and has not sent it.',
+    auto: ['MKT-4b-04', 'MKT-4b-05', 'MKT-4b-06'] }, (step, call, cleanup) => {
+    cy.readFile(DS_STATE).then((st) => Object.assign(DS, st))
+    cy.then(() => { asOperator(); cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id }) })
+    step('As owner.supplier@: Sale → Marketplace → "Incoming marketplace orders", show "Accepted".',
+      'The order\'s row reads "Late: it was due to leave within 24 hours of accepting. Send it now." in red.', () => {
+        cy.wait(35000)        // the sweeper's pass (every 30 seconds) after the restart
+        dsAccepted().find('.mkt-ship-late').should('have.text', 'Late: it was due to leave within 24 hours of accepting. Send it now.')
+      })
+    step('Customer: open the order page.',
+      '"Phone Supplier is late sending this. MaxTheService is chasing it." and "Pay Rs. 47,000 in cash when it arrives."', () => {
+        dsTrack()
+        cy.get(UI.checkoutStatus).should('have.text', 'Phone Supplier is late sending this. MaxTheService is chasing it.')
+        cy.get('#mktOrderDetail').should('have.text', 'Pay Rs. 47,000 in cash when it arrives.')
+      })
+    step('Operator: Platform → "Seller performance" (30 days). Find Phone Supplier.',
+      'Under "Delivered on time" the row reads "Sent within 24 hours: …" (a rate once five orders are settled, "Not enough orders yet" before).', () => {
+        asOperator()
+        cy.visit('/platformDashboard')
+        cy.intercept('GET', '**/platform/mkt/sellerPerformance*').as('dsPerf')
+        cy.get('#platMktPerformanceBtn').should('be.visible').click()
+        cy.wait('@dsPerf')
+        cy.then(() => cy.get(`#mktPerfList .mkt-perf-row[data-org="${SU.org}"] .mkt-perf-ship`)
+          .scrollIntoView({ offset: { top: -160, left: 0 } })
+          .invoke('text').should('match', /^Sent within 24 hours: (Not enough orders yet|\d+% \(\d+ of \d+\))$/))
+      })
+    step(`As owner.supplier@: Sale → Orders. Search "${'Ali ' + M + 'd'}", open it, "Ship". Carrier "Leopards", tracking number "LP-${M}". Press "Record shipment".`,
+      '"Shipment recorded: SHP-…"; the order lists the parcel with Leopards.', () => {
+        as(SUPPLIER)
+        dsOrders()
+        cy.get('#ordersBody tr').first().find('a').first().click()
+        cy.get('#orderShipBtn').click()
+        cy.get('#shipCarrier').type('Leopards')
+        cy.get('#shipTracking').type(`LP-${M}`)
+        cy.get('#shipConfirmBtn').click()
+        cy.get('#orderDetailBody', { timeout: 15000 }).should('contain', 'SHP-').and('contain', 'Leopards')
+      })
+    step('Customer: open the order page again.',
+      `"On its way from Phone Supplier" and "Leopards · tracking LP-${M}. Pay Rs. 47,000 in cash when it arrives." The late sentence is gone.`, () => {
+        dsTrack()
+        cy.get(UI.checkoutStatus).should('have.text', 'On its way from Phone Supplier')
+        cy.get('#mktOrderDetail').should('have.text', `Leopards · tracking LP-${M}. Pay Rs. 47,000 in cash when it arrives.`)
+      })
+    cleanup('As owner.supplier@: Sale → Orders, press "Mark DELIVERED" on the order. Operator: Marketplace sellers → Approved → Phone Supplier, untick "Supplier" and Save.',
+      'The order reads DELIVERED; "Phone Supplier sells its own stock as a seller."', () => {
+        as(SUPPLIER)
+        dsOrders()
+        cy.get('#ordersBody tr').first().find('[data-act="mark-DELIVERED"]').click()
+        cy.get('#ordersBody tr').first().should('contain', 'DELIVERED')
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+        }))
+      })
+  })
 })

@@ -463,3 +463,24 @@ the ownership ruling (bought, the default taken, vs consignment) awaits confirma
 
 **Open (4a):** the warehouse's row shows the supplier boxes (saving is refused in a sentence).
 
+## 21. MKT-4b — a supplier's dispatch deadline (run 2026-10-15)
+
+**Gate `mkt-4b-supplier-dispatch.cy.js`: 6 / 6**, in two phases: 4b-01..03 on the usual clock, then the whole stack
+restarted two days later, 4b-04..06. Re-run after the clock was restored: 4a 6 / 6, 3b 6 / 6, 2e 8 / 8, 1e 10 / 10,
+2-06 7 / 7, 3a 6 / 6, 1c 11 / 11. Migration V39 applied. Unit: marketplace-service 464 / 464.
+
+**Walks M-4-03 and M-4-04: recorded** (M-4-04 two days later), each expected result asserted, screens captured and
+looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 81 | gate MKT-4b phase 2 (first run) | the gate kept its two orders in `cypress/downloads`, which Cypress empties before each run: phase 2 found nothing | kept in `cypress/walk/` | gate MKT-4b-04 |
+| 82 | gate MKT-4b-04 | opening the shopper's page straight after the supplier's dashboard: the dashboard's last requests, now without a session, sent the tab to the sign-in page | leave the dashboard first, then open the order page | gate MKT-4b-04, walk M-4-04 step 2 |
+| 83 | recording | later Cypress runs empty `cypress/screenshots`, so the first M-4-03 / M-4-04 shots were lost before they were copied | both walks recorded again, the shots copied at once | walks M-4-03, M-4-04 |
+
+**Unverified:** one phase-2 run, started about 20 seconds after a restart, failed 4b-04..05 before its screenshots
+were overwritten; its cause was not captured. The same cases passed on a fresh pair of orders with the stack given
+90 seconds to warm up. Its 4b-06 had already sent and delivered those orders, which is why a fresh pair was needed.
+
+**Open (4b):** the deadline is a fixed 24 hours; no support case is opened automatically for a late part.
+

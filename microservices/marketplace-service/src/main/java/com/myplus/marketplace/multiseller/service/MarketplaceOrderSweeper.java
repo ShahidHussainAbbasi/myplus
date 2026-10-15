@@ -61,6 +61,8 @@ public class MarketplaceOrderSweeper {
     private final PlatformTransactionManager txManager;
     /** MKT-2b: an expired part is a shortage (the seller did not answer); its alternatives and proposals have a clock too. */
     private final MarketplaceShortageService shortages;
+    /** MKT-4b: a supplier's dispatch deadlines, settled once each has passed. */
+    private final SupplierDispatchService dispatch;
 
     @Scheduled(fixedDelayString = "${mkt.orders.sweep-ms:30000}", initialDelayString = "${mkt.orders.sweep-initial-ms:30000}")
     public void sweep() {
@@ -82,9 +84,10 @@ public class MarketplaceOrderSweeper {
         }
         int shortageWork = shortages.sweep();                        // MKT-2b: proposals, interrupted reroutes, their holds
         int reconciled = payments.reconcile();                       // lost charge answers and refunds not yet done
-        if (expired + orphans + released + shortageWork + reconciled > 0)
-            LOG.info("MKT sweep: {} expired, {} orphans cancelled, {} release retries, {} shortage steps, {} payments reconciled",
-                    expired, orphans, released, shortageWork, reconciled);
+        int dispatched = dispatch.sweep();                           // MKT-4b: supplier parts past their dispatch deadline
+        if (expired + orphans + released + shortageWork + reconciled + dispatched > 0)
+            LOG.info("MKT sweep: {} expired, {} orphans cancelled, {} release retries, {} shortage steps, {} payments reconciled, "
+                    + "{} dispatch deadlines settled", expired, orphans, released, shortageWork, reconciled, dispatched);
     }
 
     /**

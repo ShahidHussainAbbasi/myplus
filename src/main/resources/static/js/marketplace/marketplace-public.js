@@ -637,7 +637,7 @@
 		if (perPart) return showParts(o, parts);
 		if (o.status === 'CONFIRMED') {
 			var pg = progress(o, parts[0] || {}, seller);
-			st.className = 'state ok';
+			st.className = 'state ' + (pg.tone || 'ok');
 			st.textContent = pg.state || tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
 			detail.textContent = pg.state ? pg.detail   // MKT-3b: once delivered, nothing is still to come
 				: tr('ui.js.mktConfirmedCod', '{0} will deliver and collect {1} in cash.', seller, money(o.total));
@@ -709,7 +709,7 @@
 			var ps = el('span', 'pstate');
 			if (p.status === 'ACCEPTED' || p.status === 'HANDED_OVER') {
 				var pp = progress(o, p, p.sellerName);
-				ps.className = 'pstate ok';
+				ps.className = 'pstate ' + (pp.tone || 'ok');
 				ps.textContent = pp.state ? pp.state + (pp.detail ? ' · ' + pp.detail : '')
 					: card ? tr('ui.js.mktPartConfirmed', 'Confirmed: {0} will deliver', p.sellerName)
 						: tr('ui.js.mktPartConfirmedCod', 'Confirmed: {0} will deliver and collect {1} in cash', p.sellerName, money(p.total));
@@ -767,6 +767,12 @@
 			return { state: own ? tr('ui.js.mktShippedByUs', 'Shipped by MaxTheService') : tr('ui.js.mktOnItsWay', 'On its way from {0}', who),
 				detail: (how ? how + '.' : '') + cash, done: false };
 		}
+		// MKT-4b: a supplier's part has a day to leave; past that, the shopper is told it is late and being chased
+		if (p.dispatchLate) return { state: tr('ui.js.mktSupplierLate', '{0} is late sending this. MaxTheService is chasing it.', who),
+			detail: cash.trim(), done: false, tone: 'wait' };
+		if (p.secondsToShip !== null && p.secondsToShip !== undefined && p.fulfilment !== 'PACKED')
+			return { state: tr('ui.js.mktSupplierSendsWithin', '{0} sends it within {1} hours', who, Math.max(1, Math.ceil(p.secondsToShip / 3600))),
+				detail: cash.trim(), done: false };
 		if (p.fulfilment === 'PACKED')
 			return { state: tr('ui.js.mktPacked', 'Packed by {0}', who), detail: tr('ui.js.mktLeavesSoon', 'It leaves soon.') + cash, done: false };
 		if (own) return { state: tr('ui.js.mktPacking', 'MaxTheService is packing your order'),

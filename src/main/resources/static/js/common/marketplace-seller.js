@@ -363,6 +363,11 @@
 			$st.append(' ').append($('<b class="mkt-accept-countdown" style="font-variant-numeric:tabular-nums"></b>')
 				.attr('data-deadline', Date.now() + so.secondsLeft * 1000).text(mm(so.secondsLeft)));
 		}
+		// MKT-4b: a supplier's accepted order must leave within 24 hours of Accept
+		if (so.dispatchLate) $st.append($('<div class="mkt-ship-late" style="font-size:12px;color:#b3261e;font-weight:600"></div>')
+			.text(tr('ui.js.mktSoSendLate', 'Late: it was due to leave within 24 hours of accepting. Send it now.')));
+		else if (so.secondsToShip !== null && so.secondsToShip !== undefined) $st.append($('<div class="mkt-ship-by" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktSoSendWithin', 'Send within {0}').replace('{0}', hmm(so.secondsToShip))));
 		if (so.invoiceNo) $st.append($('<div style="font-size:12px"></div>').text(tr('ui.js.mktSoInvoice', 'Invoice {0}').replace('{0}', so.invoiceNo)));
 		if (so.rejectReason) $st.append($('<div class="text-muted" style="font-size:12px"></div>').text(so.rejectReason));
 		if (so.shortage) $st.append(shortageBox(so.shortage));
@@ -779,11 +784,19 @@
 		}).fail(function (xhr) { $m.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))); });
 	}
 
+	/** MKT-4b — "h:mm" of the time left to send a supplier's order. */
+	function hmm(sec) {
+		sec = Math.max(0, Math.floor(sec || 0));
+		var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+		return h + ':' + ('0' + m).slice(-2);
+	}
+
 	// ── MKT-2e: your performance ──────────────────────────────────────────────────────────────────────
 	var PERF_FLAG = {
 		LOW_ACCEPTANCE: ['ui.js.mktPerfFlagAcceptance', 'Accepts fewer than 80% of its orders'],
 		LATE_DELIVERY: ['ui.js.mktPerfFlagLate', 'Delivers fewer than 90% on time'],
-		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders']
+		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders'],
+		LATE_DISPATCH: ['ui.js.mktPerfFlagDispatch', 'Sends fewer than 90% of its orders within 24 hours']
 	};
 	function perfRate(rate, part, whole) {
 		if (rate === null || rate === undefined) return tr('ui.js.mktPerfNotEnough', 'Not enough orders yet');
@@ -799,6 +812,9 @@
 			$('#mktPerfSpeed').text(m === null || m === undefined ? '—' : m < 1 ? tr('ui.js.mktPerfUnderMinute', 'Under a minute on average')
 				: tr('ui.js.mktPerfMinutes', '{0} min on average').replace('{0}', m));
 			$('#mktPerfOnTime').text(perfRate(r.onTimeRate, r.onTime || 0, r.due || 0));
+			if (r.shipDue) $('<div class="mkt-perf-ship text-muted" style="font-size:12px;font-weight:400"></div>')   // MKT-4b: suppliers
+				.text(tr('ui.js.mktPerfShipped', 'Sent within 24 hours: {0}').replace('{0}', perfRate(r.shipOnTimeRate, r.shippedOnTime, r.shipDue)))
+				.appendTo('#mktPerfOnTime');
 			$('#mktPerfReturns').text(String(r.sellerFaultReturns || 0));
 			if (r.disputed) $('<div class="text-muted" style="font-size:13px"></div>')
 				.text(tr('ui.js.mktPerfMineDisputed', '{0} unfulfilled orders you disputed are not counted until MaxTheService decides.').replace('{0}', r.disputed)).appendTo($f);

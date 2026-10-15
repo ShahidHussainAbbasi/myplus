@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 69,
- "cypress": 66,
- "automated": 70,
+ "unit": 70,
+ "cypress": 67,
+ "automated": 71,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -542,12 +542,14 @@
     "MKT-1f-02",
     "MKT-1f-03",
     "MKT-1f-09",
-    "MKT-2a-08"
+    "MKT-2a-08",
+    "MKT-4b-04"
    ],
    "manual": [
     "M-1f-01",
     "M-1f-07",
-    "M-2a-08"
+    "M-2a-08",
+    "M-4-04"
    ]
   },
   {
@@ -853,12 +855,14 @@
    "cypress": [
     "MKT-2b-01",
     "MKT-2b-07",
-    "MKT-2e-04"
+    "MKT-2e-04",
+    "MKT-4b-05"
    ],
    "manual": [
     "M-2b-01",
     "M-2b-07",
-    "M-2e-02"
+    "M-2e-02",
+    "M-4-04"
    ]
   },
   {
@@ -1547,9 +1551,25 @@
    "req": "MKT-R20.5",
    "phase": "4–5",
    "text": "Phase 4 supplier stock: supplier API/portal, acceptance, tracking, SLA, returns, settlement · Phase 5 consignment: agreements, roles, consigned stock ledger, custodian counts, sell-through, shrinkage claims, ownership transfer, unsold return",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "SellerPerformanceTest.dispatch",
+    "SupplierDispatchServiceTest.stamp",
+    "SupplierDispatchServiceTest.clock",
+    "SupplierDispatchServiceTest.verdict",
+    "SupplierDispatchServiceTest.sweepOnce",
+    "SupplierDispatchServiceTest.sweepOnTime"
+   ],
+   "cypress": [
+    "MKT-4b-01",
+    "MKT-4b-02",
+    "MKT-4b-03",
+    "MKT-4b-04",
+    "MKT-4b-05",
+    "MKT-4b-06"
+   ],
    "manual": [
+    "M-4-03",
+    "M-4-04",
     "M-5-01"
    ]
   },

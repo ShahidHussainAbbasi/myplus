@@ -24,6 +24,8 @@ import java.util.List;
  *   <li><b>On time</b>: an accepted part is due once its promise has passed or it was delivered; it is on time when
  *       delivered by acceptance + the longest promise of its lines, the same "expected by" the customer is shown.
  *       A part not delivered and past its promise is late.</li>
+ *   <li><b>Sent on time</b> (MKT-4b): a supplier's part once its dispatch deadline has been settled, on time when
+ *       its first parcel left by then (ON_TIME), else LATE. VOID (ended first) and every other part do not count.</li>
  * </ul>
  *
  * <p>A rate needs {@link #MIN_ORDERS} orders behind it; below that it is null ("not enough orders yet") and no flag is
@@ -41,36 +43,51 @@ public final class SellerPerformance {
     public static final String FLAG_ACCEPTANCE = "LOW_ACCEPTANCE";
     public static final String FLAG_ON_TIME = "LATE_DELIVERY";
     public static final String FLAG_COD = "COD_OVERDUE";
+    public static final String FLAG_DISPATCH = "LATE_DISPATCH";
 
     private SellerPerformance() {
     }
 
     /**
      * One seller order as the scorecard needs it. {@code promiseHours} is the longest promise of its lines (null when
-     * none); {@code shortageParty}/{@code shortageStatus} are its MKT-2b record, null when there is none.
+     * none); {@code shortageParty}/{@code shortageStatus} are its MKT-2b record, null when there is none;
+     * {@code dispatchStatus} its MKT-4b verdict (DUE, ON_TIME, LATE, VOID), null when it has no dispatch deadline.
      */
     public record Part(Long sellerOrgId, String status, LocalDateTime createdAt, LocalDateTime decidedAt,
-            LocalDateTime deliveredAt, Integer promiseHours, String shortageParty, String shortageStatus) {
+            LocalDateTime deliveredAt, Integer promiseHours, String shortageParty, String shortageStatus,
+            String dispatchStatus) {
+
+        /** A part with no dispatch deadline (every part before MKT-4b, and every part not of supplier stock). */
+        public Part(Long sellerOrgId, String status, LocalDateTime createdAt, LocalDateTime decidedAt,
+                LocalDateTime deliveredAt, Integer promiseHours, String shortageParty, String shortageStatus) {
+            this(sellerOrgId, status, createdAt, decidedAt, deliveredAt, promiseHours, shortageParty, shortageStatus, null);
+        }
     }
 
-    /** The counts and the two rates (null below {@link #MIN_ORDERS}). */
+    /** The counts and the three rates (null below {@link #MIN_ORDERS}). */
     public record Score(int accepted, int missed, int disputed, int excused, Double acceptanceRate,
-            Long avgMinutesToAccept, int due, int onTime, Double onTimeRate) {
+            Long avgMinutesToAccept, int due, int onTime, Double onTimeRate, int shipDue, int shippedOnTime,
+            Double shipOnTimeRate) {
 
         public List<String> flags(boolean codOverdue) {
             List<String> f = new ArrayList<>();
             if (acceptanceRate != null && acceptanceRate < LOW_ACCEPTANCE) f.add(FLAG_ACCEPTANCE);
             if (onTimeRate != null && onTimeRate < LOW_ON_TIME) f.add(FLAG_ON_TIME);
             if (codOverdue) f.add(FLAG_COD);
+            if (shipOnTimeRate != null && shipOnTimeRate < LOW_ON_TIME) f.add(FLAG_DISPATCH);
             return f;
         }
     }
 
     public static Score score(List<Part> parts, LocalDateTime now) {
-        int accepted = 0, missed = 0, disputed = 0, excused = 0, due = 0, onTime = 0;
+        int accepted = 0, missed = 0, disputed = 0, excused = 0, due = 0, onTime = 0, shipDue = 0, shipped = 0;
         long minutes = 0;
         int timed = 0;
         for (Part p : parts) {
+            if ("ON_TIME".equals(p.dispatchStatus()) || "LATE".equals(p.dispatchStatus())) {
+                shipDue++;
+                if ("ON_TIME".equals(p.dispatchStatus())) shipped++;
+            }
             switch (p.status() == null ? "" : p.status()) {
                 case "ACCEPTED", "HANDED_OVER", "FAILED" -> {
                     accepted++;
@@ -100,7 +117,8 @@ public final class SellerPerformance {
         }
         int decided = accepted + missed;
         return new Score(accepted, missed, disputed, excused, decided < MIN_ORDERS ? null : (double) accepted / decided,
-                timed == 0 ? null : minutes / timed, due, onTime, due < MIN_ORDERS ? null : (double) onTime / due);
+                timed == 0 ? null : minutes / timed, due, onTime, due < MIN_ORDERS ? null : (double) onTime / due,
+                shipDue, shipped, shipDue < MIN_ORDERS ? null : (double) shipped / shipDue);
     }
 
     /** The customer's "expected by": from acceptance (else placement) plus the longest promise. Null without a promise. */

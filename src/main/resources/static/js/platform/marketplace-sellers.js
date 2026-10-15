@@ -665,7 +665,8 @@
 	var PERF_FLAG = {
 		LOW_ACCEPTANCE: ['ui.js.mktPerfFlagAcceptance', 'Accepts fewer than 80% of its orders'],
 		LATE_DELIVERY: ['ui.js.mktPerfFlagLate', 'Delivers fewer than 90% on time'],
-		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders']
+		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders'],
+		LATE_DISPATCH: ['ui.js.mktPerfFlagDispatch', 'Sends fewer than 90% of its orders within 24 hours']
 	};
 	function perfRate(rate, part, whole) {
 		if (rate === null || rate === undefined) return tr('ui.js.mktPerfNotEnough', 'Not enough orders yet');
@@ -699,7 +700,11 @@
 		$tr.append($f);
 		$tr.append($('<td class="mkt-perf-accept"></td>').text(perfRate(r.acceptanceRate, r.accepted, r.accepted + r.missed)));
 		$tr.append($('<td class="mkt-perf-speed"></td>').text(perfSpeed(r.avgMinutesToAccept)));
-		$tr.append($('<td class="mkt-perf-ontime"></td>').text(perfRate(r.onTimeRate, r.onTime, r.due)));
+		var $on = $('<td class="mkt-perf-ontime"></td>').text(perfRate(r.onTimeRate, r.onTime, r.due));
+		if (r.shipDue) $('<div class="mkt-perf-ship text-muted" style="font-size:12px"></div>')        // MKT-4b: suppliers
+			.text(tr('ui.js.mktPerfShipped', 'Sent within 24 hours: {0}').replace('{0}', perfRate(r.shipOnTimeRate, r.shippedOnTime, r.shipDue)))
+			.appendTo($on);
+		$tr.append($on);
 		var $miss = $('<td class="mkt-perf-missed"></td>').text(String(r.missed));
 		if (r.disputed) $miss.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktPerfDisputed', '{0} under dispute').replace('{0}', r.disputed)));
 		if (r.excused) $miss.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktPerfExcused', "{0} not the seller's fault").replace('{0}', r.excused)));

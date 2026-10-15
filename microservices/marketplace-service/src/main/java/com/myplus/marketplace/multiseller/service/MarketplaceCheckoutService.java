@@ -118,6 +118,8 @@ public class MarketplaceCheckoutService {
     /** MKT-3b: the accepted part's store order and its parcels, read for the shopper's view. */
     private final com.myplus.marketplace.repository.OrderRepository storeOrders;
     private final com.myplus.marketplace.repository.ShipmentRepository shipments;
+    /** MKT-4b: how long a supplier has left to send a part, or that it is late. */
+    private final SupplierDispatchService dispatch;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -482,6 +484,7 @@ public class MarketplaceCheckoutService {
             int promise = ls.stream().map(MarketplaceOrderLine::getPromiseHours).filter(java.util.Objects::nonNull)
                     .max(Integer::compare).orElse(0);
             com.myplus.marketplace.entity.Order store = storeOrder(so);          // MKT-3b: read, never copied
+            SupplierDispatchService.Clock ship = dispatch.clock(so, store, LocalDateTime.now());
             LocalDateTime from = so.getDecidedAt() != null && SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus())
                     ? so.getDecidedAt() : so.getCreatedAt();
             out.add(new MarketplaceOrderDTOs.PartView(so.getId(), so.getVersion(), so.getSellerOrganizationId(),
@@ -489,7 +492,8 @@ public class MarketplaceCheckoutService {
                     so.getAcceptanceStatus(), secondsLeft(so), subtotal, BigDecimal.ZERO, subtotal,
                     from == null || promise == 0 ? null : from.plusHours(promise), so.getDeliveredAt(),
                     ls.stream().map(MarketplaceCheckoutService::lineView).toList(), shortageView(shortBy.get(so.getId()), subtotal),
-                    store == null || store.getFulfilmentStatus() == null ? null : store.getFulfilmentStatus().name(), parcels(store)));
+                    store == null || store.getFulfilmentStatus() == null ? null : store.getFulfilmentStatus().name(), parcels(store),
+                    ship.secondsToShip(), ship.late()));
         }
         return out;
     }
