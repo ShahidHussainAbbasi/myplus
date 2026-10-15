@@ -336,6 +336,19 @@ class MarketplaceSupportServiceTest {
     }
 
     @Test
+    @DisplayName("[MKT-R4.2] [MKT-R20.4] an approved return of MaxTheService's own stock is collected by MaxTheService, a shop's by its rider")
+    void collector() {
+        Placed shop = delivered(ali, "CARD");
+        svc.decide(new SupportDTOs.DecisionRequest(returnOf(shop, "DEFECTIVE").returns().get(0).returnNo(), "APPROVED", null));
+        assertThat(msgTable.get(msgTable.size() - 1).getBody()).contains("is approved. The seller's rider will collect it from your address.");
+
+        Placed own = delivered(ali, "CARD");
+        own.line().setStockSourceType("PLATFORM");
+        svc.decide(new SupportDTOs.DecisionRequest(returnOf(own, "DEFECTIVE").returns().get(0).returnNo(), "APPROVED", null));
+        assertThat(msgTable.get(msgTable.size() - 1).getBody()).contains("is approved. MaxTheService will collect it from your address.");
+    }
+
+    @Test
     @DisplayName("[MKT-R13.2] cash on delivery: refused until the rider has handed the cash back; never a card refund (R-MKT-12)")
     void codCashAtPickup() {
         Placed p = delivered(ali, "COD");

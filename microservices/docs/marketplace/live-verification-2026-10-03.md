@@ -397,3 +397,37 @@ paths, 1c 11 / 11, 1g 6 / 6, 2f 8 / 8, 2-06 7 / 7.
   0% commission).
 - The public offer's `availableQty` is the last stock sync and does not drop when a hold is taken (every seller,
   pre-existing). The walk does not claim it does.
+
+## 17. MKT-3b — the shopper sees packed, sent and delivered (run 2026-10-15)
+
+**Gate `mkt-3b-delivery-progress.cy.js`: 6 / 6** on the build merged with the base (about 20 commits: SRA, SKU-AUTO,
+HMS, RW-4b and others; the 6 message bundles conflicted append-only and were resolved as the union of both sides, key
+sets checked). Re-run on the same build: 3a 6 / 6, 1e 10 / 10, 1e2 9 / 9, 1f 12 / 12, 2a 8 / 8, 2b 8 / 8.
+marketplace-service unit tests 443 / 443 (3 of the new ones are the base's). No migration.
+
+**Walk M-3-02: recorded**, 9 steps, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 67 | walk M-3-02 (first run) | a marketplace seller without the storefront module (the warehouse, every retail shop) had no menu path to Orders, where Packed, the parcel and Delivered are recorded: the gates had done it through the API | Sale → Orders for marketplace sellers | walk M-3-02 steps 4, 6, 8 |
+| 68 | walk M-3-02 (screen review) | once delivered, the page still said "MaxTheService will deliver and collect Rs. 52,000 in cash." | nothing is promised once it is delivered | gate MKT-3b-05, walk M-3-02 step 9 |
+| 69 | the trace, before any test | the single-seller page said "Confirmed by …" until after delivery (pre-existing): it never read the store order | the part carries its store order's status and parcels | gate MKT-3b-02..06 |
+
+**Open (3b):** O5d (pick list, scan-to-pack) waits on its design approval; the decision card on including it is open.
+
+## 18. MKT-3d — returns of MaxTheService's own stock (run 2026-10-15)
+
+**Gate `mkt-3d-central-returns.cy.js`: 4 / 4.** Re-run on the same build: 1f 12 / 12, 3b 6 / 6, 3a 6 / 6. No migration.
+
+**Walk M-3-03: recorded**, 6 steps, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 70 | the trace, before any test | an approved return of MaxTheService's own phone told the customer "The seller's rider will collect it" | the message names MaxTheService for PLATFORM stock | unit `collector`, gate MKT-3d-01, walk M-3-03 step 3 |
+| 71 | the trace (`received()`) | "Write off: unusable" sends the item to quarantine, exactly like Quarantine, and nothing said so | the label says "(goes to Quarantine, where you dispose of it)" | gate MKT-3d-02, walk M-3-03 step 4 |
+| 72 | gate MKT-3d-02 (first run) | a marketplace seller tracking neither batches nor expiry (the warehouse, most phone shops) had no Quarantine screen: a written-off return could never be disposed of | Register → Quarantine shown to marketplace sellers | gate MKT-3d-02, walk M-3-03 steps 5, 6 |
+| 73 | walk M-3-03 (first run) | the operator's support cases showed the first 100 only; with 152 waiting, the newest case could not be opened | a pager ("101–152 of 152", Previous, Next) | gate MKT-3d-04, walk M-3-03 step 2 |
+
+**Open (3d):** whether a write-off should leave stock at receipt instead of waiting in Quarantine (a ruling); a
+quarantine lot does not show its RT number.
+

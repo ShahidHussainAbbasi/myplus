@@ -3841,4 +3841,186 @@ on('MKT manual walk — recorded', () => {
         cy.contains(`${UI.incoming} tr`, PS.order).scrollIntoView({ offset: { top: -160, left: 0 } })
       })
   })
+
+  const TR = {}
+  const storeOrders = () => {
+    cy.visit('/businessDashboard')
+    cy.get('#snavSell .snav-btn').click()
+    cy.get('#navMarketplaceOrders').should('be.visible').click()
+    cy.get('#ordFilterQ').clear().type(TR.name)
+    cy.get('#ordSearchBtn').click()
+    return cy.get('#ordersBody tr').should('have.length', 1)
+  }
+  const trackPage = () => {
+    customer()
+    cy.visit(page(`order=${encodeURIComponent(TR.order)}&phone=${phone(81)}`))
+  }
+
+  walk({ id: 'M-3-02', slice: 'MKT-3', title: 'The shopper follows a MaxTheService order to the door',
+    persona: 'a customer (incognito), then owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R20.4', 'MKT-R18.5'],
+    pre: 'Central Warehouse is the MaxTheService warehouse and lists a phone at Rs 52,000, delivering to Karachi (M-3-01).',
+    auto: ['MKT-3b-02', 'MKT-3b-03', 'MKT-3b-04', 'MKT-3b-05'] }, (step, call, cleanup) => {
+    TR.name = `Ali ${M}t`
+    cy.then(() => {
+      asOperator()
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      seedPolicies(`${run}t`).then((p) => cy.then(() => publishOffer(WAREHOUSE, { run: `${run}t`, price: 52000, qty: 20,
+        promiseHours: 24, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })))
+        .then((o) => { TR.offer = o.offerId; TR.product = o.mktProductId })
+    })
+    step(`Customer (incognito): open the phone's product page (Karachi), choose MaxTheService, "Buy", Quantity 1, name "${'Ali ' + M + 't'}", phone ${phone(81)}, address "1 Clifton". Press "Place order".`,
+      '"MaxTheService is packing your order" and "In stock at MaxTheService and set aside for you. Packed within 23:5x:xx."', () => {
+        customer()
+        cy.visit(page(`product=${TR.product}&city=Karachi`))
+        buy(TR.offer, { name: TR.name, ph: phone(81), qty: 1 })
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'MaxTheService is packing your order')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { TR.order = no })
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order (the pick).',
+      'The row reads "Accepted" with an invoice number: the sale is in the warehouse\'s books.', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.contains(`${UI.incoming} tr`, TR.order).find(UI.acceptBtn).click()
+        cy.contains(`${UI.incoming} tr`, TR.order).should('contain', 'INV-')
+        cy.contains(`${UI.incoming} tr`, TR.order).scrollIntoView({ offset: { top: -160, left: 0 } })
+      })
+    step('Customer: open the order page again.',
+      '"MaxTheService is packing your order" and "Picked and set aside for you. Packing is next. Pay Rs. 52,000 in cash when it arrives."', () => {
+        trackPage()
+        cy.get(UI.checkoutStatus).should('have.text', 'MaxTheService is packing your order')
+        cy.get('#mktOrderDetail').should('have.text', 'Picked and set aside for you. Packing is next. Pay Rs. 52,000 in cash when it arrives.')
+      })
+    step(`As owner.warehouse@: Sale → Orders. Search "${'Ali ' + M + 't'}". Press "Mark PACKED" on the order.`,
+      'The order\'s status reads PACKED.', () => {
+        as(WAREHOUSE)
+        storeOrders()
+        cy.get('#ordersBody tr').first().find('[data-act="mark-PACKED"]').click()
+        cy.get('#ordersBody tr').first().should('contain', 'PACKED')
+      })
+    step('Customer: open the order page again.',
+      '"Packed by MaxTheService" and "It leaves soon. Pay Rs. 52,000 in cash when it arrives."', () => {
+        trackPage()
+        cy.get(UI.checkoutStatus).should('have.text', 'Packed by MaxTheService')
+        cy.get('#mktOrderDetail').should('have.text', 'It leaves soon. Pay Rs. 52,000 in cash when it arrives.')
+      })
+    step(`As owner.warehouse@: Sale → Orders → open the order → "Ship". Carrier "TCS", tracking number "TCS-${M}". Press "Record shipment".`,
+      '"Shipment recorded: SHP-…"; the order lists the parcel with TCS.', () => {
+        as(WAREHOUSE)
+        storeOrders()
+        cy.get('#ordersBody tr').first().find('a').first().click()
+        cy.get('#orderShipBtn').click()
+        cy.get('#shipCarrier').type('TCS')
+        cy.get('#shipTracking').type(`TCS-${M}`)
+        cy.get('#shipConfirmBtn').click()
+        cy.get('#orderDetailBody', { timeout: 15000 }).should('contain', 'SHP-').and('contain', 'TCS')
+      })
+    step('Customer: open the order page again.',
+      `"Shipped by MaxTheService" and "TCS · tracking TCS-${M}. Pay Rs. 52,000 in cash when it arrives." (never the invoice or the packer's note).`, () => {
+        trackPage()
+        cy.get(UI.checkoutStatus).should('have.text', 'Shipped by MaxTheService')
+        cy.get('#mktOrderDetail').should('have.text', `TCS · tracking TCS-${M}. Pay Rs. 52,000 in cash when it arrives.`)
+      })
+    step('As owner.warehouse@: Sale → Orders. Press "Mark DELIVERED" on the order.',
+      'The order\'s status reads DELIVERED.', () => {
+        as(WAREHOUSE)
+        storeOrders()
+        cy.get('#ordersBody tr').first().find('[data-act="mark-DELIVERED"]').click()
+        cy.get('#ordersBody tr').first().should('contain', 'DELIVERED')
+      })
+    step('Customer: open the order page again.', '"Delivered", and nothing more is promised (no "will deliver and collect").', () => {
+      trackPage()
+      cy.get(UI.checkoutStatus).should('have.text', 'Delivered')
+      cy.get('#mktOrderDetail').should('have.text', '')
+    })
+    cleanup('Nothing to undo: the order is delivered, and MaxTheService\'s own sale is never settled.', 'Nothing to undo.', () => {}, { screen: false })
+  })
+
+  const CR = {}
+  /** Support cases list: press "Next ›" until it is disabled (no pager at all when 100 or fewer wait). */
+  const lastCasePage = () => cy.get('#mktCaseList tbody tr.mkt-case-row').should('exist').then(() => cy.get('#platMktCases')).then(($p) => {
+    if (!$p.find('#mktCaseNext:enabled').length) return
+    cy.get('#mktCasePager span').invoke('text').then((was) => {
+      cy.get('#mktCaseNext').click()
+      cy.get('#mktCasePager span').should('not.have.text', was)
+      lastCasePage()
+    })
+  })
+  walk({ id: 'M-3-03', slice: 'MKT-3', title: 'A faulty MaxTheService phone comes back to the warehouse',
+    persona: 'Customer → MaxTheService operator → owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R20.4', 'MKT-R4.2', 'MKT-R13.2', 'MKT-R22.1'],
+    pre: 'A cash-on-delivery order for a phone sold and shipped by MaxTheService (Central Warehouse) was delivered to the customer, inside its 7-day return window.',
+    auto: ['MKT-3d-01', 'MKT-3d-02', 'MKT-3d-04'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition, through the warehouse's own steps (M-3-02 walks them in the screens)
+      asOperator()
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      seedPolicies(`${run}r`).then((p) => cy.then(() => publishOffer(WAREHOUSE, { run: `${run}r`, price: 52000, qty: 10,
+        promiseHours: 24, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })))
+        .then((o) => { CR.offer = o.offerId; CR.source = o.sourceProductId })
+      fSignIn(fph(31))
+      cy.then(() => post(API.checkout, { offerId: CR.offer, quantity: 1, expectedPrice: 52000, customerName: 'Ali Raza',
+        customerPhone: fph(31), address: '1 Clifton', city: 'Karachi', idempotencyKey: `wcr-${run}` })).then((r) => {
+        expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
+        Object.assign(CR, { no: data(r.body).orderNo, so: data(r.body).sellerOrderId, v: data(r.body).sellerOrderVersion })
+      })
+      as(WAREHOUSE)
+      cy.then(() => post(API.acceptOrder, { id: CR.so, version: CR.v }))
+      cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`)).then((x) => { CR.store = list(x.body).find((y) => y.orderNo === CR.no).storeOrderId })
+      cy.then(() => post('/updateOrderStatus', { id: CR.store, status: 'PACKED' }))
+      cy.then(() => get(`/getOrder?id=${CR.store}`)).then((r) => {
+        const l = data(r.body).items[0]
+        post('/shipOrder', { id: CR.store, lines: [{ orderItemId: l.id, quantity: l.quantity }], carrier: 'TCS', trackingNumber: `CR-${run}` })
+      })
+      cy.then(() => post('/updateOrderStatus', { id: CR.store, status: 'DELIVERED' }))
+    })
+    step('Customer: My orders → Get help → "Return this item" → "Faulty or damaged" → note "screen flickers" → Send.',
+      'Under the order: "Help request SC-…", "RT-… · Return requested · Rs. 52,000" (a fault costs the customer nothing).', () => {
+        myOrders(fph(31))
+        getHelp(CR.no, { topic: 'RETURN', reason: 'DEFECTIVE', note: 'screen flickers' })
+        cy.get(caseOf(CR.no)).should('contain', 'RT-').and('contain', 'Return requested').and('contain', '52,000')
+        cy.get(caseOf(CR.no)).invoke('attr', 'data-case-no').then((c) => { CR.case = c })
+      })
+    step('Operator: Support cases. More than 100 are waiting on this stack, so press "Next ›" until the last page (urgent first, then the longest waiting: the newest is last) → the case → Approve.',
+      'The list says "101–… of …"; the case is on the last page. The return reads APPROVED.', () => {
+      supportCases(); lastCasePage(); openCaseRow(CR.case)
+      cy.get('#mktCaseDetail .mkt-approve').click()
+      cy.get('#mktCaseDetail .mkt-op-return').should('contain', 'APPROVED')
+    })
+    step('Customer: My orders → the help request.',
+      '"Your return RT-… is approved. MaxTheService will collect it from your address. The rider hands you Rs 52,000 in cash when collecting it." Never "the seller\'s rider": the phone was MaxTheService\'s own.', () => {
+        myOrders(fph(31))
+        cy.get(caseOf(CR.no)).should('contain', 'is approved. MaxTheService will collect it from your address.')
+          .and('not.contain', 'seller\'s rider')
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Tasks from MaxTheService" → the return. Choose "Write off: unusable (goes to Quarantine, where you dispose of it)", tick "Cash handed back (Rs 52,000)", press "Item received".',
+      '"Received. The customer\'s refund is done." and the return leaves the list ("Nothing from MaxTheService right now").', () => {
+        as(WAREHOUSE); openMarketplace(); cy.get('#mktTasksBox').should('be.visible')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${CR.case}"] .mkt-outcome`)
+          .should('contain', 'Write off: unusable (goes to Quarantine, where you dispose of it)').select('WRITE_OFF')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${CR.case}"] .mkt-cash`).check()
+        cy.get(`#mktTasks .mkt-task[data-case-no="${CR.case}"]`).scrollIntoView({ offset: { top: -160, left: 0 } })
+        cy.get(`#mktTasks .mkt-task[data-case-no="${CR.case}"] .mkt-received`).click()
+        cy.get(`#mktTasks .mkt-task[data-case-no="${CR.case}"] .mkt-return`).should('not.exist')
+        cy.get('#mktTasksBox').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step('Still as the warehouse: Register → Quarantine.',
+      'The written-off phone is listed with a Dispose button. (This screen was hidden from shops that track neither batches nor expiry.)', () => {
+        cy.then(() => get('/quarantineList')).then((r) => {
+          CR.lot = (data(r.body) || r.body).items.filter((q) => q.productId === CR.source).map((q) => q.id).sort((x, y) => y - x)[0]
+          expect(CR.lot, 'the written-off unit').to.be.a('number')
+        })
+        cy.visit('/businessDashboard')
+        cy.get('#snavRegister .snav-btn').click()
+        cy.get('#navQuarantine').should('be.visible').click()
+        cy.get('#QuarantineDiv').should('be.visible')
+        cy.then(() => cy.get(`#disp_${CR.lot}`).should('be.visible').closest('tr').should('contain', 'Galaxy A32'))
+      })
+    step('Press "Dispose" on that phone and confirm.', '"Lot disposed." and the phone leaves the list.', () => {
+      cy.then(() => cy.get(`#disp_${CR.lot}`).click())
+      cy.get('.uiC-ok').click()
+      cy.then(() => cy.get(`#disp_${CR.lot}`).should('not.exist'))
+    })
+    cleanup('Nothing to undo: the return is finished and the phone disposed of.', 'Nothing to undo.', () => {}, { screen: false })
+  })
 })

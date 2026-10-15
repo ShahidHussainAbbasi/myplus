@@ -273,6 +273,9 @@
 		if (o.status === 'SUBMITTED' && (o.sellerOrders || []).length > 1) s = ['wait', 'ui.js.mktWaitingSellers', 'Waiting for the sellers to confirm'];   // MKT-2a
 		if (o.status === 'SUBMITTED' && (o.sellerOrders || []).some(function (pt) { return pt.shortage && pt.shortage.result === 'SUBSTITUTION_REQUESTED' && !pt.shortage.decision; }))
 			s = ['wait', 'ui.js.mktShYourAnswer', 'Waiting for your answer'];   // MKT-2b
+		// MKT-3b: a confirmed one-seller order says where its delivery stands (packed, on its way)
+		var one = (o.sellerOrders || []).length === 1 ? P.progress(o, o.sellerOrders[0], o.sellerName) : null;
+		if (o.status === 'CONFIRMED' && one && one.state) s = ['ok', null, one.state];
 		var top = el('div', 'row');
 		top.appendChild(el('b', 'orderno', o.orderNo));
 		top.appendChild(el('span', 'st ' + s[0], s[1] ? tr(s[1], s[2]) : s[2]));
@@ -286,7 +289,8 @@
 				var ps = PART[pt.status] || [null, pt.status];
 				var sv = pt.shortage ? P.shortage(o, pt, null, function () { loadOrders(); }) : null;
 				row.textContent = (pt.sellerName || '') + ': ' + (pt.lines || []).map(function (l) { return l.productName + ' × ' + l.quantity; }).join(', ')
-					+ (sv && !pt.deliveredAt ? '' : ' · ' + (pt.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered') : (ps[0] ? tr(ps[0], ps[1]) : ps[1])));
+					+ (sv && !pt.deliveredAt ? '' : ' · ' + (pt.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered')
+						: (P.progress(o, pt, pt.sellerName).state || (ps[0] ? tr(ps[0], ps[1]) : ps[1]))));   // MKT-3b
 				if (sv) {
 					row.appendChild(sv.node);
 					if (sv.clock) sv.clock.paint(sv.clock.deadline === null ? null : Math.max(0, Math.round((sv.clock.deadline - Date.now()) / 1000)));

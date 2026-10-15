@@ -48,7 +48,15 @@ public final class MarketplaceOrderDTOs {
      */
     public record PartView(Long id, Integer version, Long sellerOrganizationId, String sellerName, String status,
             Long secondsToAccept, BigDecimal subtotal, BigDecimal deliveryFee, BigDecimal total, LocalDateTime promisedBy,
-            LocalDateTime deliveredAt, List<LineView> lines, ShortageView shortage) {
+            LocalDateTime deliveredAt, List<LineView> lines, ShortageView shortage, String fulfilment, List<ParcelView> parcels) {
+    }
+
+    /**
+     * MKT-3b — one parcel of an accepted part, as the shopper may see it: the reference, the carrier and its tracking
+     * number, when it left. Never the invoice, the note or who sent it (the seller's business). {@code status}:
+     * DISPATCHED | DELIVERED | CANCELLED (O5b).
+     */
+    public record ParcelView(String shipmentNo, String carrier, String trackingNumber, LocalDateTime shippedAt, String status) {
     }
 
     /**

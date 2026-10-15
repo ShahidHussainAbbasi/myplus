@@ -21,6 +21,7 @@ import com.myplus.common.docnum.DocumentNumberService;
 import com.myplus.common.web.PageResponse;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
+import com.myplus.marketplace.multiseller.domain.StockSourceType;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerOrder;
 import com.myplus.marketplace.multiseller.domain.ReturnCostPolicy;
 import com.myplus.marketplace.multiseller.dto.SupportDTOs;
@@ -247,7 +248,7 @@ public class MarketplaceSupportService {
         sc.setStatus(MarketplaceReturn.APPROVED.equals(d) ? MarketplaceSupportCase.WAITING_SELLER : MarketplaceSupportCase.WAITING_CUSTOMER);
         cases.save(sc);
         message(sc.getId(), MarketplaceSupportMessage.OPERATOR, access.userId(), MarketplaceReturn.APPROVED.equals(d)
-                ? "Your return " + r.getReturnNo() + " is approved. The seller's rider will collect it from your address."
+                ? "Your return " + r.getReturnNo() + " is approved. " + collector(r) + " will collect it from your address."
                         + cashNote(r) + (note == null ? "" : " " + note)
                 : "Your return " + r.getReturnNo() + " was not approved: " + note, true);
         audit.event(MarketplaceAuditService.RETURN_DECIDED, MarketplaceAuditService.ENTITY_RETURN, r.getReturnNo(), r.getSellerOrgId(),
@@ -444,6 +445,16 @@ public class MarketplaceSupportService {
         return new SupportDTOs.SellerTask(sc.getCaseNo(), o.getOrderNo(), sc.getTopic(), sc.getStatus(), o.getCustomerName(),
                 o.getCustomerPhone(), o.getDeliveryAddress(), o.getCity(), ms,
                 returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::view).toList(), sc.getCreatedAt(), o.getPaymentMode());
+    }
+
+    /**
+     * MKT-3d — who comes for a returned item: MaxTheService for its own stock (R4.2: the platform warehouse is custodian
+     * and fulfiller), otherwise the seller's rider (R-MKT-13). Read from the line's stock source, snapshotted at checkout.
+     */
+    String collector(MarketplaceReturn r) {
+        boolean own = lines.findById(r.getOrderLineId())
+                .map(l -> StockSourceType.PLATFORM.name().equals(l.getStockSourceType())).orElse(false);
+        return own ? PlatformWarehouseService.NAME : "The seller's rider";
     }
 
     SupportDTOs.ReturnView view(MarketplaceReturn r) {

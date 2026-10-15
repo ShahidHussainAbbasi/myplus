@@ -1499,6 +1499,45 @@
 | 6 | As owner.business@myplus.com, in the browser's developer tools: save one of its own offers as MaxTheService stock (stockSourceType PLATFORM). | Refused in words: "Only the MaxTheService warehouse sells MaxTheService's own stock." The offer stays the shop's own stock. |
 | C1 | As owner.warehouse@: Incoming → Reject the order with the reason "walk cleanup". | The row reads "Rejected"; the held unit is released. |
 
+### M-3-02 The shopper follows a MaxTheService order to the door
+
+**Who:** a customer (incognito), then owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** Central Warehouse is the MaxTheService warehouse and lists a phone at Rs 52,000, delivering to Karachi (M-3-01).  
+**Covers:** MKT-R20.4, MKT-R18.5  
+**Evidence:** recorded 2026-10-15 09:21 UTC  
+**Automated by:** MKT-3b-02, MKT-3b-03, MKT-3b-04, MKT-3b-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer (incognito): open the phone's product page (Karachi), choose MaxTheService, "Buy", Quantity 1, name "Ali W57630t", phone 030045763081, address "1 Clifton". Press "Place order". | "MaxTheService is packing your order" and "In stock at MaxTheService and set aside for you. Packed within 23:5x:xx." |
+| 2 | As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order (the pick). | The row reads "Accepted" with an invoice number: the sale is in the warehouse's books. |
+| 3 | Customer: open the order page again. | "MaxTheService is packing your order" and "Picked and set aside for you. Packing is next. Pay Rs. 52,000 in cash when it arrives." |
+| 4 | As owner.warehouse@: Sale → Orders. Search "Ali W57630t". Press "Mark PACKED" on the order. | The order's status reads PACKED. |
+| 5 | Customer: open the order page again. | "Packed by MaxTheService" and "It leaves soon. Pay Rs. 52,000 in cash when it arrives." |
+| 6 | As owner.warehouse@: Sale → Orders → open the order → "Ship". Carrier "TCS", tracking number "TCS-W57630". Press "Record shipment". | "Shipment recorded: SHP-…"; the order lists the parcel with TCS. |
+| 7 | Customer: open the order page again. | "Shipped by MaxTheService" and "TCS · tracking TCS-W57630. Pay Rs. 52,000 in cash when it arrives." (never the invoice or the packer's note). |
+| 8 | As owner.warehouse@: Sale → Orders. Press "Mark DELIVERED" on the order. | The order's status reads DELIVERED. |
+| 9 | Customer: open the order page again. | "Delivered", and nothing more is promised (no "will deliver and collect"). |
+| C1 | Nothing to undo: the order is delivered, and MaxTheService's own sale is never settled. | Nothing to undo. |
+
+### M-3-03 A faulty MaxTheService phone comes back to the warehouse
+
+**Who:** Customer → MaxTheService operator → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** A cash-on-delivery order for a phone sold and shipped by MaxTheService (Central Warehouse) was delivered to the customer, inside its 7-day return window.  
+**Covers:** MKT-R20.4, MKT-R4.2, MKT-R13.2, MKT-R22.1  
+**Evidence:** recorded 2026-10-15 09:48 UTC  
+**Automated by:** MKT-3d-01, MKT-3d-02, MKT-3d-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: My orders → Get help → "Return this item" → "Faulty or damaged" → note "screen flickers" → Send. | Under the order: "Help request SC-…", "RT-… · Return requested · Rs. 52,000" (a fault costs the customer nothing). |
+| 2 | Operator: Support cases. More than 100 are waiting on this stack, so press "Next ›" until the last page (urgent first, then the longest waiting: the newest is last) → the case → Approve. | The list says "101–… of …"; the case is on the last page. The return reads APPROVED. |
+| 3 | Customer: My orders → the help request. | "Your return RT-… is approved. MaxTheService will collect it from your address. The rider hands you Rs 52,000 in cash when collecting it." Never "the seller's rider": the phone was MaxTheService's own. |
+| 4 | As owner.warehouse@myplus.com: Sale → Marketplace → "Tasks from MaxTheService" → the return. Choose "Write off: unusable (goes to Quarantine, where you dispose of it)", tick "Cash handed back (Rs 52,000)", press "Item received". | "Received. The customer's refund is done." and the return leaves the list ("Nothing from MaxTheService right now"). |
+| 5 | Still as the warehouse: Register → Quarantine. | The written-off phone is listed with a Dispose button. (This screen was hidden from shops that track neither batches nor expiry.) |
+| 6 | Press "Dispose" on that phone and confirm. | "Lot disposed." and the phone leaves the list. |
+| C1 | Nothing to undo: the return is finished and the phone disposed of. | Nothing to undo. |
+
 
 ## MKT-4
 

@@ -488,7 +488,7 @@
 
 	var OUTCOMES = [['RESTOCK', 'ui.js.mktOutRestock', 'Restock: back on the shelf'],
 		['QUARANTINE', 'ui.js.mktOutQuarantine', 'Quarantine: faulty, not sellable'],
-		['WRITE_OFF', 'ui.js.mktOutWriteOff', 'Write off: unusable']];
+		['WRITE_OFF', 'ui.js.mktOutWriteOff', 'Write off: unusable (goes to Quarantine, where you dispose of it)']];
 
 	function mktTasksLoad() {
 		return $.ajax({ url: ctx() + 'mkt/sellerTasks', dataType: 'json' }).done(function (res) {

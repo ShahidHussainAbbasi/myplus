@@ -685,16 +685,29 @@
 	// ── MKT-1f: support cases and returns ──────────────────────────────────────────────────────────────
 
 	var caseStatus = '';
+	var casePage = 0;   // MKT-3d: 100 a page; the newest open case is on the last page (urgent first, then the longest waiting)
 	var CASE_ST = { OPEN: ['ui.js.mktCaseOpen', 'Open'], WAITING_SELLER: ['ui.js.mktCaseWaitSeller', 'Waiting for seller'],
 		WAITING_CUSTOMER: ['ui.js.mktCaseWaitCustomer', 'Waiting for customer'], RESOLVED: ['ui.js.mktCaseResolved', 'Resolved'] };
 
 	function loadCases() {
-		$.ajax({ url: ctx() + 'platform/mkt/cases?size=100' + (caseStatus ? '&status=' + encodeURIComponent(caseStatus) : ''), dataType: 'json' })
+		$.ajax({ url: ctx() + 'platform/mkt/cases?size=100&page=' + casePage + (caseStatus ? '&status=' + encodeURIComponent(caseStatus) : ''), dataType: 'json' })
 			.done(function (res) {
 				var $tb = $('#mktCaseList tbody').empty();
+				var $pg = $('#mktCasePager').empty();
 				if (!ok(res)) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
-				var rows = (data(res) || {}).content || [];
+				var pg = data(res) || {};
+				var rows = pg.content || [];
+				if (!rows.length && casePage > 0) { casePage = 0; loadCases(); return; }
 				if (!rows.length) $tb.append($('<tr><td colspan="5" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktNoCases', 'No cases here.')).end());
+				if (pg.totalPages > 1) {
+					var from = pg.pageNo * pg.pageSize + 1;
+					$('<span style="margin-right:8px"></span>').text(tr('ui.js.mktCasesRange', '{0}–{1} of {2}')
+						.replace('{0}', from).replace('{1}', from + rows.length - 1).replace('{2}', pg.totalElements)).appendTo($pg);
+					$('<button type="button" class="btn btn-default btn-xs" id="mktCasePrev" style="margin-right:4px"></button>')
+						.text(tr('ui.js.mktPagePrev', '‹ Previous')).prop('disabled', pg.pageNo === 0).appendTo($pg);
+					$('<button type="button" class="btn btn-default btn-xs" id="mktCaseNext"></button>')
+						.text(tr('ui.js.mktPageNext', 'Next ›')).prop('disabled', !!pg.last).appendTo($pg);
+				}
 				rows.forEach(function (c) {
 					var st = CASE_ST[c.status] || [null, c.status];
 					var $tr = $('<tr class="mkt-case-row" style="cursor:pointer" tabindex="0"></tr>').attr('data-case-no', c.caseNo);
@@ -775,6 +788,12 @@
 		$('#platMktCaseStatus button').removeClass('is-on');
 		$(this).addClass('is-on');
 		caseStatus = $(this).attr('data-status');
+		casePage = 0;
+		$('#mktCaseDetail').empty();
+		loadCases();
+	});
+	$(document).on('click', '#mktCasePrev, #mktCaseNext', function () {
+		casePage = Math.max(0, casePage + (this.id === 'mktCaseNext' ? 1 : -1));
 		$('#mktCaseDetail').empty();
 		loadCases();
 	});

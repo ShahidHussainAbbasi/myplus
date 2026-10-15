@@ -117,6 +117,7 @@
 		render: function () { return render(); },
 		tr: function () { return tr.apply(null, arguments); },
 		money: function (v) { return money(v); },
+		progress: function (o, p, seller) { return progress(o, p, seller); },   // MKT-3b: My orders
 		csrfHeaders: function () { return csrfHeaders(); },
 		shortage: function (o, p, phone, done) { return shortage(o, p, phone, done); }
 	};
@@ -630,9 +631,12 @@
 		$('mktOrderParts').hidden = !perPart;
 		if (perPart) return showParts(o, parts);
 		if (o.status === 'CONFIRMED') {
+			var pg = progress(o, parts[0] || {}, seller);
 			st.className = 'state ok';
-			st.textContent = tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
-			detail.textContent = tr('ui.js.mktConfirmedCod', '{0} will deliver and collect {1} in cash.', seller, money(o.total));
+			st.textContent = pg.state || tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
+			detail.textContent = pg.state ? pg.detail   // MKT-3b: once delivered, nothing is still to come
+				: tr('ui.js.mktConfirmedCod', '{0} will deliver and collect {1} in cash.', seller, money(o.total));
+			if (!pg.done) pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 30000);   // MKT-3b: packed, sent, delivered
 		} else if (o.status === 'PAYMENT_PENDING') {
 			st.className = 'state wait';
 			st.textContent = tr('ui.js.mktPayConfirming', 'Confirming your payment');
@@ -687,7 +691,7 @@
 			st.textContent = tr('ui.js.mktWaitingSellers', 'Waiting for the sellers to confirm');
 			detail.textContent = tr('ui.js.mktStockHeldAll', 'Your stock is held while the sellers answer.');
 		}
-		var clocks = [], moving = false;
+		var clocks = [], moving = false, underway = false;
 		parts.forEach(function (p) {
 			var li = el('li', 'mkt-part');
 			li.setAttribute('data-seller', p.sellerName || '');
@@ -699,10 +703,12 @@
 			(p.lines || []).forEach(function (l) { li.appendChild(el('span', 'terms', l.productName + ' × ' + l.quantity + ' · ' + money(l.lineTotal))); });
 			var ps = el('span', 'pstate');
 			if (p.status === 'ACCEPTED' || p.status === 'HANDED_OVER') {
+				var pp = progress(o, p, p.sellerName);
 				ps.className = 'pstate ok';
-				ps.textContent = p.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered')
+				ps.textContent = pp.state ? pp.state + (pp.detail ? ' · ' + pp.detail : '')
 					: card ? tr('ui.js.mktPartConfirmed', 'Confirmed: {0} will deliver', p.sellerName)
 						: tr('ui.js.mktPartConfirmedCod', 'Confirmed: {0} will deliver and collect {1} in cash', p.sellerName, money(p.total));
+				if (!pp.done) underway = true;                   // MKT-3b: ask again now and then until it is delivered
 			} else if (p.status === 'OFFERED' || p.status === 'UNASSIGNED') {
 				ps.className = 'pstate wait';
 				var deadline = p.secondsToAccept === null || p.secondsToAccept === undefined ? null : Date.now() + p.secondsToAccept * 1000;
@@ -734,6 +740,33 @@
 		paint();
 		if (clocks.length) countdownTimer = setInterval(paint, 1000);
 		if (clocks.length || moving) pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 10000);   // the answers, when they come
+		else if (underway) pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 30000);   // MKT-3b: packed, sent, delivered
+	}
+
+	/**
+	 * MKT-3b — where an accepted part's delivery stands, from its store order (read by the server, never copied):
+	 * {state, detail, done}. Empty state while nothing has happened since Accept, so the caller keeps its own words
+	 * ("Confirmed by …"), except for MaxTheService's own stock, which was picked at Accept and is being packed.
+	 */
+	function progress(o, p, seller) {
+		if (p.status !== 'ACCEPTED' && p.status !== 'HANDED_OVER') return { state: '', detail: '', done: true };   // not its seller's yet
+		var own = (p.lines || []).length && (p.lines || []).every(function (l) { return l.stockSourceType === 'PLATFORM'; });
+		var who = own ? 'MaxTheService' : (seller || tr('ui.js.mktTheSeller', 'the seller'));
+		var cash = o.paymentMode !== 'CARD' ? ' ' + tr('ui.js.mktPayOnDelivery', 'Pay {0} in cash when it arrives.', money(p.total || o.total)) : '';
+		if (p.deliveredAt || p.fulfilment === 'DELIVERED') return { state: tr('ui.js.mktPartDelivered', 'Delivered'), detail: '', done: true };
+		var sent = (p.parcels || []).filter(function (x) { return x.status !== 'CANCELLED'; });
+		if (sent.length || p.fulfilment === 'SHIPPED' || p.fulfilment === 'PARTIALLY_SHIPPED') {
+			var how = sent.map(function (x) {
+				return [x.carrier, x.trackingNumber ? tr('ui.js.mktTracking', 'tracking {0}', x.trackingNumber) : ''].filter(Boolean).join(' · ');
+			}).filter(Boolean).join('; ');
+			return { state: own ? tr('ui.js.mktShippedByUs', 'Shipped by MaxTheService') : tr('ui.js.mktOnItsWay', 'On its way from {0}', who),
+				detail: (how ? how + '.' : '') + cash, done: false };
+		}
+		if (p.fulfilment === 'PACKED')
+			return { state: tr('ui.js.mktPacked', 'Packed by {0}', who), detail: tr('ui.js.mktLeavesSoon', 'It leaves soon.') + cash, done: false };
+		if (own) return { state: tr('ui.js.mktPacking', 'MaxTheService is packing your order'),
+			detail: tr('ui.js.mktPicked', 'Picked and set aside for you. Packing is next.') + cash, done: false };
+		return { state: '', detail: '', done: false };
 	}
 
 	/** m:ss, or h:mm:ss from an hour up (MKT-3a: MaxTheService packs within 24 hours). */

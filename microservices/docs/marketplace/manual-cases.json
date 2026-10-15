@@ -7048,6 +7048,157 @@
    "result": "passed"
   },
   {
+   "id": "M-3-02",
+   "slice": "MKT-3",
+   "title": "The shopper follows a MaxTheService order to the door",
+   "persona": "a customer (incognito), then owner.warehouse@myplus.com (the MaxTheService warehouse)",
+   "pre": "Central Warehouse is the MaxTheService warehouse and lists a phone at Rs 52,000, delivering to Karachi (M-3-01).",
+   "reqs": [
+    "MKT-R20.4",
+    "MKT-R18.5"
+   ],
+   "auto": [
+    "MKT-3b-02",
+    "MKT-3b-03",
+    "MKT-3b-04",
+    "MKT-3b-05"
+   ],
+   "recordedAt": "2026-10-15T09:21:00.475Z",
+   "startedAt": "2026-10-15T09:20:01.123Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer (incognito): open the phone's product page (Karachi), choose MaxTheService, \"Buy\", Quantity 1, name \"Ali W57630t\", phone 030045763081, address \"1 Clifton\". Press \"Place order\".",
+     "expect": "\"MaxTheService is packing your order\" and \"In stock at MaxTheService and set aside for you. Packed within 23:5x:xx.\"",
+     "shot": "shots/M-3-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Incoming marketplace orders\". Press \"Accept\" on the order (the pick).",
+     "expect": "The row reads \"Accepted\" with an invoice number: the sale is in the warehouse's books.",
+     "shot": "shots/M-3-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer: open the order page again.",
+     "expect": "\"MaxTheService is packing your order\" and \"Picked and set aside for you. Packing is next. Pay Rs. 52,000 in cash when it arrives.\"",
+     "shot": "shots/M-3-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.warehouse@: Sale → Orders. Search \"Ali W57630t\". Press \"Mark PACKED\" on the order.",
+     "expect": "The order's status reads PACKED.",
+     "shot": "shots/M-3-02/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Customer: open the order page again.",
+     "expect": "\"Packed by MaxTheService\" and \"It leaves soon. Pay Rs. 52,000 in cash when it arrives.\"",
+     "shot": "shots/M-3-02/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "As owner.warehouse@: Sale → Orders → open the order → \"Ship\". Carrier \"TCS\", tracking number \"TCS-W57630\". Press \"Record shipment\".",
+     "expect": "\"Shipment recorded: SHP-…\"; the order lists the parcel with TCS.",
+     "shot": "shots/M-3-02/06.jpg"
+    },
+    {
+     "n": 7,
+     "do": "Customer: open the order page again.",
+     "expect": "\"Shipped by MaxTheService\" and \"TCS · tracking TCS-W57630. Pay Rs. 52,000 in cash when it arrives.\" (never the invoice or the packer's note).",
+     "shot": "shots/M-3-02/07.jpg"
+    },
+    {
+     "n": 8,
+     "do": "As owner.warehouse@: Sale → Orders. Press \"Mark DELIVERED\" on the order.",
+     "expect": "The order's status reads DELIVERED.",
+     "shot": "shots/M-3-02/08.jpg"
+    },
+    {
+     "n": 9,
+     "do": "Customer: open the order page again.",
+     "expect": "\"Delivered\", and nothing more is promised (no \"will deliver and collect\").",
+     "shot": "shots/M-3-02/09.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the order is delivered, and MaxTheService's own sale is never settled.",
+     "expect": "Nothing to undo."
+    }
+   ],
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-3-03",
+   "slice": "MKT-3",
+   "title": "A faulty MaxTheService phone comes back to the warehouse",
+   "persona": "Customer → MaxTheService operator → owner.warehouse@myplus.com (the MaxTheService warehouse)",
+   "pre": "A cash-on-delivery order for a phone sold and shipped by MaxTheService (Central Warehouse) was delivered to the customer, inside its 7-day return window.",
+   "reqs": [
+    "MKT-R20.4",
+    "MKT-R4.2",
+    "MKT-R13.2",
+    "MKT-R22.1"
+   ],
+   "auto": [
+    "MKT-3d-01",
+    "MKT-3d-02",
+    "MKT-3d-04"
+   ],
+   "recordedAt": "2026-10-15T09:48:22.341Z",
+   "startedAt": "2026-10-15T09:47:44.314Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: My orders → Get help → \"Return this item\" → \"Faulty or damaged\" → note \"screen flickers\" → Send.",
+     "expect": "Under the order: \"Help request SC-…\", \"RT-… · Return requested · Rs. 52,000\" (a fault costs the customer nothing).",
+     "shot": "shots/M-3-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Operator: Support cases. More than 100 are waiting on this stack, so press \"Next ›\" until the last page (urgent first, then the longest waiting: the newest is last) → the case → Approve.",
+     "expect": "The list says \"101–… of …\"; the case is on the last page. The return reads APPROVED.",
+     "shot": "shots/M-3-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer: My orders → the help request.",
+     "expect": "\"Your return RT-… is approved. MaxTheService will collect it from your address. The rider hands you Rs 52,000 in cash when collecting it.\" Never \"the seller's rider\": the phone was MaxTheService's own.",
+     "shot": "shots/M-3-03/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Tasks from MaxTheService\" → the return. Choose \"Write off: unusable (goes to Quarantine, where you dispose of it)\", tick \"Cash handed back (Rs 52,000)\", press \"Item received\".",
+     "expect": "\"Received. The customer's refund is done.\" and the return leaves the list (\"Nothing from MaxTheService right now\").",
+     "shot": "shots/M-3-03/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Still as the warehouse: Register → Quarantine.",
+     "expect": "The written-off phone is listed with a Dispose button. (This screen was hidden from shops that track neither batches nor expiry.)",
+     "shot": "shots/M-3-03/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "Press \"Dispose\" on that phone and confirm.",
+     "expect": "\"Lot disposed.\" and the phone leaves the list.",
+     "shot": "shots/M-3-03/06.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the return is finished and the phone disposed of.",
+     "expect": "Nothing to undo."
+    }
+   ],
+   "evidence": "recorded"
+  },
+  {
    "id": "M-4-01",
    "slice": "MKT-4",
    "title": "Supplier stock is never \"in stock today\" without a promise",
