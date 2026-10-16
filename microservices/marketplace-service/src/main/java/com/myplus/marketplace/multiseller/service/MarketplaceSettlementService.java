@@ -540,6 +540,24 @@ public class MarketplaceSettlementService {
         return account(req.organizationId(), true);
     }
 
+    /**
+     * MKT-5d — an approved shrinkage claim: the custodian (MaxTheService's warehouse) pays the owner the units' declared
+     * value, as a NEW credit on the owner's account (R12.4: only after the operator's decision). The claim number is
+     * the row's reference; the same claim credits once. Joins the caller's transaction.
+     */
+    @Transactional
+    public void creditClaim(Long org, BigDecimal amount, String claimNo, String memo) {
+        if (amount == null || amount.signum() <= 0) return;
+        String key = "claim:" + claimNo;
+        if (entries.existsByIdempotencyKey(key)) return;
+        Books books = ensureBooks();
+        append(org, null, null, LedgerEntryType.ADJUSTMENT, Money.ZERO, Money.scale(amount), claimNo, clip(memo, 300), key,
+                access.userId());
+        gl.enqueue(books.organizationId(), books.userId(), PostingEventRequest.builder()
+                .eventType("MKT_ADJUSTMENT").eventKey("MKT-CLAIM-" + claimNo).date(TenantClock.today()).ref(claimNo)
+                .grandTotal(Money.scale(amount)).build());
+    }
+
     // ── MKT-2d: cash orders: what sellers owe, and the money they pay ───────────────────────────────────────
 
     /**

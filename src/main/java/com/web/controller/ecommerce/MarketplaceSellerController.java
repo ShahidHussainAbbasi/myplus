@@ -474,6 +474,44 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/seller/consigned/list", body, "Could not list it.");
     }
 
+    // ── MKT-5d: counts of consigned stock and shrinkage claims ──
+
+    /** The warehouse counted. Body: {consignorOrgId, mktProductId, counted, note, idempotencyKey}. */
+    @RequestMapping(value = "/mkt/consignedCount", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignedCount(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consigned/count", body, "Could not record the count.");
+    }
+
+    /** The owner claims. Body: {countId, kind, units, proof, note}. */
+    @RequestMapping(value = "/mkt/consignedClaim", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignedClaim(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consigned/claim", body, "Could not raise the claim.");
+    }
+
+    /** The owner writes off or withdraws. Body: {id, version, action: WRITE_OFF|WITHDRAW}. */
+    @RequestMapping(value = "/mkt/consignedShrinkage", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignedShrinkage(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consigned/shrinkage", body, "Could not record it.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/shrinkageClaims", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> shrinkageClaims(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/shrinkage-claims", request, "Could not load the shrinkage claims.");
+    }
+
+    /** Body: {id, version, action: APPROVE|REJECT, reason}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/shrinkageDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> shrinkageDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/shrinkage-claims/decision", body, "Could not record the decision.");
+    }
+
     // ── MKT-5a: consignment agreements (the operator offers terms; the consignor accepts, declines or ends) ──
 
     @RequestMapping(value = "/mkt/consignments", method = RequestMethod.GET)

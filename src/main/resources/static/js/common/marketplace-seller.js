@@ -636,7 +636,119 @@
 				.text(l ? tr('ui.js.mktListChange', 'Change') : tr('ui.js.mktListNew', 'List for sale'))
 				.on('click', function () { mktListOpen(h); }).appendTo($a);
 			$tb.append($tr);
+			if (h.shrink) $tb.append(shrinkRow(h, warehouse ? 7 : 6));
 		});
+	}
+
+	// ── MKT-5d: counts and shrinkage claims ─────────────────────────────────────────────────────────────
+
+	var SC_KINDS = ['THEFT', 'DAMAGE', 'BREAKAGE', 'SPOILAGE', 'EXPIRY', 'MISCOUNT', 'CONSUMPTION', 'SHORT_SHIPMENT', 'DELIVERY_LOSS'];
+	var SC_KIND = { THEFT: 'Theft', DAMAGE: 'Damage', BREAKAGE: 'Breakage', SPOILAGE: 'Spoilage', EXPIRY: 'Expiry', MISCOUNT: 'Miscount',
+		CONSUMPTION: 'Unrecorded use', SHORT_SHIPMENT: 'Short shipment', DELIVERY_LOSS: 'Lost in delivery' };
+	var SC_ST = { OPEN: 'Waiting for MaxTheService', APPROVED: 'Approved: credited to you', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn' };
+	function scKind(k) { return tr('ui.js.mktScK_' + k, SC_KIND[k] || k); }
+
+	/** Who answers for a kind of loss under the agreement (ShrinkagePolicy.forConsignment): CONSIGNEE is MaxTheService. */
+	function scWho(kind, s) {
+		if (kind === 'DAMAGE' || kind === 'BREAKAGE') return s.damageBearer === 'CONSIGNOR' ? 'CONSIGNOR' : 'CONSIGNEE';
+		if (kind === 'EXPIRY' || kind === 'SPOILAGE') return s.expiryBearer === 'CONSIGNOR' ? 'CONSIGNOR' : 'CONSIGNEE';
+		return kind === 'SHORT_SHIPMENT' ? 'CONSIGNOR' : 'CONSIGNEE';
+	}
+
+	/**
+	 * Under each held row: when the next count is due, what is missing, the warehouse's count form, and each count with its
+	 * claims. The owner claims (beyond the tolerance, inside the window) or writes off; nothing is paid until MaxTheService
+	 * approves a claim.
+	 */
+	function shrinkRow(h, span) {
+		var s = h.shrink;
+		var $tr = $('<tr class="mkt-held-shrink"></tr>').attr('data-product', h.mktProductId).attr('data-owner', h.consignorOrgId);
+		var $td = $('<td style="border-top:0;padding-top:0;font-size:13px;white-space:normal"></td>').attr('colspan', span).appendTo($tr);
+		var $head = $('<div class="mkt-shrink-head text-muted"></div>').appendTo($td);
+		if (s.countDue) $head.append($('<span class="mkt-count-due"></span>').css('color', s.countOverdue ? '#b3261e' : '')
+			.text(tr(s.countOverdue ? 'ui.js.mktCountOverdue' : 'ui.js.mktCountDue', s.countOverdue ? 'Count overdue since {0}' : 'Next count due by {0}').replace('{0}', s.countDue)));
+		if (s.missing > 0) $head.append(' · ').append($('<span class="mkt-shrink-missing" style="color:#b3261e;font-weight:600"></span>')
+			.text(tr('ui.js.mktShrinkMissing', '{0} missing, not sold').replace('{0}', s.missing)));
+		if (s.canCount) {
+			var $f = $('<div class="form-inline mkt-count-form" style="margin-top:4px"></div>').appendTo($td);
+			var $n = $('<input type="number" min="0" step="1" class="form-control input-sm mkt-count-n" style="width:110px" inputmode="numeric">')
+				.attr('placeholder', tr('ui.js.mktCountN', 'Units counted')).attr('aria-label', tr('ui.js.mktCountN', 'Units counted')).appendTo($f);
+			var $note = $('<input type="text" maxlength="300" class="form-control input-sm mkt-count-note" style="width:200px;margin-left:4px">')
+				.attr('placeholder', tr('ui.js.mktCountNote', 'Note (optional)')).attr('aria-label', tr('ui.js.mktCountNote', 'Note (optional)')).appendTo($f);
+			var key = 'cc-' + h.consignorOrgId + '-' + h.mktProductId + '-' + Date.now();
+			$('<button type="button" class="btn btn-xs btn-default mkt-count-save" style="margin-left:4px"></button>').text(tr('ui.js.mktCountSave', 'Record count'))
+				.on('click', function () {
+					transferPost('mkt/consignedCount', { consignorOrgId: h.consignorOrgId, mktProductId: h.mktProductId,
+						counted: $n.val() === '' ? null : Number($n.val()), note: $note.val() || null, idempotencyKey: key }, $(this));
+				}).appendTo($f);
+		}
+		(s.counts || []).forEach(function (c) { $td.append(countLine(c, s)); });
+		return $tr;
+	}
+
+	function countLine(c, s) {
+		var $c = $('<div class="mkt-count" style="margin-top:6px"></div>').attr('data-count-no', c.countNo);
+		var said = tr('ui.js.mktCountLine', '{0} on {1}: counted {2} of {3}').replace('{0}', c.countNo)
+			.replace('{1}', String(c.countedAt || '').substring(0, 10)).replace('{2}', c.counted).replace('{3}', c.expected);
+		if (c.missing > 0) said += ', ' + tr('ui.js.mktCountMissing', '{0} missing').replace('{0}', c.missing)
+			+ (c.tolerated > 0 ? ' (' + tr('ui.js.mktCountTol', '{0} within the tolerance').replace('{0}', c.tolerated) + ')' : '');
+		if (c.writtenOff > 0) said += ' · ' + tr('ui.js.mktCountWritten', '{0} written off').replace('{0}', c.writtenOff);
+		if (c.approved > 0) said += ' · ' + tr('ui.js.mktCountApproved', '{0} paid by claim').replace('{0}', c.approved);
+		$c.append($('<span class="mkt-count-said"></span>').text(said));
+		if (c.note) $c.append($('<span class="text-muted"></span>').text(' · ' + c.note));
+		if (s.canClaim && c.claimable > 0) $c.append(' ').append($('<span class="text-muted mkt-count-claimby"></span>')
+			.text(tr('ui.js.mktCountClaimBy', 'claim by {0}').replace('{0}', c.claimBy)));
+		(c.claims || []).forEach(function (m) { $c.append(claimLine(m, s)); });
+		if (!s.canClaim) return $c;
+		var $act = $('<div style="margin-top:2px"></div>').appendTo($c);
+		if (c.claimable > 0) $('<button type="button" class="btn btn-xs btn-default mkt-claim-open" style="margin-right:4px"></button>')
+			.text(tr('ui.js.mktClaimOpen', 'Claim from MaxTheService')).on('click', function () { $c.find('.mkt-claim-form').toggle(); }).appendTo($act);
+		if (c.writable > 0) $('<button type="button" class="btn btn-xs btn-default mkt-count-writeoff"></button>')
+			.text(tr('ui.js.mktWriteOff', 'Write off {0}').replace('{0}', c.writable))
+			.on('click', function () {
+				if (!global.confirm(tr('ui.js.mktWriteOffAsk', 'Write {0} off your stock? You bear the loss.').replace('{0}', c.writable))) return;
+				transferPost('mkt/consignedShrinkage', { id: c.id, version: c.version, action: 'WRITE_OFF' }, $(this));
+			}).appendTo($act);
+		if (c.claimable > 0) $c.append(claimForm(c, s));
+		return $c;
+	}
+
+	function claimLine(m, s) {
+		var $m = $('<div class="mkt-claim" style="margin:2px 0 0 14px"></div>').attr('data-claim-no', m.claimNo).attr('data-status', m.status);
+		$m.append($('<span class="mkt-claim-said"></span>').text(m.claimNo + ' · ' + scKind(m.kind) + ' · ' + m.units + ' · ' + money(m.amount)));
+		$m.append(' ').append($('<strong class="mkt-claim-status"></strong>').text(tr('ui.js.mktScSt_' + m.status, SC_ST[m.status] || m.status)));
+		if (m.decisionReason) $m.append($('<span class="text-muted mkt-claim-reason"></span>').text(' · ' + m.decisionReason));
+		if (s.canClaim && m.status === 'OPEN')
+			$('<button type="button" class="btn btn-xs btn-link mkt-claim-withdraw"></button>').text(tr('ui.js.mktClaimWithdraw', 'Withdraw'))
+				.on('click', function () { transferPost('mkt/consignedShrinkage', { id: m.id, version: m.version, action: 'WITHDRAW' }, $(this)); })
+				.appendTo($m);
+		return $m;
+	}
+
+	function claimForm(c, s) {
+		var $f = $('<div class="form-inline mkt-claim-form" style="display:none;margin-top:4px"></div>');
+		var $k = $('<select class="form-control input-sm mkt-claim-kind"></select>').attr('aria-label', tr('ui.js.mktClaimKind', 'What happened')).appendTo($f);
+		$('<option value=""></option>').text(tr('ui.js.mktClaimKind', 'What happened')).appendTo($k);
+		SC_KINDS.forEach(function (k) { $('<option></option>').val(k).text(scKind(k)).appendTo($k); });
+		var $u = $('<input type="number" min="1" step="1" class="form-control input-sm mkt-claim-units" style="width:80px;margin-left:4px" inputmode="numeric">')
+			.val(c.claimable).attr('aria-label', tr('ui.js.mktClaimUnits', 'Units')).attr('max', c.claimable).appendTo($f);
+		var proofL = s.proofRequired ? tr('ui.js.mktClaimProof', 'Proof: CCTV time, photo link…') : tr('ui.js.mktClaimProofOpt', 'Proof (optional)');
+		var $p = $('<input type="text" maxlength="500" class="form-control input-sm mkt-claim-proof" style="width:240px;margin-left:4px">')
+			.attr('placeholder', proofL).attr('aria-label', proofL).appendTo($f);
+		var $who = $('<div class="text-muted mkt-claim-who" style="font-size:12px"></div>');
+		$k.on('change', function () {
+			var k = $k.val();
+			$who.text(!k ? '' : scWho(k, s) === 'CONSIGNOR'
+				? tr('ui.js.mktClaimYours', 'Under {0} this is yours to bear: write it off instead.').replace('{0}', s.agreementNo || '')
+				: tr('ui.js.mktClaimTheirs', 'Under {0} MaxTheService answers for this.').replace('{0}', s.agreementNo || ''));
+		});
+		$('<button type="button" class="btn btn-xs btn-primary mkt-claim-save" style="margin-left:4px"></button>').text(tr('ui.js.mktClaimSave', 'Raise the claim'))
+			.on('click', function () {
+				transferPost('mkt/consignedClaim', { countId: c.id, kind: $k.val() || null, units: Number($u.val()) || null,
+					proof: $p.val() || null }, $(this));
+			}).appendTo($f);
+		$f.append($who);
+		return $f;
 	}
 
 	var mktListing = null;
@@ -735,7 +847,10 @@
 		var $msg = $('#mktTransferMsg').text('').css('color', '');
 		// a row's action redraws the list (see below); a refused Send keeps the form as typed
 		var refused = function (why) {
-			if (path === 'mkt/transferOffer') { $msg.css('color', '#b3261e').text(why); return; }
+			// a refused Send, count or claim keeps what was typed (MKT-5d)
+			if (path === 'mkt/transferOffer' || path === 'mkt/consignedCount' || path === 'mkt/consignedClaim') {
+				$msg.css('color', '#b3261e').text(why); return;
+			}
 			mktTransfersLoad().always(function () { $('#mktTransferMsg').css('color', '#b3261e').text(why); });
 		};
 		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })

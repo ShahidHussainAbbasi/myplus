@@ -246,6 +246,7 @@ class ConsignedSaleServiceTest {
         lots.add(new Object[] {11L, "MKT-ST-000011-0-consign", OWNER_PRODUCT, 2L, new BigDecimal("40000.00")});
         lots.add(new Object[] {12L, "MKT-ST-000012-0-consign", OWNER_PRODUCT, 3L, new BigDecimal("41000.00")});
         lenient().when(consigned.lots(OWNER, WAREHOUSE, PHONE)).thenReturn(lots);
+        lenient().when(consigned.balance(OWNER, WAREHOUSE, PHONE)).thenReturn(5L);
         lenient().when(trade.recordSale(any())).thenAnswer(i -> SaleRecordResult.builder()
                 .invoiceNo("INV-" + ((SaleRecordRequest) i.getArgument(0)).getIdempotencyKey()).build());
         lenient().when(trade.recordPurchase(any())).thenReturn(PurchaseRecordResult.builder().purchaseId(900L).build());
@@ -317,6 +318,13 @@ class ConsignedSaleServiceTest {
         assertThatThrownBy(() -> service.sell(part(500L), "MKT-000124", List.of(big), Map.of()))
                 .isInstanceOf(ValidationException.class)
                 .hasMessage("MaxTheService holds only 5 × Galaxy A32 for Mobile Distributor, so this order cannot be accepted. Reject it and say why.");
+        verify(trade, never()).releaseHold(anyString());
+
+        // MKT-5d: units a count found missing are still in the lots but not on the shelf
+        when(consigned.balance(OWNER, WAREHOUSE, PHONE)).thenReturn(3L);
+        MarketplaceOrderLine four = line(83, 4, "52000");
+        assertThatThrownBy(() -> service.sell(part(500L), "MKT-000125", List.of(four), Map.of()))
+                .isInstanceOf(ValidationException.class).hasMessageStartingWith("MaxTheService holds only 3 × Galaxy A32");
         verify(trade, never()).releaseHold(anyString());
     }
 

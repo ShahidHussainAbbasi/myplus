@@ -315,7 +315,8 @@ public class ConsignedSaleService {
                     .orElseThrow(() -> new ValidationException("There is no active consignment agreement with " + name(owner)
                             + " any more, so its stock cannot be sold. Reject the order and say why."));
             List<Lot> lots = lots(owner, warehouse, l.getMktProductId());
-            int held = lots.stream().mapToInt(Lot::left).sum();
+            // MKT-5d: units a count found missing are still in the lots (the owner's books) but not on the shelf
+            int held = (int) Math.min(lots.stream().mapToInt(Lot::left).sum(), consigned.balance(owner, warehouse, l.getMktProductId()));
             if (held < need)
                 throw new ValidationException("MaxTheService holds only " + held + " × " + l.getProductName() + " for " + name(owner)
                         + ", so this order cannot be accepted. Reject it and say why.");
@@ -418,7 +419,7 @@ public class ConsignedSaleService {
     }
 
     /** Set {@code units} of the lot aside again under its own key; a hold that cannot be taken is logged, not fatal. */
-    private void setAside(Long owner, Lot lot, int units) {
+    void setAside(Long owner, Lot lot, int units) {
         if (units <= 0) return;
         StockHoldRequest hold = StockHoldRequest.builder()
                 .organizationId(owner)
@@ -429,10 +430,10 @@ public class ConsignedSaleService {
         try {
             StockHoldResponse r = AsOrg.call(owner, () -> trade.holdStock(hold));
             if (r == null || !r.isHeld())
-                LOG.warn("MKT-5c: {} units of lot {} not set aside again in org {}'s books: {}", units, lot.holdKey(), owner,
+                LOG.warn("MKT-5: {} units of lot {} not set aside again in org {}'s books: {}", units, lot.holdKey(), owner,
                         r == null ? "no answer" : r.getReason());
         } catch (RuntimeException e) {
-            LOG.warn("MKT-5c: {} units of lot {} not set aside again in org {}'s books: {}", units, lot.holdKey(), owner, e.toString());
+            LOG.warn("MKT-5: {} units of lot {} not set aside again in org {}'s books: {}", units, lot.holdKey(), owner, e.toString());
         }
     }
 
@@ -460,7 +461,7 @@ public class ConsignedSaleService {
         consigned.save(m);
     }
 
-    private String name(Long org) {
+    String name(Long org) {
         return accounts.findByOrganizationId(org).map(x -> x.getDisplayName()).filter(n -> n != null && !n.isBlank())
                 .orElse("Seller " + org);
     }

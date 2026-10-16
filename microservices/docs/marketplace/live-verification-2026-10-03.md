@@ -547,3 +547,17 @@ statement reads 52,000 / 5,200 / 46,800, "Return days running".
 a consigned product read "already listed" (the refusal now comes first); the listing form's button had the same id as
 its handler, so the inline submit called the button ("mktListSave is not a function") and the button is renamed; the
 policy pickers did not show their options until refreshed.
+
+## 27. MKT-5d — counts of consigned stock and shrinkage claims (run 2026-10-16)
+
+**Gate `mkt-5d-counts-shrinkage.cy.js`: 6 / 6** on the usual clock, after commerce-contracts, marketplace-service (V43,
+started under `ddl-auto=validate`) and the monolith were rebuilt; the container had restarted, so Docker, MySQL, Redis
+and the whole stack were started again first. Regression: MKT-5c 6/6, MKT-5b 6/6. Unit: marketplace-service 498/498.
+
+**Walk M-5-02: recorded**, 5 steps and a cleanup, each expected result asserted, screens captured and looked at: the
+warehouse counts 2 of 3, the owner reads which kinds the agreement puts on it and claims a theft with proof, nothing is
+credited before the decision, the operator's reject without a reason is refused and the approval credits Rs 40,000 and
+writes the unit off the owner's books.
+
+**Defect found and fixed while running:** a claim the operator rejected gave its units back to "claimable", so the owner
+could raise the same claim again and the dispute never ended. Rejected units can now only be written off.

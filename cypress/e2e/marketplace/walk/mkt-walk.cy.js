@@ -4735,4 +4735,116 @@ on('MKT manual walk — recorded', () => {
         cy.then(() => heldRow().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-held-listing').should('contain', '1 available'))
       })
   })
+
+  const SH5 = {}
+  walk({ id: 'M-5-02', slice: 'MKT-5', title: 'A count finds a phone missing: the owner claims it, MaxTheService decides, only then is it paid',
+    persona: 'owner.warehouse@myplus.com (the MaxTheService warehouse) → owner.mobile@myplus.com (Mobile Distributor) → admin@myplus.com (operator)',
+    reqs: ['MKT-R12.1', 'MKT-R12.2', 'MKT-R12.3', 'MKT-R12.4', 'MKT-R20.5'],
+    pre: 'As M-5-04: Mobile Distributor has an active consignment agreement (MaxTheService bears damage and theft, the owner expiry; 1% tolerance; claims within 14 days, with proof) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit.',
+    auto: ['MKT-5d-01', 'MKT-5d-02', 'MKT-5d-03', 'MKT-5d-05'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition, through the same calls as M-5-04's screens
+      makeSeller(SELLER_B)
+      makeSeller(WAREHOUSE, 'Central Warehouse')
+      asOperator()
+      cy.orgOf(SELLER_B).then((o) => { SH5.org = o.id })
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      cy.then(() => get('/platform/mkt/consignments?status=ACTIVE')).then((r) => {
+        const a = (data(r.body) || []).find((x) => x.consignorOrganizationId === SH5.org)
+        expect(a, 'an active agreement (M-5-01 / M-5-04)').to.exist
+        expect(a.terms.damageBearer).to.eq('CONSIGNEE')
+        expect(a.terms.proofRequired).to.eq(true)
+        SH5.no = a.agreementNo
+      })
+      seedPolicies(`${run}sh`).then((p) => {
+        asOperator()
+        cy.then(() => publishOffer(WAREHOUSE, { run: `${run}sh`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { SH5.mkt = o.mktProductId })
+        cy.then(() => publishOffer(SELLER_B, { run: `${run}sh`, price: 52000, qty: 5, mktProductId: SH5.mkt, warrantyPolicyId: p.warranty,
+          returnPolicyId: p.returns })).then((o) => { SH5.product = o.sourceProductId })
+      })
+      as(SELLER_B)
+      cy.then(() => post('/mkt/transferOffer', { mktProductId: SH5.mkt, quantity: 3, unitPrice: 40000, kind: 'CONSIGN', note: 'walk M-5-02' }))
+        .then((r) => { SH5.st = data(r.body) })
+      as(WAREHOUSE)
+      cy.then(() => post('/mkt/transferReceive', { transferNo: SH5.st.transferNo, version: SH5.st.version }))
+        .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    })
+    const shrinkRow = () => cy.get(`#mktHeld tr.mkt-held-shrink[data-product="${SH5.mkt}"]`)
+    const level = () => cy.request('/productStockLevels').then((r) => (r.body.levels || {})[String(SH5.product)])
+    const account = () => get('/mkt/settlementAccount').then((r) => data(r.body))
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". Under Mobile Distributor\'s phone: units counted 2, note "Shelf B", press "Record count".',
+      '"Counted 2 of 3 (CC-…): 1 missing, no longer sold. The owner can write them off or claim them." Under the row: "1 missing, not sold" and "CC-… on <today>: counted 2 of 3, 1 missing".', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-count-due').should('contain', 'Next count due by'))
+        cy.then(() => shrinkRow().find('.mkt-count-n').type('2'))
+        cy.then(() => shrinkRow().find('.mkt-count-note').type('Shelf B'))
+        cy.then(() => shrinkRow().find('.mkt-count-save').click())
+        cy.get('#mktTransferMsg').should('contain', 'Counted 2 of 3 (CC-').and('contain', '1 missing, no longer sold. The owner can write them off or claim them.')
+        cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-shrink-missing').should('have.text', '1 missing, not sold'))
+        cy.then(() => shrinkRow().find('.mkt-count-said').first().should('contain', 'counted 2 of 3, 1 missing'))
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". Under the phone, on the count press "Claim from MaxTheService". Choose "Expiry" and read the line below; then choose "Theft", units 1, proof "CCTV 14:02, aisle 3" → "Raise the claim".',
+      'With Expiry: "Under CA-… this is yours to bear: write it off instead." With Theft: "Under CA-… MaxTheService answers for this." After Raise: "Claimed as SC-…: Rs 40,000.00 for 1 × …. Nothing is paid until MaxTheService decides." The claim reads "Waiting for MaxTheService".', () => {
+        as(SELLER_B)
+        cy.then(() => account()).then((a) => { SH5.balance = Number(a.balance) })
+        cy.then(() => level()).then((l) => { SH5.onHand = Number(l.onHand) })
+        openMarketplace()
+        cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-claim-open').click())
+        cy.then(() => shrinkRow().find('.mkt-claim-kind').select('EXPIRY', { force: true }))
+        cy.then(() => shrinkRow().find('.mkt-claim-who').should('have.text', `Under ${SH5.no} this is yours to bear: write it off instead.`))
+        cy.then(() => shrinkRow().find('.mkt-claim-kind').select('THEFT', { force: true }))
+        cy.then(() => shrinkRow().find('.mkt-claim-who').should('have.text', `Under ${SH5.no} MaxTheService answers for this.`))
+        cy.then(() => shrinkRow().find('.mkt-claim-units').clear().type('1'))
+        cy.then(() => shrinkRow().find('.mkt-claim-proof').type('CCTV 14:02, aisle 3'))
+        cy.then(() => shrinkRow().find('.mkt-claim-save').click())
+        cy.get('#mktTransferMsg').should('contain', 'Claimed as SC-').and('contain', 'Rs 40,000.00 for 1 × ')
+          .and('contain', 'Nothing is paid until MaxTheService decides.')
+        cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-claim .mkt-claim-status')
+          .should('have.text', 'Waiting for MaxTheService'))
+        cy.then(() => get('/mkt/transfers')).then((r) => {
+          SH5.claim = data(r.body).held.find((h) => h.mktProductId === SH5.mkt).shrink.counts[0].claims[0].claimNo
+        })
+      })
+    step('Still as owner.mobile@myplus.com: look at your marketplace account (Settlement) and the phone\'s stock.',
+      'Nothing is credited for the claim yet and the phone\'s stock is unchanged: no money or stock moves before MaxTheService decides.', () => {
+        cy.then(() => call('GET /mkt/settlementAccount', get('/mkt/settlementAccount'))).then((r) => {
+          expect(Number(data(r.body).balance)).to.eq(SH5.balance)
+          expect(data(r.body).entries.map((e) => e.ref)).not.to.include(SH5.claim)
+        })
+        cy.then(() => level()).then((l) => expect(Number(l.onHand)).to.eq(SH5.onHand))
+      })
+    step('As admin@myplus.com: Platform → "Shrinkage claims". On the claim press "Reject" with no reason; then press "Approve and pay".',
+      'The claim reads Mobile Distributor, the phone, "1 × Theft, count CC-…: Rs 40,000.00", "Proof: CCTV 14:02, aisle 3", "Waiting for your decision". Reject without a reason: "Say why it is rejected: the owner reads it." Approve: "Approved. The owner is credited and the units are written off its books."', () => {
+        console_('#platMktShrinkBtn')
+        const row = () => cy.get(`.mkt-sc-row[data-claim-no="${SH5.claim}"]`)
+        cy.then(() => row().scrollIntoView({ offset: { top: -160, left: 0 } }).should('contain', 'Mobile Distributor').and('contain', '1 × Theft')
+          .and('contain', 'Proof: CCTV 14:02, aisle 3').find('.mkt-sc-status').should('have.text', 'Waiting for your decision'))
+        cy.then(() => row().find('.mkt-sc-reject').click())
+        cy.get('#mktScMsg').should('have.text', 'Say why it is rejected: the owner reads it.')
+        cy.then(() => row().find('.mkt-sc-approve').click())
+        cy.get('#mktScMsg').should('have.text', 'Approved. The owner is credited and the units are written off its books.')
+        cy.then(() => row().should('have.attr', 'data-status', 'APPROVED'))
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService", your marketplace account and the phone\'s stock.',
+      'The claim reads "Approved: credited to you"; nothing is missing any more and the row holds 2. Your account has a credit of Rs 40,000.00 with reference SC-… ("Shrinkage claim SC-… approved"). The phone counts one fewer in your stock: written off.', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-claim .mkt-claim-status')
+          .should('have.text', 'Approved: credited to you'))
+        cy.then(() => shrinkRow().find('.mkt-shrink-missing').should('not.exist'))
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${SH5.mkt}"] .mkt-held-units`).should('have.text', '2'))
+        cy.then(() => account()).then((a) => {
+          const e = a.entries.find((x) => x.ref === SH5.claim)
+          expect(e, 'the credit').to.exist
+          expect(Number(e.credit)).to.eq(40000)
+          expect(Number(a.balance)).to.eq(SH5.balance + 40000)
+        })
+        cy.then(() => level()).then((l) => expect(Number(l.onHand), 'written off the owner\'s books').to.eq(SH5.onHand - 1))
+      })
+    cleanup('Nothing to undo through the screens: the claim is paid and the unit written off. The 2 phones left stay consigned until the unsold-returns slice. Check nothing is missing under the row.',
+      'No "missing" line under the phone; the count reads "1 paid by claim".', () => {
+        cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-count-said').first().should('contain', '1 paid by claim'))
+      })
+  })
 })

@@ -10,6 +10,7 @@ import com.myplus.marketplace.multiseller.dto.TransferDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceStockTransfer;
 import com.myplus.marketplace.multiseller.service.PlatformWarehouseService;
 import com.myplus.marketplace.multiseller.service.ConsignedSaleService;
+import com.myplus.marketplace.multiseller.service.ShrinkageService;
 import com.myplus.marketplace.multiseller.service.StockTransferService;
 
 import lombok.RequiredArgsConstructor;
@@ -34,10 +35,11 @@ public class MarketplaceTransferController {
 
     private final StockTransferService transfers;
     private final ConsignedSaleService consigned;
+    private final ShrinkageService shrinkage;
 
     @GetMapping("/mkt/seller/transfers")
     public ApiResponse<TransferDTOs.View> view() {
-        return ApiResponse.success(transfers.view());
+        return ApiResponse.success(shrinkage.decorate(transfers.view()));
     }
 
     @PostMapping("/mkt/seller/transfers")
@@ -76,5 +78,55 @@ public class MarketplaceTransferController {
         return ApiResponse.success(l, "Listed for sale by " + PlatformWarehouseService.NAME + " at Rs "
                 + String.format(java.util.Locale.ROOT, "%,.2f", l.price()) + ", under " + l.agreementNo()
                 + ". Shoppers see " + l.available() + " available.");
+    }
+
+    // ── MKT-5d: counts and shrinkage claims ───────────────────────────────────────────────────────────
+
+    @PostMapping("/mkt/seller/consigned/count")
+    public ApiResponse<TransferDTOs.CountRow> count(@RequestBody(required = false) TransferDTOs.CountRequest body) {
+        TransferDTOs.CountRow c = shrinkage.count(body);
+        String head = "Counted " + c.counted() + " of " + c.expected() + " (" + c.countNo() + "): ";
+        if (c.counted() > c.expected())
+            return ApiResponse.success(c, head + (c.counted() - c.expected()) + " more than held. Recorded; nothing moves.");
+        if (c.missing() == 0) return ApiResponse.success(c, head + "the count matches.");
+        return ApiResponse.success(c, head + c.missing() + " missing, no longer sold"
+                + (c.tolerated() > 0 ? ", " + c.tolerated() + " within the agreement's tolerance" : "")
+                + ". The owner can write them off" + (c.missing() > c.tolerated() ? " or claim them" : "") + ".");
+    }
+
+    @PostMapping("/mkt/seller/consigned/claim")
+    public ApiResponse<TransferDTOs.ClaimRow> claim(@RequestBody(required = false) TransferDTOs.ClaimRequest body) {
+        TransferDTOs.ClaimRow c = shrinkage.claim(body);
+        return ApiResponse.success(c, "Claimed as " + c.claimNo() + ": Rs " + String.format(java.util.Locale.ROOT, "%,.2f", c.amount())
+                + " for " + c.units() + " × " + c.productName() + ". Nothing is paid until " + PlatformWarehouseService.NAME
+                + " decides.");
+    }
+
+    /** WRITE_OFF or WITHDRAW (the owner). */
+    @PostMapping("/mkt/seller/consigned/shrinkage")
+    public ApiResponse<TransferDTOs.CountRow> ownerDecision(@RequestBody(required = false) TransferDTOs.ShrinkDecision body) {
+        if (body != null && body.action() != null && !body.action().equalsIgnoreCase("WRITE_OFF")
+                && !body.action().equalsIgnoreCase("WITHDRAW"))
+            throw new com.myplus.common.web.exception.ValidationException("Choose what to do.");
+        TransferDTOs.CountRow c = shrinkage.decide(body);
+        return ApiResponse.success(c, "WITHDRAW".equalsIgnoreCase(body.action()) ? "Claim withdrawn."
+                : "Written off your books: the missing units of " + c.countNo() + " (" + c.writtenOff() + " in all).");
+    }
+
+    @GetMapping("/mkt/operator/shrinkage-claims")
+    public ApiResponse<java.util.List<TransferDTOs.ClaimRow>> claims() {
+        return ApiResponse.success(shrinkage.queue());
+    }
+
+    /** APPROVE or REJECT (the operator). */
+    @PostMapping("/mkt/operator/shrinkage-claims/decision")
+    public ApiResponse<TransferDTOs.CountRow> operatorDecision(@RequestBody(required = false) TransferDTOs.ShrinkDecision body) {
+        if (body != null && body.action() != null && !body.action().equalsIgnoreCase("APPROVE")
+                && !body.action().equalsIgnoreCase("REJECT"))
+            throw new com.myplus.common.web.exception.ValidationException("Choose approve or reject.");
+        TransferDTOs.CountRow c = shrinkage.decide(body);
+        return ApiResponse.success(c, "APPROVE".equalsIgnoreCase(body.action())
+                ? "Approved. The owner is credited and the units are written off its books."
+                : "Rejected. The owner sees your reason and can write the units off.");
     }
 }

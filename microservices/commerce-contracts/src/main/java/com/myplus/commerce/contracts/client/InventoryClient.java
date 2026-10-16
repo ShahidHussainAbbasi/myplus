@@ -161,4 +161,12 @@ public interface InventoryClient {
      *  cap (own minimums only); nearDays 0 = expiring not asked, negative = expiry not tracked. */
     @GetExchange("/stock/alert-summary")
     java.util.Map<String, Object> getAlertSummary(@RequestParam("lowAt") int lowAt, @RequestParam("nearDays") int nearDays);
+
+    /**
+     * MKT-5d — a stock correction in the caller's own books (BLK-5): {productId, adjustmentType INCREASE|DECREASE,
+     * quantity, reason, idempotencyKey}. A repeat with the same key replays; the same key for a different correction
+     * is a 409. The marketplace writes consigned units off the OWNER's books with it, as that owner (AsOrg).
+     */
+    @PostExchange("/stock/adjust")
+    java.util.Map<String, Object> adjustStock(@RequestBody java.util.Map<String, Object> body);
 }

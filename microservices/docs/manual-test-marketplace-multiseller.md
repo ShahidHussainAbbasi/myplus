@@ -1659,18 +1659,22 @@
 | 4 | Press "Accept these terms". | "CA-… is active. Stock can be consigned to MaxTheService on these terms." The agreement reads "Active", with "End the agreement". |
 | C1 | As the seller: type "walk cleanup" in the reason box → "End the agreement". | "CA-… has ended. No new stock can be consigned under it." |
 
-### M-5-02 Shrinkage claims need evidence
+### M-5-02 A count finds a phone missing: the owner claims it, MaxTheService decides, only then is it paid
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 5. A count finds 1 phone missing; tolerance 0%.  
-**Covers:** MKT-R12.1, MKT-R12.2, MKT-R12.3  
-**Evidence:** written from the design — not built yet
+**Who:** owner.warehouse@myplus.com (the MaxTheService warehouse) → owner.mobile@myplus.com (Mobile Distributor) → admin@myplus.com (operator)  
+**Before:** As M-5-04: Mobile Distributor has an active consignment agreement (MaxTheService bears damage and theft, the owner expiry; 1% tolerance; claims within 14 days, with proof) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit.  
+**Covers:** MKT-R12.1, MKT-R12.2, MKT-R12.3, MKT-R12.4, MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5d-01, MKT-5d-02, MKT-5d-03, MKT-5d-05
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Record the count difference; raise a claim against the custodian. | The claim needs proof and stays OPEN with a claim window. |
-| 2 | Look at the custodian's statement. | No debit until the claim is approved through the dispute step. |
-| C1 | Withdraw the test claim. | Withdrawn. |
+| 1 | As owner.warehouse@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". Under Mobile Distributor's phone: units counted 2, note "Shelf B", press "Record count". | "Counted 2 of 3 (CC-…): 1 missing, no longer sold. The owner can write them off or claim them." Under the row: "1 missing, not sold" and "CC-… on <today>: counted 2 of 3, 1 missing". |
+| 2 | As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". Under the phone, on the count press "Claim from MaxTheService". Choose "Expiry" and read the line below; then choose "Theft", units 1, proof "CCTV 14:02, aisle 3" → "Raise the claim". | With Expiry: "Under CA-… this is yours to bear: write it off instead." With Theft: "Under CA-… MaxTheService answers for this." After Raise: "Claimed as SC-…: Rs 40,000.00 for 1 × …. Nothing is paid until MaxTheService decides." The claim reads "Waiting for MaxTheService". |
+| 3 | Still as owner.mobile@myplus.com: look at your marketplace account (Settlement) and the phone's stock. | Nothing is credited for the claim yet and the phone's stock is unchanged: no money or stock moves before MaxTheService decides. |
+| 4 | As admin@myplus.com: Platform → "Shrinkage claims". On the claim press "Reject" with no reason; then press "Approve and pay". | The claim reads Mobile Distributor, the phone, "1 × Theft, count CC-…: Rs 40,000.00", "Proof: CCTV 14:02, aisle 3", "Waiting for your decision". Reject without a reason: "Say why it is rejected: the owner reads it." Approve: "Approved. The owner is credited and the units are written off its books." |
+| 5 | As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService", your marketplace account and the phone's stock. | The claim reads "Approved: credited to you"; nothing is missing any more and the row holds 2. Your account has a credit of Rs 40,000.00 with reference SC-… ("Shrinkage claim SC-… approved"). The phone counts one fewer in your stock: written off. |
+| C1 | Nothing to undo through the screens: the claim is paid and the unit written off. The 2 phones left stay consigned until the unsold-returns slice. Check nothing is missing under the row. | No "missing" line under the phone; the count reads "1 paid by claim". |
 
 ### M-5-03 A consigned phone sells: MaxTheService sells it, the owner is paid after the return days
 

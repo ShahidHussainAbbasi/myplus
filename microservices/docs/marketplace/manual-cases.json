@@ -7591,37 +7591,64 @@
   {
    "id": "M-5-02",
    "slice": "MKT-5",
-   "title": "Shrinkage claims need evidence",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Phase 5. A count finds 1 phone missing; tolerance 0%.",
+   "title": "A count finds a phone missing: the owner claims it, MaxTheService decides, only then is it paid",
+   "persona": "owner.warehouse@myplus.com (the MaxTheService warehouse) → owner.mobile@myplus.com (Mobile Distributor) → admin@myplus.com (operator)",
+   "reqs": [
+    "MKT-R12.1",
+    "MKT-R12.2",
+    "MKT-R12.3",
+    "MKT-R12.4",
+    "MKT-R20.5"
+   ],
+   "pre": "As M-5-04: Mobile Distributor has an active consignment agreement (MaxTheService bears damage and theft, the owner expiry; 1% tolerance; claims within 14 days, with proof) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit.",
+   "auto": [
+    "MKT-5d-01",
+    "MKT-5d-02",
+    "MKT-5d-03",
+    "MKT-5d-05"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "Record the count difference; raise a claim against the custodian.",
-     "expect": "The claim needs proof and stays OPEN with a claim window."
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Consigned stock at MaxTheService\". Under Mobile Distributor's phone: units counted 2, note \"Shelf B\", press \"Record count\".",
+     "expect": "\"Counted 2 of 3 (CC-…): 1 missing, no longer sold. The owner can write them off or claim them.\" Under the row: \"1 missing, not sold\" and \"CC-… on <today>: counted 2 of 3, 1 missing\".",
+     "shot": "shots/M-5-02/01.jpg"
     },
     {
      "n": 2,
-     "do": "Look at the custodian's statement.",
-     "expect": "No debit until the claim is approved through the dispute step."
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace → \"Consigned stock at MaxTheService\". Under the phone, on the count press \"Claim from MaxTheService\". Choose \"Expiry\" and read the line below; then choose \"Theft\", units 1, proof \"CCTV 14:02, aisle 3\" → \"Raise the claim\".",
+     "expect": "With Expiry: \"Under CA-… this is yours to bear: write it off instead.\" With Theft: \"Under CA-… MaxTheService answers for this.\" After Raise: \"Claimed as SC-…: Rs 40,000.00 for 1 × …. Nothing is paid until MaxTheService decides.\" The claim reads \"Waiting for MaxTheService\".",
+     "shot": "shots/M-5-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Still as owner.mobile@myplus.com: look at your marketplace account (Settlement) and the phone's stock.",
+     "expect": "Nothing is credited for the claim yet and the phone's stock is unchanged: no money or stock moves before MaxTheService decides."
+    },
+    {
+     "n": 4,
+     "do": "As admin@myplus.com: Platform → \"Shrinkage claims\". On the claim press \"Reject\" with no reason; then press \"Approve and pay\".",
+     "expect": "The claim reads Mobile Distributor, the phone, \"1 × Theft, count CC-…: Rs 40,000.00\", \"Proof: CCTV 14:02, aisle 3\", \"Waiting for your decision\". Reject without a reason: \"Say why it is rejected: the owner reads it.\" Approve: \"Approved. The owner is credited and the units are written off its books.\"",
+     "shot": "shots/M-5-02/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace → \"Consigned stock at MaxTheService\", your marketplace account and the phone's stock.",
+     "expect": "The claim reads \"Approved: credited to you\"; nothing is missing any more and the row holds 2. Your account has a credit of Rs 40,000.00 with reference SC-… (\"Shrinkage claim SC-… approved\"). The phone counts one fewer in your stock: written off.",
+     "shot": "shots/M-5-02/05.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Withdraw the test claim.",
-     "expect": "Withdrawn."
+     "do": "Nothing to undo through the screens: the claim is paid and the unit written off. The 2 phones left stay consigned until the unsold-returns slice. Check nothing is missing under the row.",
+     "expect": "No \"missing\" line under the phone; the count reads \"1 paid by claim\".",
+     "shot": "shots/M-5-02/c01.jpg"
     }
    ],
-   "reqs": [
-    "MKT-R12.1",
-    "MKT-R12.2",
-    "MKT-R12.3"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-5.",
-   "warn": false,
-   "auto": []
+   "recordedAt": "2026-10-16T10:47:27.345Z",
+   "startedAt": "2026-10-16T10:46:08.352Z",
+   "result": "passed"
   },
   {
    "id": "M-5-03",

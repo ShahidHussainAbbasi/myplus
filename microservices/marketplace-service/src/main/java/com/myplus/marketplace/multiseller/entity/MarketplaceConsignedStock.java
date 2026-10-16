@@ -33,6 +33,9 @@ public class MarketplaceConsignedStock {
     /** MKT-5c — a sale to MaxTheService that had to be voided (quantity 0): the next try is a new attempt with new keys. */
     public static final String VOIDED = "VOIDED";
 
+    /** MKT-5d — units a count found missing, taken out once the owner wrote them off or a claim for them was approved. */
+    public static final String LOST = "LOST";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -92,6 +95,10 @@ public class MarketplaceConsignedStock {
     /** MKT-5c (V42): what MaxTheService owes the owner a unit for a SOLD row: the selling price less the commission. */
     @Column(name = "unit_price", precision = 19, scale = 2)
     private BigDecimal unitPrice;
+
+    /** MKT-5d (V43): the count write-off or claim a LOST row resolves (CC-000001-W1, SC-000001); empty otherwise. */
+    @Column(name = "doc_no", nullable = false, length = 20)
+    private String docNo = "";
 
     @Column(name = "created_by_user_id")
     private Long createdByUserId;

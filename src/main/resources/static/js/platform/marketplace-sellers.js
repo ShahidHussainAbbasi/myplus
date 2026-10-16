@@ -1212,6 +1212,51 @@
 		return $r;
 	}
 
+	// ── MKT-5d: shrinkage claims ────────────────────────────────────────────────────────────────────────
+
+	var SC_KIND = { THEFT: 'Theft', DAMAGE: 'Damage', BREAKAGE: 'Breakage', SPOILAGE: 'Spoilage', EXPIRY: 'Expiry', MISCOUNT: 'Miscount',
+		CONSUMPTION: 'Unrecorded use', SHORT_SHIPMENT: 'Short shipment', DELIVERY_LOSS: 'Lost in delivery' };
+	var SC_ST = { OPEN: 'Waiting for your decision', APPROVED: 'Approved', REJECTED: 'Rejected', WITHDRAWN: 'Withdrawn by the owner' };
+
+	function loadShrink() {
+		$.ajax({ url: ctx() + 'platform/mkt/shrinkageClaims', dataType: 'json' }).done(function (res) {
+			var $l = $('#mktScList').empty();
+			if (!ok(res)) { $l.append($('<div class="plat__empty"></div>').text(message(res, tr('ui.js.loadFailed', 'Could not load.')))); return; }
+			var rows = data(res) || [];
+			if (!rows.length) $l.append($('<div class="plat__empty"></div>').text(tr('ui.js.mktScNone', 'No shrinkage claims.')));
+			rows.forEach(function (m) { $l.append(shrinkRow(m)); });
+		});
+	}
+
+	function shrinkRow(m) {
+		var $r = $('<div class="plat-row mkt-sc-row"></div>').attr('data-claim-no', m.claimNo).attr('data-status', m.status);
+		var $m = $('<div class="plat-row__main"></div>').appendTo($r);
+		$m.append($('<strong></strong>').text(m.claimNo + ' · ' + (m.consignorName || '') + ' · ' + m.productName))
+			.append($('<span class="mkt-sc-status" style="margin-left:8px;font-weight:600"></span>')
+				.text(tr('ui.js.mktScOpSt_' + m.status, SC_ST[m.status] || m.status)));
+		$m.append($('<div class="mkt-sc-what" style="font-size:13px"></div>').text(
+			tr('ui.js.mktScWhat', '{0} × {1}, count {2}: Rs {3}').replace('{0}', m.units)
+				.replace('{1}', tr('ui.js.mktScK_' + m.kind, SC_KIND[m.kind] || m.kind)).replace('{2}', m.countNo || '')
+				.replace('{3}', money(m.amount))));
+		if (m.proof) $m.append($('<div class="mkt-sc-proof text-muted" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktScProof', 'Proof: {0}').replace('{0}', m.proof)));
+		if (m.decisionReason) $m.append($('<div class="mkt-sc-reason text-muted" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktCaReason', 'Reason: {0}').replace('{0}', m.decisionReason)));
+		if (m.status !== 'OPEN') return $r;
+		var $act = $('<div class="plat-row__actions"></div>').appendTo($r);
+		var $why = $('<input type="text" maxlength="300" class="form-control input-sm mkt-sc-why" style="max-width:260px;display:inline-block">')
+			.attr('placeholder', tr('ui.js.mktScWhy', 'Reason (needed to reject)')).attr('aria-label', tr('ui.js.mktScWhy', 'Reason (needed to reject)')).appendTo($act);
+		$('<button type="button" class="btn btn-xs btn-success mkt-sc-approve" style="margin-left:4px"></button>').text(tr('ui.js.mktScApprove', 'Approve and pay'))
+			.on('click', function () {
+				opsPost('platform/mkt/shrinkageDecision', { id: m.id, version: m.version, action: 'APPROVE', reason: $why.val() || null }, $(this), $('#mktScMsg'), loadShrink);
+			}).appendTo($act);
+		$('<button type="button" class="btn btn-xs btn-default mkt-sc-reject" style="margin-left:4px"></button>').text(tr('ui.js.mktScReject', 'Reject'))
+			.on('click', function () {
+				opsPost('platform/mkt/shrinkageDecision', { id: m.id, version: m.version, action: 'REJECT', reason: $why.val() }, $(this), $('#mktScMsg'), loadShrink);
+			}).appendTo($act);
+		return $r;
+	}
+
 	/** The terms in plain words: the same lines the seller reads (common/marketplace-seller.js consignTerms). */
 	function caTerms(t) {
 		if (!t) return [];
@@ -1273,6 +1318,7 @@
 	});
 	$(document).on('click', '#platMktConsignBtn', function () { openPanel('#platMktConsign', loadConsign); });   // MKT-5a
 	$(document).on('click', '#mktCaOffer', offerConsign);
+	$(document).on('click', '#platMktShrinkBtn', function () { openPanel('#platMktShrink', loadShrink); });   // MKT-5d
 	$(document).on('click', '#platMktPerformanceBtn', function () { openPanel('#platMktPerformance', loadPerformance); });   // MKT-2e
 	$(document).on('click', '#platMktPerfDays button', function () {
 		$('#platMktPerfDays button').removeClass('is-on');

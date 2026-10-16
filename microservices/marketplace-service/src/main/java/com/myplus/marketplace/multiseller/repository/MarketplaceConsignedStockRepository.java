@@ -35,8 +35,14 @@ public interface MarketplaceConsignedStockRepository extends JpaRepository<Marke
             + "ORDER BY c.consignorOrgId, MAX(c.productName)")
     List<Object[]> heldFor(@Param("org") Long org);
 
-    /** MKT-5c — units the consignee holds for this consignor of one product: what its listing can sell. */
-    @Query("SELECT COALESCE(SUM(c.quantity), 0) FROM MarketplaceConsignedStock c "
+    /**
+     * MKT-5c — units the consignee holds for this consignor of one product: what its listing can sell. MKT-5d — less
+     * the units a count found missing and nobody has resolved yet (they are still in the ledger and the owner's books,
+     * but not on the shelf). Readers (4): the listing, checkout's promise count, the projection, a count's expected.
+     */
+    @Query("SELECT COALESCE(SUM(c.quantity), 0) - (SELECT COALESCE(SUM(k.missing - k.writtenOff - k.approved), 0) "
+            + "FROM MarketplaceConsignmentCount k WHERE k.consignorOrgId = :consignor AND k.consigneeOrgId = :consignee "
+            + "AND k.mktProductId = :product) FROM MarketplaceConsignedStock c "
             + "WHERE c.consignorOrgId = :consignor AND c.consigneeOrgId = :consignee AND c.mktProductId = :product")
     long balance(@Param("consignor") Long consignor, @Param("consignee") Long consignee, @Param("product") Long product);
 
@@ -55,4 +61,8 @@ public interface MarketplaceConsignedStockRepository extends JpaRepository<Marke
 
     /** MKT-5c — the voided tries of one line and lot: the next try's attempt number. */
     long countByTransferIdAndOrderLineIdAndMovement(Long transferId, Long orderLineId, String movement);
+
+    /** MKT-5d — the first time this owner's product came in: when its first count falls due. */
+    java.util.Optional<MarketplaceConsignedStock> findFirstByConsignorOrgIdAndConsigneeOrgIdAndMktProductIdAndMovementOrderByIdAsc(
+            Long consignor, Long consignee, Long product, String movement);
 }

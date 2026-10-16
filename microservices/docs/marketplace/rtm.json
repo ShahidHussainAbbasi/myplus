@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 77,
- "cypress": 75,
- "automated": 78,
+ "unit": 79,
+ "cypress": 77,
+ "automated": 80,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -870,8 +870,12 @@
    "req": "MKT-R12.1",
    "phase": "5",
    "text": "Shrinkage types (theft, damage, breakage, spoilage, expiry, miscount, consumption, short shipment, delivery loss)",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ShrinkageServiceTest.policyTable"
+   ],
+   "cypress": [
+    "MKT-5d-02"
+   ],
    "manual": [
     "M-5-02"
    ]
@@ -881,10 +885,21 @@
    "phase": "5",
    "text": "Agreement defines responsible party, tolerance %, count frequency, proof, claim window, approval, settlement effect",
    "unit": [
-    "ConsignmentAgreementServiceTest.offerHoldsEveryTerm"
+    "ConsignmentAgreementServiceTest.offerHoldsEveryTerm",
+    "ShrinkageServiceTest.countRecordsWhatIsMissing",
+    "ShrinkageServiceTest.claimIsOpenAndPaysNothing",
+    "ShrinkageServiceTest.claimWindowAndTolerance",
+    "ShrinkageServiceTest.rejectThenWriteOff",
+    "ShrinkageServiceTest.writeOffSkipsClaimedAndRollsBack",
+    "ShrinkageServiceTest.decorateShowsCounts"
    ],
    "cypress": [
-    "MKT-5a-01"
+    "MKT-5a-01",
+    "MKT-5d-01",
+    "MKT-5d-02",
+    "MKT-5d-04",
+    "MKT-5d-05",
+    "MKT-5d-06"
    ],
    "manual": [
     "M-5-01",
@@ -895,8 +910,13 @@
    "req": "MKT-R12.3",
    "phase": "5",
    "text": "Default responsibility table by situation",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ShrinkageServiceTest.claimIsOpenAndPaysNothing",
+    "ShrinkageServiceTest.policyTable"
+   ],
+   "cypress": [
+    "MKT-5d-02"
+   ],
    "manual": [
     "M-5-02"
    ]
@@ -908,19 +928,28 @@
    "unit": [
     "SellerPerformanceTest.excusedAndDisputed",
     "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly",
-    "MarketplaceOrderFlowTest.disputeAndRuleMoveNoMoney"
+    "MarketplaceOrderFlowTest.disputeAndRuleMoveNoMoney",
+    "ShrinkageServiceTest.claimIsOpenAndPaysNothing",
+    "ShrinkageServiceTest.approvePaysTheOwner",
+    "ShrinkageServiceTest.approveBooksRefused",
+    "ShrinkageServiceTest.rejectThenWriteOff",
+    "ShrinkageServiceTest.withdrawAndOperatorOnly"
    ],
    "cypress": [
     "MKT-2b-01",
     "MKT-2b-07",
     "MKT-2e-04",
-    "MKT-4b-05"
+    "MKT-4b-05",
+    "MKT-5d-03",
+    "MKT-5d-04",
+    "MKT-5d-05"
    ],
    "manual": [
     "M-2b-01",
     "M-2b-07",
     "M-2e-02",
-    "M-4-04"
+    "M-4-04",
+    "M-5-02"
    ]
   },
   {
@@ -1631,6 +1660,10 @@
     "ConsignmentAgreementServiceTest.noEndWhileStockIsHeld",
     "MarketplaceOrderFlowTest.supplierOwnsItsShortage",
     "PlatformWarehouseServiceTest.consignedStockKeepsTheWarehouse",
+    "ShrinkageServiceTest.countRecordsWhatIsMissing",
+    "ShrinkageServiceTest.countReplaysAndMatches",
+    "ShrinkageServiceTest.approvePaysTheOwner",
+    "ShrinkageServiceTest.decorateShowsCounts",
     "StockTransferServiceTest.consignReceive",
     "SupplierDispatchServiceTest.stamp",
     "SupplierDispatchServiceTest.clock",
@@ -1650,12 +1683,14 @@
     "MKT-4d-03",
     "MKT-5b-04",
     "MKT-5c-03",
-    "MKT-5c-06"
+    "MKT-5c-06",
+    "MKT-5d-01"
    ],
    "manual": [
     "M-4-03",
     "M-4-04",
     "M-4-05",
+    "M-5-02",
     "M-5-03",
     "M-5-04"
    ]
