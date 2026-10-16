@@ -221,7 +221,10 @@ public class ConsultService {
         if (e.getRxId() != null) {
             throw new ValidationException("This prescription is with the pharmacy already. It cannot be changed here.");
         }
-        List<RxLine> lines = EncounterRules.rxLines(req == null ? null : req.getLines());
+        List<RxLine> raw = req == null ? null : req.getLines();
+        // HC-1d-2: a line written by hand (no product) only for a clinic LINKED to a pharmacy; auth is asked only then
+        boolean handWritten = raw != null && raw.stream().anyMatch(l -> l != null && l.getProductId() == null);
+        List<RxLine> lines = EncounterRules.rxLines(raw, handWritten && route().linked());
         rxItems.deleteForEncounter(org, e.getId());
         int n = 0;
         for (RxLine l : lines) {
@@ -261,6 +264,10 @@ public class ConsultService {
         Route route = route();
         if (route.none()) throw noLink();
         if (route.linked()) return submitLinked(e, p, t, lines, route);
+        // the combined org's own pharmacy needs a product on every line (a hand-written one can only come from a link)
+        for (EncounterRxItem l : lines) {
+            if (l.getProductId() == null) throw new ValidationException("'" + l.getMedicineName() + "' is not from the pharmacy's list. Choose it again.");
+        }
 
         PharmaRxClient.Rx rx = PharmaRxClient.Rx.builder()
                 .patientName(p.getName()).patientPhone(p.getPhone()).partyId(p.getPartyId())

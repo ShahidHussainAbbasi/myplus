@@ -35,7 +35,7 @@ public class EncounterRxItem {
     private Integer lineNo;
 
     /** The pharmacy's catalogue Product — the same id the sale uses, so Dispense fills the cart with it. */
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "product_id")   // HC-1d-2 (V9): NULL = written by hand for the linked pharmacy
     private Long productId;
 
     @Column(name = "medicine_name", nullable = false, length = 200)

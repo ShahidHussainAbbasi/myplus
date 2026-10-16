@@ -38,7 +38,7 @@ public class PrescriptionService {
 
     @Transactional
     public PrescriptionDTO create(PrescriptionDTO dto, Long orgId, Long userId) {
-        validate(dto);
+        validate(dto, false);
 
         // HMS S3b-1: a doctor's Submit carries "enc-<id>". The same key again (a retry, a double click, a lost reply)
         // is the SAME prescription — returned, never a second one for the pharmacy to dispense twice.
@@ -92,7 +92,7 @@ public class PrescriptionService {
      */
     @Transactional
     public PrescriptionDTO createFromLinkedClinic(PrescriptionDTO dto, Long pharmacyOrgId, Long clinicOrgId, String clinicName) {
-        validate(dto);
+        validate(dto, true);   // HC-1d-2: a medicine written by hand may come from a linked clinic; the pharmacist matches it
         if (dto.getEncounterId() == null) throw new ValidationException("The visit is missing");
         String externalRef = "clinic-" + clinicOrgId + "-enc-" + dto.getEncounterId();
         java.util.Optional<Prescription> already = prescriptionRepo.findByOrganizationIdAndExternalRef(pharmacyOrgId, externalRef);
@@ -143,7 +143,7 @@ public class PrescriptionService {
      * recomputeStatus would read the line as already satisfied (dispensed 0 >= prescribed 0) and mark the whole
      * prescription FULLY_DISPENSED on the first dispense, so it must never reach the table.
      */
-    private static void validate(PrescriptionDTO dto) {
+    private static void validate(PrescriptionDTO dto, boolean allowHandWritten) {
         if (dto.getPatientName() == null || dto.getPatientName().isBlank())
             throw new ValidationException("Patient name is required");
         if (dto.getItems() == null || dto.getItems().isEmpty())
@@ -153,7 +153,7 @@ public class PrescriptionService {
             // so it should not depend on every hop handling escaped double quotes correctly.
             String which = (it.getMedicineName() == null || it.getMedicineName().isBlank())
                     ? "A prescribed item" : "'" + it.getMedicineName().trim() + "'";
-            if (it.getProductId() == null)
+            if (it.getProductId() == null && (!allowHandWritten || it.getMedicineName() == null || it.getMedicineName().isBlank()))
                 throw new ValidationException(which + " has no medicine selected");
             if (it.getQuantity() <= 0)
                 throw new ValidationException(which + " needs a quantity greater than zero");

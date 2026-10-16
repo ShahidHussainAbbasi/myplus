@@ -9,7 +9,7 @@
  *   X3  the doctor adds a medicine from that list and Submits: "Sent to <pharmacy>"
  *   X4  the pharmacy finds it, marked "From clinic <name>" — patient, doctor, medicine; NOT the diagnosis
  *   X5  the pharmacist dispenses it; the clinic reads "At the pharmacy: Dispensed"
- *   X6  (HC-1d-2) a line written by hand; the pharmacist chooses its product with Change
+ *   X6  (HC-1d-2) a line written by hand; the pharmacy shows "1 to match"; the pharmacist chooses its product on Change
  *   X7  the link is ended: the doctor's next Submit is refused in words; the pharmacy keeps what it received
  *
  * EXPECTED RED on the build it was written against: a separated clinic picks from its OWN (empty) catalogue, and a
@@ -291,6 +291,7 @@ describe('Test Book — HC-1d prescriptions to the linked pharmacy (captured)', 
     cy.wait('@search')
     cy.then(() => cy.get(`#prescriptionBody tr[data-rx-id="${S.rxId}"]`, { timeout: 15000 }).contains('button', 'Dispense').click())
     cy.get('#sellDiv').should('be.visible')
+    cy.waitForAppReady()   // Dispense fills the sale with several requests; the loading overlay covers it until they finish
     cy.get('#sellPayMethod').select('CASH', { force: true })
     cy.get('#sellRec').clear().type('1000')
     cy.clickAndConfirmSale('#addSell')
@@ -349,15 +350,31 @@ describe('Test Book — HC-1d prescriptions to the linked pharmacy (captured)', 
     })
     g.snap(a2, 'hand-written-sent')
 
-    const a3 = g.act(`As the pharmacy, open the prescription: **${HAND}** says **choose the product**. Press **Change**, choose **${MED.name}**, reason **matched by pharmacist**, save.`,
-      ['The line now has a product; **Changed by the pharmacy** is recorded.'])
+    const a3 = g.act('As the pharmacy, open **Pharmacy → Prescriptions**.',
+      ['The prescription shows **1 to match**.'])
     signIn(PHARMA.email)
-    cy.then(() => cy.request(`/getPrescription?id=${S.rx4}`).its('body.data').then((rx) => {
-      expect(rx.items.find((i) => i.medicineName === HAND).productId, 'hand-written: no product yet').to.eq(null)
-      const items = rx.items.map((i) => ({ ...i, productId: S.medId }))
-      cy.postJson('/amendPrescription', { prescriptionId: S.rx4, reason: 'matched by pharmacist', amendmentsSeen: 0, items }).then(ok)
+    cy.intercept('GET', '**/searchPrescriptions*').as('search')
+    openPrescriptions()
+    cy.wait('@search')
+    cy.then(() => cy.get(`#prescriptionBody tr[data-rx-id="${S.rx4}"] .rx-to-match`, { timeout: 15000 }).should('be.visible').and('contain', '1'))
+    g.snap(a3, 'to-match')
+
+    const a4 = g.act(`Press **Change**. On **${HAND}** (written by hand) type **${MED.name}** in **Choose the product**; reason **matched by pharmacist**; press **Save**.`,
+      [`The line now reads **${MED.name}**; a green note says the prescription was changed.`, '**1 to match** is gone.'])
+    cy.intercept('POST', '**/amendPrescription').as('amend')
+    cy.then(() => cy.get(`#prescriptionBody tr[data-rx-id="${S.rx4}"] .rx-change`).click())
+    cy.get('#rxPanel').should('be.visible')
+    cy.get(`#rxAmendMedicines option[value="${MED.name}"]`, { timeout: 20000 }).should('exist')   // the pharmacy's list has loaded
+    cy.get('#rxAmendBody .rx-amend-match').should('be.visible').type(MED.name).trigger('change')
+    cy.get('#rxAmendBody').should('contain', MED.name).find('.rx-amend-match').should('not.exist')
+    cy.get('#rxPanelReason').type('matched by pharmacist')
+    cy.get('#rxAmendSave').click()
+    cy.wait('@amend').its('response.body.success').should('eq', true)
+    cy.then(() => cy.get(`#prescriptionBody tr[data-rx-id="${S.rx4}"]`, { timeout: 15000 }).find('.rx-to-match').should('not.exist'))
+    cy.then(() => cy.request(`/getPrescription?id=${S.rx4}`).its('body.data.items').then((items) => {
+      expect(items.map((i) => i.productId), 'every line now has a product').to.deep.eq([S.medId])
     }))
-    g.snap(a3, 'matched')
+    g.snap(a4, 'matched')
 
     const c1 = g.act('As the pharmacy, **Cancel** the prescription (reason **guide cleanup**); as the doctor, **Complete visit**.',
       ['The prescription reads **CANCELLED**; the visit reads **Completed**.'], { cleanup: true })

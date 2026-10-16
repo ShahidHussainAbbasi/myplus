@@ -258,6 +258,11 @@
                 <div class="clin-field"><label for="clinRxDays" th:text="#{ui.clinicDuration}">Duration</label><input type="text" id="clinRxDays" class="form-control" maxlength="100" placeholder="5 days"/></div>
                 <div class="clin-field clin-rx-add-btn"><button type="button" id="clinRxAddLine" class="btn btn-default" onclick="Clinic.addRxLine()"><span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.clinicAddMedicine}">Add</span></button></div>
               </div>
+              <!-- HC-1d-2: a medicine not in the LINKED pharmacy's list may be sent as written; the pharmacist chooses the product -->
+              <div id="clinRxFreeOffer" class="alert alert-warning clin-rx-free-offer" style="display:none" role="status">
+                <span id="clinRxFreeText"></span>
+                <button type="button" id="clinRxAddFree" class="btn btn-xs btn-default" onclick="Clinic.addRxFree()" th:text="#{ui.clinicAddAsWritten}">Add as written</button>
+              </div>
               <div class="table-responsive">
                 <table class="table clin-table clin-rx-table">
                   <thead><tr><th th:text="#{ui.clinicMedicine}">Medicine</th><th th:text="#{ui.clinicQty}">Qty</th><th th:text="#{ui.clinicDose}">Dose</th><th th:text="#{ui.clinicFrequency}">Frequency</th><th th:text="#{ui.clinicDuration}">Duration</th><th></th></tr></thead>
