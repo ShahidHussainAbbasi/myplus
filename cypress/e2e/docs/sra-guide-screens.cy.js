@@ -17,6 +17,8 @@
  *   D1  SRA-4a — the Sale Detail Report filters by sales rep and shows rep, area and supplier on each line
  *   D2  SRA-4a — grouped by how the sale came in, the sources in words; old sales read "Not recorded"
  *   D3  SRA-4b — group by rep then by area; open a rep; drill from its figure to the invoices behind it
+ *   D4  SRA-4c — Export Excel and Report PDF carry the screen's filters and grouping
+ *   D5  SRA-4c — Print invoices covers every invoice the report holds, not just the page
  *
  * The cases with no screen (import, another business, the takeover by id, the credit account, refusals at the server)
  * are proven by the gates — sra-areas.cy.js, sra-reps.cy.js, territory-assignment.cy.js — and listed under the section.
@@ -684,5 +686,117 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
     cy.get('#srDrillClear').click()
     cy.get('#srDrill').should('not.be.visible')
     g.snap(c1, 'drill-cleared')
+  })
+
+  // ── D4 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('D4', 'Export Excel and Report PDF carry the same filters and grouping as the screen', () => {
+    g.testCase('D4', 'Export Excel and Report PDF carry the same filters and grouping as the screen', {
+      tenant: OWNER, role: 'Owner',
+      purpose: 'A report a manager cannot take away is a report re-typed into Excel. The downloads are built from the SAME query as the screen (one builder), so the file and the screen cannot disagree; each file says what it is — period, filters, grouping.',
+      prereq: ['C1 and C2 done this run: two sales credited to SRA Irfan.'],
+      data: [`Sales rep **SRA Irfan ${RUN}**, Group by **Sales rep**, then by **Area**, period **Current month**`],
+      rollback: 'Nothing is saved — the downloads only read. Delete the two downloaded files if you keep a clean Downloads folder.',
+    })
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('SRDiv', { force: true })
+    cy.get('#dateRangeDDSR').select('0', { force: true })
+    cy.get('#rfRep').focus()
+    cy.get(`#rfRep option[value="${ctx.irfan}"]`, { timeout: 15000 }).should('exist')
+    cy.intercept('POST', '**/loadSR').as('sr')
+    cy.get('#rfRep').select(String(ctx.irfan), { force: true })
+    cy.wait('@sr')
+    cy.get('#rfGroupBy').select('REP', { force: true })
+    cy.wait('@sr')
+    cy.get('#rfGroupBy2').select('AREA', { force: true })
+    cy.wait('@sr')
+
+    const a1 = g.act('Look at the end of the filter rail.',
+      ['Two buttons: **Export Excel** and **Report PDF**.',
+        'Export Excel’s link carries what the screen shows: the rep, the period, **Group by REP, then AREA**.'])
+    cy.get('#rfExportXlsx').should('be.visible').invoke('attr', 'href').then((href) => {
+      const q = decodeURIComponent(href)
+      expect(q).to.contain('saleReport.xlsx').and.contain(`repId=${ctx.irfan}`).and.contain('groupBy=REP,AREA')
+    })
+    cy.get('#rfExportPdf').should('be.visible')
+    cy.get('#rfExportXlsx').scrollIntoView()
+    g.snap(a1, 'download-buttons')
+
+    const a2 = g.act('Press **Export Excel**.',
+      ['A file **sale-report.xlsx** downloads — a real workbook, not a CSV renamed. In Excel: the title; Period / Filters / Grouping at the top; one row per rep with its areas folded under it (Excel’s + / − outline); money as numbers; a **Grand total** row.'])
+    cy.get('#rfExportXlsx').invoke('attr', 'href').then((href) => {
+      cy.request({ url: href, encoding: 'binary' }).then((r) => {
+        expect(r.status).to.eq(200)
+        expect(r.headers['content-type']).to.contain('spreadsheetml')
+        expect(r.headers['content-disposition']).to.contain('sale-report.xlsx')
+        expect(r.body.slice(0, 2), 'an .xlsx is a zip — it starts with PK').to.eq('PK')
+      })
+    })
+    g.snap(a2, 'excel-link')
+
+    const a3 = g.act('Press **Report PDF**.',
+      [`A landscape A4 **sale-report.pdf** downloads: the title, the period, the filter (**SRA Irfan ${RUN}**), the grouping, then the subtotal table’s rows with the areas indented under the rep, and a **Grand total** equal to the screen’s.`])
+    // Cell by cell: the row's text run together reads "2" + "5" + "250.00" as 25250.00.
+    cy.get('#srGroups tr.sr-grand td').then(($td) => {
+      const money = $td.toArray().map((x) => x.textContent.trim()).filter((x) => /^\d+\.\d{2}$/.test(x))
+      cy.window().then((w) => w.LazyExport.ensurePdfMake()).then(() => {
+        cy.window().then((w) => {
+          const docs = []
+          cy.stub(w.pdfMake, 'createPdf').callsFake((doc) => { docs.push(doc); return { download: () => {} } })
+          cy.get('#rfExportPdf').click()
+          cy.wrap(null, { timeout: 15000 }).should(() => {
+            expect(docs, 'one PDF built').to.have.length(1)
+            expect(docs[0].pageOrientation).to.eq('landscape')
+            expect(JSON.stringify(docs[0].content[1]), 'it says what it is about').to.contain(`SRA Irfan ${RUN}`)
+            const body = docs[0].content[2].table.body
+            const last = JSON.stringify(body[body.length - 1])
+            expect(last, 'a grand total row').to.contain('Grand total')
+            expect(money.length, 'the screen shows a grand total').to.be.greaterThan(0)
+            expect(last, 'the PDF grand total is the screen’s').to.contain(`"${money[0]}"`)
+          })
+        })
+      })
+    })
+    cy.get('#srGroups').scrollIntoView()
+    g.snap(a3, 'report-pdf')
+  })
+
+  // ── D5 ───────────────────────────────────────────────────────────────────────────────────────────────────
+  g.caseIt('D5', 'Print invoices covers every invoice the report holds, not just the page on screen', () => {
+    g.testCase('D5', 'Print invoices covers every invoice the report holds, not just the page on screen', {
+      tenant: OWNER, role: 'Owner',
+      purpose: 'Owner, 15 Oct: “fetch real time and complete data”. The grid shows 10 lines a page; Print invoices and Download PDF used to take only those. They now take every invoice the filters keep, across all pages — each fetched fresh from the server when printed (its lines served from a short cache that every edit and payment clears).',
+      prereq: ['The tenant has more than 10 sale lines in the last 30 days (C1–C3 add three).'],
+      data: ['Period **Last 30 days**, no other filter'],
+      rollback: 'Press **Cancel** on the question — nothing is printed. That a cached invoice is never stale is proven by the gate (sale-report-invoices.cy.js “INV-CACHE”).',
+    })
+    cy.viewport(1400, 900)
+    cy.visit('/businessDashboard')
+    cy.get('#sellType').select('SRDiv', { force: true })
+    cy.intercept('POST', '**/loadSR').as('sr')
+    cy.get('#dateRangeDDSR').select('3', { force: true })
+    cy.get('#SRDiv button[onclick*="loadSR"]').first().click({ force: true })
+    cy.wait('@sr').then((x) => {
+      const rows = x.response.body.collection || []
+      expect(rows.length, 'eligible: more lines than one page of the grid').to.be.greaterThan(10)
+      ctx.allInvoices = [...new Set(rows.map((r) => r.invoiceNo).filter(Boolean))]
+    })
+
+    const a1 = g.act('Run the report. Look at the foot of the grid.',
+      ['The grid shows **10 lines** and says **Showing 1 to 10 of N entries** — the rest are on the next pages.'])
+    cy.get('#tableSellReport tbody tr').should('have.length', 10)
+    cy.get('#tableSellReport_info').scrollIntoView().should('be.visible')
+    g.snap(a1, 'one-page')
+
+    const a2 = g.act('Press **Print invoices**.',
+      ['The question reads **Print N documents as one job?** — N is every invoice of the report, counted across all pages, each invoice once however many lines it has. Before 15 Oct it counted only the page.'])
+    cy.get('#srPrintInvoices').click()
+    cy.then(() => cy.contains('.uiC-backdrop.is-open .uiC-card', `Print ${ctx.allInvoices.length} documents`).should('be.visible'))
+    g.snap(a2, 'print-all')
+
+    const c1 = g.act('Press **Cancel**.', ['The question closes; nothing is printed.'], { cleanup: true })
+    cy.get('.uiC-backdrop.is-open .uiC-cancel').click()
+    cy.get('.uiC-backdrop.is-open').should('not.exist')
+    g.snap(c1, 'print-cancelled')
   })
 })

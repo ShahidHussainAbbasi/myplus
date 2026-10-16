@@ -161,3 +161,36 @@ BODY), business `/internal/sales` (checks body org = authenticated org), others 
 | (a) | Auto-display: **smart polling every 60 s** (the user: "increase to 1 minute if it is best to improve performance"), only while the tab is visible, plus an immediate check when the tab becomes visible again. One indexed "anything new after #id?" query; nothing returned when nothing is new. |
 | (b) | **Sound, with a setting to switch it on/off (off by default)**: (i) at the pharmacy when a new prescription appears; (ii) in the clinic when the doctor presses **Call** / **Next** (the waiting room hears the token called). Each business's own setting. |
 | (d) | Order confirmed: HC-1d-1 gate → **HC-1d-2** (hand-written lines; status back built in 1d-1) → **HC-1d-3** (doctor id + licence, reports by doctor / clinic) → **HC-1d-4** (auto-display + sounds). Each: Test Book cases first. |
+
+## HC-1d-1 DEPLOYED + GATE (2026-10-16)
+Deployed: auth, clinical, pharma (V12), monolith 02:01; pharma re-deployed 11:50 (SERVICE_USER) and 12:07 (token/MRN
+search); monolith 12:24 (tOr). Gate `docs/hc-1d-rx-guide-screens` **6/7** — X1 X2 X3 X4 X5 X7 green; X6 (hand-written
+line) red by design until HC-1d-2. Regression: hms s3b1 7/7, s3b2 6/6, h3b 5/5, h3c 2/2, h4 4/4, s4lite 5/5,
+hc-1c-link-api 6/6, hc-1a 5/5, hc-1b 6/6, hc-1c 6/6.
+
+Defects the gate found and fixed (each with its consent):
+1. `runAs(null, org)` refused 403 by catalog (HeaderAuthFilter needs a user id) → `LinkedRxService.SERVICE_USER = 0`
+   (marketplace `AsOrg` precedent), used for the catalogue read, the product check and the party bridge.
+2. The pharmacist could not find a linked prescription by the patient's TOKEN or MRN (the monolith cannot resolve another
+   business's token; the text search matched name/phone/doctor only) → `searchScoped` also matches token_label and
+   notes (MRN), exact. +1 PrescriptionServiceTest case.
+3. PRE-EXISTING: `business.js` global `tOr(key, fallback)` dropped {0} arguments and shadows i18n.js on the business
+   dashboard — 6 H3b/H3c pharmacy texts showed a raw "{0}" ("Change the prescription of {0}"…) → it fills arguments now.
+   X4 gained a step: the Change panel title names the patient.
+Spec corrections (mine): X2 read `data` as the list; `openVisit` always pressed Call; X3 put the hand-written step before
+Submit (split into X3 listed + X6 hand-written); X7 needed its own patient; X4 held a row the list redraws.
+
+## HC-1d-2 BUILT (2026-10-16, user "Ok") — not deployed
+Readers of a line's product traced: clinical 5 (`rxLines` ×2 callers — visit WANTS hand-written, template EXCLUDES;
+combined-org submit EXCLUDES; linked submit passes it; `rxLine` maps it) · pharma 8 (Dispense ×2 null-safe, product
+check skips, toDTO passes, Change REQUIRES a product = the matching step, safety/backfill unrelated).
+| Layer | Change |
+|---|---|
+| clinical **V9** | `encounter_rx_item.product_id` NULL (live at V8 on 10-16) |
+| clinical | `EncounterRules.rxLines(raw, allowHandWritten)` (twins by name); `saveRx` asks auth ONLY when a hand-written line is present and allows it only on LINKED; combined-org submit refuses a product-less line; `ConsultServiceTest` +3 |
+| pharma | `validate(dto, allowHandWritten)` — true only for `createFromLinkedClinic` (name required); `PrescriptionServiceTest` +1 |
+| monolith | clinic: "not in <pharmacy>'s list — send it as written?" offer `#clinRxFreeOffer` / `#clinRxAddFree` (a wrapper, never a bare .btn), line badge `.clin-rx-free`; pharmacy: row badge `.rx-to-match` "N to match", Change panel "Choose the product" `.rx-amend-match` per hand-written line, Save refuses while one is unmatched; 8 keys × 6 bundles |
+| spec | X6 walks the pharmacist's Change screen (to-match badge → choose product → reason → Save) |
+Deploy: clinical-service, pharma-service, monolith.
+
+## HC-1d-2 DEPLOYED + GATE (2026-10-16 13:16) — HC-1d gate **7/7**; regression green: hms s3b1 7/7, s3b2 6/6, h3b 5/5, h3c 2/2, h4 4/4, s4lite 5/5, hc-1c-link-api 6/6, hc-1a 5/5, hc-1b 6/6, hc-1c 6/6 (guide specs each in its own run). Spec fix: the sale step waits on `cy.waitForAppReady()` (the loading overlay covered #sellRec after a cold restart).

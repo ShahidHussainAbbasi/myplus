@@ -77,17 +77,30 @@ public final class EncounterRules {
 
     public static java.util.List<com.myplus.clinical.dto.ConsultDtos.RxLine> rxLines(
             java.util.List<com.myplus.clinical.dto.ConsultDtos.RxLine> raw) {
+        return rxLines(raw, false);
+    }
+
+    /**
+     * HC-1d-2 — {@code allowHandWritten}: a line with no product (a medicine written by hand, not in the linked pharmacy's
+     * list) is accepted. Only the visit's prescription on the LINKED route passes true; a template never does (every
+     * template line is reused against a pharmacy's list), nor does the combined org (its own pharmacy needs a product).
+     * A hand-written line is told apart from its twin by name, case-insensitively.
+     */
+    public static java.util.List<com.myplus.clinical.dto.ConsultDtos.RxLine> rxLines(
+            java.util.List<com.myplus.clinical.dto.ConsultDtos.RxLine> raw, boolean allowHandWritten) {
         java.util.List<com.myplus.clinical.dto.ConsultDtos.RxLine> out = new java.util.ArrayList<>();
         if (raw == null) return out;
         if (raw.size() > MAX_RX_LINES) throw new ValidationException("A prescription has at most " + MAX_RX_LINES + " medicines.");
         java.util.Set<Long> seen = new java.util.HashSet<>();
+        java.util.Set<String> seenHand = new java.util.HashSet<>();
         for (com.myplus.clinical.dto.ConsultDtos.RxLine l : raw) {
             if (l == null) continue;
             String name = l.getMedicineName() == null ? "" : l.getMedicineName().trim();
             String which = name.isEmpty() ? "A medicine" : "'" + name + "'";
-            if (l.getProductId() == null) throw new ValidationException(which + " is not from the pharmacy's list. Choose it again.");
+            if (l.getProductId() == null && !allowHandWritten) throw new ValidationException(which + " is not from the pharmacy's list. Choose it again.");
             if (name.isEmpty() || name.length() > 200) throw new ValidationException("Choose the medicine again; its name is missing or too long.");
-            if (!seen.add(l.getProductId())) throw new ValidationException(which + " is on the prescription twice. Change the quantity instead.");
+            boolean twice = l.getProductId() == null ? !seenHand.add(name.toLowerCase(java.util.Locale.ROOT)) : !seen.add(l.getProductId());
+            if (twice) throw new ValidationException(which + " is on the prescription twice. Change the quantity instead.");
             Integer q;
             try { q = Integer.valueOf(l.getQuantity() == null ? "" : l.getQuantity().trim()); }
             catch (NumberFormatException e) { q = null; }

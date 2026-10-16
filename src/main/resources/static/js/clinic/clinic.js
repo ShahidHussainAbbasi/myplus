@@ -883,6 +883,7 @@
         var noLink = rx.route === 'NONE' && !locked;
         $('#clinRxNoLink').toggle(noLink);
         if (noLink) { $('#clinRxAdd').hide(); $('#clinRxTemplates').hide(); $('#clinRxActions').hide(); }
+        if (noLink || locked) $('#clinRxFreeOffer').hide();
         var to = rx.route === 'LINKED' && !locked && rx.pharmacyName;
         $('#clinRxTo').text(to ? L('rxTo', 'Prescriptions go to {0}', rx.pharmacyName) : '').toggle(!!to);
     }
@@ -899,7 +900,8 @@
                 + '" aria-label="' + escHtml(f + ' of ' + l.medicineName) + '"/></td>';
         };
         rx.lines.forEach(function (l, i) {
-            $b.append('<tr><td>' + escHtml(l.medicineName) + '</td>' + cell(l, i, 'quantity', 'clin-num', 'numeric')
+            var free = l.productId == null ? ' <span class="label label-warning clin-rx-free">' + escHtml(L('writtenByHand', 'written by hand')) + '</span>' : '';
+            $b.append('<tr><td>' + escHtml(l.medicineName) + free + '</td>' + cell(l, i, 'quantity', 'clin-num', 'numeric')
                 + cell(l, i, 'dosage') + cell(l, i, 'frequency') + cell(l, i, 'duration')
                 + '<td class="clin-row-actions">' + (locked ? '' : '<button type="button" class="btn btn-xs btn-default clin-rx-remove" data-i="' + i
                     + '" aria-label="' + escHtml(L('removeX', 'Remove {0}', l.medicineName)) + '">' + escHtml(L('remove', 'Remove')) + '</button>') + '</td></tr>');
@@ -964,9 +966,28 @@
         });
     }
 
+    /** Quantity box → a whole number 1..10000, or null after saying so. */
+    function rxQty() {
+        var q = $.trim($('#clinRxQty').val());
+        if (!/^\d+$/.test(q) || +q < 1 || +q > 10000) { msg(L('qtyRange', 'Quantity: a whole number from 1 to 10000.'), false); $('#clinRxQty').focus(); return null; }
+        return q;
+    }
+
+    function clearRxBoxes() {
+        $('#clinRxMedicine, #clinRxQty, #clinRxDose, #clinRxFreq, #clinRxDays').val('');
+        $('#clinRxFreeOffer').hide();
+    }
+
     function addRxLine() {
         var typed = $.trim($('#clinRxMedicine').val());
         var p = rx.byName[typed.toLowerCase()];
+        $('#clinRxFreeOffer').hide();
+        if (!p && typed && rx.route === 'LINKED') {
+            // HC-1d-2: not in the LINKED pharmacy's list — the doctor may send it as written; the pharmacist matches it
+            $('#clinRxFreeText').text(L('notInListFree', '"{0}" is not in {1}\'s list. Send it as written? The pharmacist chooses the product.', typed, rx.pharmacyName || ''));
+            $('#clinRxFreeOffer').show();
+            return;
+        }
         if (!p) { msg(typed ? L('notInList', '"{0}" is not in the pharmacy\'s list. Choose it from the suggestions.', typed) : L('chooseMedicine', 'Choose a medicine.'), false); $('#clinRxMedicine').focus(); return; }
         if (rx.lines.some(function (l) { return String(l.productId) === String(p.id); })) {
             msg(L('alreadyOnRx', '{0} is on the prescription already. Remove it to change it.', p.name), false); return;
@@ -975,7 +996,23 @@
         if (!/^\d+$/.test(q) || +q < 1 || +q > 10000) { msg(L('qtyRange', 'Quantity: a whole number from 1 to 10000.'), false); $('#clinRxQty').focus(); return; }
         rx.lines.push({ productId: p.id, medicineName: p.name, quantity: q, dosage: $.trim($('#clinRxDose').val()),
                         frequency: $.trim($('#clinRxFreq').val()), duration: $.trim($('#clinRxDays').val()) });
-        $('#clinRxMedicine, #clinRxQty, #clinRxDose, #clinRxFreq, #clinRxDays').val('');
+        clearRxBoxes();
+        renderRx();
+        $('#clinRxMedicine').focus();
+    }
+
+    /** HC-1d-2 — "Add as written": a line with NO product (the server allows it only for a linked clinic). */
+    function addRxFree() {
+        var typed = $.trim($('#clinRxMedicine').val());
+        if (!typed) { $('#clinRxFreeOffer').hide(); return; }
+        if (typed.length > 200) { msg(L('nameTooLong', 'The medicine name is longer than 200 characters.'), false); return; }
+        if (rx.lines.some(function (l) { return String(l.medicineName || '').toLowerCase() === typed.toLowerCase(); })) {
+            msg(L('alreadyOnRx', '{0} is on the prescription already. Remove it to change it.', typed), false); return;
+        }
+        var q = rxQty(); if (q === null) return;
+        rx.lines.push({ productId: null, medicineName: typed, quantity: q, dosage: $.trim($('#clinRxDose').val()),
+                        frequency: $.trim($('#clinRxFreq').val()), duration: $.trim($('#clinRxDays').val()) });
+        clearRxBoxes();
         renderRx();
         $('#clinRxMedicine').focus();
     }
@@ -1143,6 +1180,6 @@
     global.Clinic = { show: show, find: find, register: register, reset: reset, addFamily: addFamily,
                       issueToken: issueToken, addDoctor: addDoctor,
                       saveVitals: saveVitals, addNote: addNote, completeVisit: completeVisit, backToQueue: backToQueue,
-                      addRxLine: addRxLine, saveRx: function () { saveRx(false); }, submitRx: submitRx, parkVisit: parkVisit,
+                      addRxLine: addRxLine, addRxFree: addRxFree, saveRx: function () { saveRx(false); }, submitRx: submitRx, parkVisit: parkVisit,
                       useTemplate: useTemplate, saveTemplate: saveTemplate, retireTemplate: retireTemplate };
 })(window);

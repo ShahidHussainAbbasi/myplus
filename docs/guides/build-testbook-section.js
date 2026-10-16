@@ -139,8 +139,8 @@ const SECTIONS = {
   },
   sra: {
     dir: 'sra', anchor: 'sra', number: Number(process.env.TB_NUMBER || 29), prefix: 'sra',
-    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'],
-    title: 'Sales by rep and area: City / Area, sales reps, territory, the rep on every invoice, and the report by rep and area (SRA-1 – SRA-4b)',
+    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3', 'D4', 'D5'],
+    title: 'Sales by rep and area: City / Area, sales reps, territory, the rep on every invoice, and the report by rep and area, its Excel and PDF downloads (SRA-1 – SRA-4c)',
     spec: 'cypress/e2e/docs/sra-guide-screens.cy.js',
     notes: [
       ['red', '⚠ What was broken (found while building SRA-1 / SRA-2, fixed 14 Oct)', `<strong>Another business could take
@@ -163,7 +163,10 @@ const SECTIONS = {
         sale has no rep (COUNTER); a foreign rep id is refused, never credited to nobody; a rep cannot book in a colleague's name
         (their choice is dropped); correcting the rep on an edit needs “Add and change sales reps” and is written to the audit
         trail; a rep never learns which colleague covers a shop; an online order is PORTAL (unit test <code>SalesRepAttributionTest</code>, written, not yet run) — <code>sra-rep-on-sale.cy.js</code>
-        6/6 and the 21-spec sale / keyboard / order regression 192/192.`],
+        6/6 and the 21-spec sale / keyboard / order regression 192/192. SRA-4a–4c (16 Oct): a member on “Sees: Own” sees only their own sales; nested groups add up level to level; the
+        Excel file is a real workbook with the screen's filters (<code>sra-sales-analysis.cy.js</code> 13/13). Print invoices and
+        Download PDF take every invoice across all pages, and a cached invoice is never stale — an edit and a payment show on the
+        very next print (<code>sale-report-invoices.cy.js</code> 6/6).`],
       ['amber', 'Clean-up', `Every name carries the run's stamp. The run deactivates its reps, returns its shops to the shared
         pool and <strong>unlinks the booker's login</strong> from its rep — a linked booker narrows every booking test. The C-cases'
         sales and dispatched orders have their invoices voided.`],

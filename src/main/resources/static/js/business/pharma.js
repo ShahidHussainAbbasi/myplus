@@ -105,7 +105,10 @@
                 .text(tOr('ui.js.rx.fromClinic', 'From clinic {0}', p.fromOrgName)));
         }
         tr.append(doc);
-        tr.append($('<td>').text((p.items || []).length));
+        var toMatch = (p.items || []).filter(function (i) { return i.productId == null; }).length;
+        var cnt = $('<td>').text((p.items || []).length);
+        if (toMatch) cnt.append(' ').append($('<span class="label label-warning rx-to-match">').text(tOr('ui.js.rx.toMatch', '{0} to match', toMatch)));
+        tr.append(cnt);
         tr.append($('<td>').text(p.status || ''));
         tr.append($('<td>').text(at));
         // Dispense is a normal sale that fulfils this Rx — only offer it while the script is still live.
@@ -596,7 +599,13 @@
                 return '<td><input type="text" class="form-control input-sm rx-amend-edit" data-i="' + i + '" data-f="' + f + '"'
                     + (mode ? ' inputmode="' + mode + '"' : '') + ' value="' + escHtml(l[f] == null ? '' : l[f]) + '" aria-label="' + escHtml(f + ' of ' + (l.medicineName || '')) + '"/></td>';
             };
-            $b.append('<tr><td>' + escHtml(l.medicineName || '') + '</td>' + cell('quantity', 'numeric') + cell('dosage') + cell('frequency') + cell('duration')
+            // HC-1d-2: written by hand at the clinic — the pharmacist chooses this pharmacy's product for it
+            var med = l.productId == null
+                ? escHtml(l.medicineName || '') + ' <span class="label label-warning">' + escHtml(tOr('ui.js.rx.writtenByHand', 'written by hand')) + '</span>'
+                  + '<input type="text" class="form-control input-sm rx-amend-match" list="rxAmendMedicines" data-i="' + i + '" placeholder="'
+                  + escHtml(tOr('ui.js.rx.chooseProduct', 'Choose the product')) + '" aria-label="' + escHtml(tOr('ui.js.rx.chooseProduct', 'Choose the product')) + '"/>'
+                : escHtml(l.medicineName || '');
+            $b.append('<tr><td>' + med + '</td>' + cell('quantity', 'numeric') + cell('dosage') + cell('frequency') + cell('duration')
                 + '<td class="text-right">' + escHtml(given) + '</td><td>'
                 + (given > 0 ? '<span class="text-muted">' + escHtml(tOr('ui.js.rx.stDispensed', 'dispensed')) + '</span>'
                              : '<button type="button" class="btn btn-xs btn-default rx-amend-remove" data-i="' + i + '">' + escHtml(tOr('ui.js.rx.remove', 'Remove')) + '</button>') + '</td></tr>');
@@ -639,7 +648,19 @@
         renderRxAmend();
     };
 
+    // HC-1d-2: choosing a product for a hand-written line (the doctor's words stay in the change history)
+    $(document).on('change', '.rx-amend-match', function () {
+        var l = rxEdit.lines[+$(this).data('i')]; if (!l) return;
+        var p = rxEdit.byName[$.trim($(this).val()).toLowerCase()];
+        if (!p) { showFormError(tOr('ui.js.rx.notInList', '"{0}" is not in the pharmacy\'s list. Choose it from the suggestions.', $.trim($(this).val()))); return; }
+        if (rxEdit.lines.some(function (x) { return x !== l && String(x.productId) === String(p.id); })) { showFormError(tOr('ui.js.rx.alreadyOn', '{0} is on the prescription already.', p.name)); return; }
+        l.productId = p.id; l.medicineName = p.name;
+        renderRxAmend();
+    });
+
     global.saveRxAmend = function () {
+        var unmatched = rxEdit.lines.filter(function (l) { return l.productId == null; });
+        if (unmatched.length) { showFormError(tOr('ui.js.rx.matchFirst', 'Choose the product for {0} first, or remove it.', unmatched[0].medicineName || '')); return; }
         if (rxEdit.seen === null) { showFormError(tOr('ui.js.rx.stillLoading', 'Still loading the changes of this prescription. Try again in a moment.')); return; }
         var reason = $.trim($('#rxPanelReason').val());
         if (!reason) { showFormError(tOr('ui.js.rx.whyChanged', 'Say why the prescription is changed — the doctor sees it.')); $('#rxPanelReason').focus(); return; }

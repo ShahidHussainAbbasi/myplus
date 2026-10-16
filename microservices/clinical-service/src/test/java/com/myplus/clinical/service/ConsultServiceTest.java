@@ -343,4 +343,39 @@ class ConsultServiceTest {
         assertThat(copy.get("status")).isEqualTo("FULLY_DISPENSED");
         verify(pharma, never()).get(any());
     }
+
+    // ── HC-1d-2: a medicine written by hand, for the LINKED pharmacy only ───────────────────────────────────
+
+    @Test
+    void a_linked_clinic_may_save_a_hand_written_line_and_it_is_sent_without_a_product() {
+        routeIs("LINKED");
+        service.saveRx(5L, RxRequest.builder().lines(List.of(line(31L, "Panadol 500mg", "10"), line(null, "Syrup X 120ml", "1"))).build());
+        org.mockito.ArgumentCaptor<EncounterRxItem> rows = org.mockito.ArgumentCaptor.forClass(EncounterRxItem.class);
+        verify(rxItems, times(2)).save(rows.capture());
+        assertThat(rows.getAllValues()).extracting(EncounterRxItem::getProductId).containsExactly(31L, null);
+
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10), saved(null, "Syrup X 120ml", 1)));
+        when(pharma.sendLinked(any())).thenReturn(new PharmaRxClient.Envelope(true, "ok", PharmaRxClient.Rx.builder().id(902L).build()));
+        service.submitRx(5L);
+        org.mockito.ArgumentCaptor<PharmaRxClient.Rx> sent = org.mockito.ArgumentCaptor.forClass(PharmaRxClient.Rx.class);
+        verify(pharma).sendLinked(sent.capture());
+        assertThat(sent.getValue().getItems()).extracting(PharmaRxClient.Item::getProductId).containsExactly(31L, null);
+    }
+
+    @Test
+    void a_hand_written_line_is_refused_without_a_link_and_twice_by_name() {
+        routeIs("NONE");
+        assertThatThrownBy(() -> service.saveRx(5L, RxRequest.builder().lines(List.of(line(null, "Syrup X", "1"))).build()))
+                .hasMessageContaining("not from the pharmacy's list");
+        routeIs("LINKED");
+        assertThatThrownBy(() -> service.saveRx(5L, RxRequest.builder().lines(List.of(line(null, "Syrup X", "1"), line(null, "syrup x", "2"))).build()))
+                .hasMessageContaining("twice");
+    }
+
+    @Test
+    void auth_is_not_asked_when_every_line_is_from_the_list() {
+        org.mockito.Mockito.clearInvocations(routes);
+        service.saveRx(5L, RxRequest.builder().lines(List.of(line(31L, "Panadol 500mg", "10"))).build());
+        verify(routes, never()).route();
+    }
 }

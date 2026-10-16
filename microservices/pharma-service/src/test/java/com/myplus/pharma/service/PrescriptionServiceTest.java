@@ -265,6 +265,26 @@ class PrescriptionServiceTest {
     }
 
     @Test
+    void a_hand_written_line_is_accepted_from_a_linked_clinic_only() {
+        PrescriptionDTO d = fromClinic("Hina", 6);
+        PrescriptionItemDTO hand = new PrescriptionItemDTO();
+        hand.setMedicineName("Syrup X 120ml");
+        hand.setQuantity(1);
+        d.getItems().add(hand);
+        PrescriptionDTO out = service.createFromLinkedClinic(d, PHARMACY, CLINIC_A, "A");
+        assertThat(out.getItems()).extracting(PrescriptionItemDTO::getProductId).containsExactly(555L, null);
+
+        PrescriptionDTO counter = sample("Walk-in");
+        counter.getItems().add(hand);
+        assertThatThrownBy(() -> service.create(counter, PHARMACY, USER)).hasMessageContaining("has no medicine selected");
+        PrescriptionItemDTO nameless = new PrescriptionItemDTO();
+        nameless.setQuantity(1);
+        PrescriptionDTO blank = fromClinic("Sara", 7);
+        blank.getItems().add(nameless);
+        assertThatThrownBy(() -> service.createFromLinkedClinic(blank, PHARMACY, CLINIC_A, "A")).hasMessageContaining("has no medicine selected");
+    }
+
+    @Test
     void a_clinic_reads_back_only_what_it_sent() {
         Long a = service.createFromLinkedClinic(fromClinic("Hina", 5), PHARMACY, CLINIC_A, "A").getId();
         Long counter = service.create(sample("Walk-in"), PHARMACY, USER).getId();
