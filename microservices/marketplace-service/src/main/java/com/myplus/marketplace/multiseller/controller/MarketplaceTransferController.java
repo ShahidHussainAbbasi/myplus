@@ -9,6 +9,7 @@ import com.myplus.common.web.ApiResponse;
 import com.myplus.marketplace.multiseller.dto.TransferDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceStockTransfer;
 import com.myplus.marketplace.multiseller.service.PlatformWarehouseService;
+import com.myplus.marketplace.multiseller.service.ConsignedReturnService;
 import com.myplus.marketplace.multiseller.service.ConsignedSaleService;
 import com.myplus.marketplace.multiseller.service.ShrinkageService;
 import com.myplus.marketplace.multiseller.service.StockTransferService;
@@ -27,6 +28,9 @@ import lombok.RequiredArgsConstructor;
  *   POST /mkt/seller/consigned/list       MKT-5c, whoever the agreement lets set the price: {consignorOrgId (warehouse
  *                                         only), mktProductId, price, deliveryAreas, promiseHours, warrantyPolicyId,
  *                                         returnPolicyId, version}
+ *   POST /mkt/seller/consigned/return     MKT-5e, the owner asks for units back / the warehouse sends back units past the
+ *                                         term: {consignorOrgId (warehouse only), mktProductId, units, note, idempotencyKey}
+ *   POST /mkt/seller/consigned/return/decision  {id, version, action CANCEL|DISPATCH|RECEIVE, cost, reference}
  * </pre>
  */
 @RestController
@@ -36,10 +40,11 @@ public class MarketplaceTransferController {
     private final StockTransferService transfers;
     private final ConsignedSaleService consigned;
     private final ShrinkageService shrinkage;
+    private final ConsignedReturnService returns;
 
     @GetMapping("/mkt/seller/transfers")
     public ApiResponse<TransferDTOs.View> view() {
-        return ApiResponse.success(shrinkage.decorate(transfers.view()));
+        return ApiResponse.success(returns.decorate(shrinkage.decorate(transfers.view())));
     }
 
     @PostMapping("/mkt/seller/transfers")
@@ -128,5 +133,28 @@ public class MarketplaceTransferController {
         return ApiResponse.success(c, "APPROVE".equalsIgnoreCase(body.action())
                 ? "Approved. The owner is credited and the units are written off its books."
                 : "Rejected. The owner sees your reason and can write the units off.");
+    }
+
+    // ── MKT-5e: unsold stock goes back to its owner ───────────────────────────────────────────────────
+
+    @PostMapping("/mkt/seller/consigned/return")
+    public ApiResponse<TransferDTOs.ReturnRow> requestReturn(@RequestBody(required = false) TransferDTOs.ReturnRequest body) {
+        TransferDTOs.ReturnRow r = returns.request(body);
+        String cost = "CONSIGNOR".equals(r.bearer()) ? "at the owner's cost" : "at " + PlatformWarehouseService.NAME + "'s cost";
+        return ApiResponse.success(r, (r.byOwner() ? "Asked for back as " : "Sent back as ") + r.returnNo() + ": " + r.units()
+                + " × " + r.productName() + ", " + cost + ". No longer sold; " + (r.byOwner() ? "the warehouse hands it over next."
+                : "hand it over next, with the carrier's reference."));
+    }
+
+    @PostMapping("/mkt/seller/consigned/return/decision")
+    public ApiResponse<TransferDTOs.ReturnRow> decideReturn(@RequestBody(required = false) TransferDTOs.ReturnDecision body) {
+        TransferDTOs.ReturnRow r = returns.decide(body);
+        return ApiResponse.success(r, switch (r.status()) {
+            case "CANCELLED" -> r.returnNo() + " cancelled. The units are on sale again.";
+            case "DISPATCHED" -> "Handed over: " + r.returnNo() + (r.settlementRef() != null
+                    ? ", Rs " + String.format(java.util.Locale.ROOT, "%,.2f", r.cost()) + " charged to the owner" : "")
+                    + ". The owner confirms when it arrives.";
+            default -> "Back in your stock: " + r.units() + " × " + r.productName() + " (" + r.returnNo() + ").";
+        });
     }
 }

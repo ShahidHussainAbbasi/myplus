@@ -143,6 +143,21 @@ module.exports = defineConfig({
           { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
           return Number(String(out).trim().split(/\s+/).pop())
         },
+        /*
+         * MKT-5e — stands in for months passing: dates ONE consigned lot's arrival {days} earlier, on the LOCAL stack's
+         * database only, so a gate can reach the agreement's unsold-return term. Same guard as above: no shell on the
+         * host, and only a transfer number (ST-000123) and a whole number of days reach the statement.
+         */
+        ageConsignedLot({ transferNo, days }) {
+          const m = /^ST-(\d{6})$/.exec(String(transferNo || ''))
+          const d = Number(days)
+          if (!m || !Number.isInteger(d) || d < 1 || d > 3650) throw new Error(`ageConsignedLot: not a lot: ${transferNo} ${days}`)
+          const { execFileSync } = require('child_process')
+          const out = execFileSync('docker', ['exec', 'myplus-mysql', 'sh', '-c',
+            `mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" myplusdb_marketplace -e "UPDATE mkt_consigned_stock SET created_at = created_at - INTERVAL ${d} DAY WHERE movement = 'RECEIVED' AND transfer_id = ${Number(m[1])}; SELECT ROW_COUNT();"`],
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+          return Number(String(out).trim().split(/\s+/).pop())
+        },
       })
     },
   },

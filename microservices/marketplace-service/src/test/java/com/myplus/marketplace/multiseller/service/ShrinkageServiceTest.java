@@ -41,6 +41,7 @@ import com.myplus.marketplace.multiseller.entity.MarketplaceConsignedStock;
 import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentAgreement;
 import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentCount;
 import com.myplus.marketplace.multiseller.entity.MarketplaceShrinkageClaim;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedReturnRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignmentAgreementRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignmentCountRepository;
@@ -67,6 +68,7 @@ class ShrinkageServiceTest {
     @Mock TradeClient trade;
     @Mock InventoryClient inventory;
     @Mock PlatformTransactionManager txManager;
+    @Mock MarketplaceConsignedReturnRepository returns;
     ShrinkageService service;
     MarketplaceConsignmentAgreement agreement;
     List<MarketplaceConsignedStock> ledger = new ArrayList<>();
@@ -74,7 +76,7 @@ class ShrinkageServiceTest {
     @BeforeEach
     void wire() {
         service = new ShrinkageService(counts, claims, consigned, agreements, products, consignments, sale, settings,
-                settlement, access, audit, trade, inventory, txManager);
+                settlement, access, audit, trade, inventory, txManager, returns);
         agreement = new MarketplaceConsignmentAgreement();
         agreement.setId(3L);
         agreement.setConsignorOrgId(OWNER);
@@ -158,6 +160,17 @@ class ShrinkageServiceTest {
 
         assertThat(ShrinkagePolicy.tolerated(200, new BigDecimal("1.00"))).isEqualTo(2);
         assertThat(ShrinkagePolicy.tolerated(5, BigDecimal.ZERO)).isZero();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.5] count: refused while some of the stock waits to go back to its owner (MKT-5e): it is on the shelf but not in the balance")
+    void countWaitsForAReturn() {
+        when(access.org()).thenReturn(WAREHOUSE);
+        when(returns.units(eq(OWNER), eq(WAREHOUSE), eq(PHONE), any())).thenReturn(2L);
+        assertThatThrownBy(() -> service.count(new TransferDTOs.CountRequest(OWNER, PHONE, 5, null, "k9")))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("Some of this stock is waiting to go back to Mobile Distributor. Hand it over (or cancel the return) first, then count.");
+        verify(counts, never()).save(any());
     }
 
     @Test

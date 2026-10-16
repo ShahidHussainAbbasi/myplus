@@ -4847,4 +4847,114 @@ on('MKT manual walk — recorded', () => {
         cy.then(() => shrinkRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-count-said').first().should('contain', '1 paid by claim'))
       })
   })
+  const RT5 = {}
+  walk({ id: 'M-5-05', slice: 'MKT-5', title: 'Unsold stock goes back: the owner asks for it, the warehouse hands it over, the owner confirms',
+    persona: 'owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R20.5', 'MKT-R4.6', 'MKT-R2.1'],
+    pre: 'As M-5-04: Mobile Distributor has an active consignment agreement (unsold stock goes back after 180 days, at the owner\'s cost) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit, listed for sale.',
+    auto: ['MKT-5e-01', 'MKT-5e-02', 'MKT-5e-03'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition, through the same calls as M-5-04's screens
+      makeSeller(SELLER_B)
+      makeSeller(WAREHOUSE, 'Central Warehouse')
+      asOperator()
+      cy.orgOf(SELLER_B).then((o) => { RT5.org = o.id })
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      cy.then(() => get('/platform/mkt/consignments?status=ACTIVE')).then((r) => {
+        const a = (data(r.body) || []).find((x) => x.consignorOrganizationId === RT5.org)
+        expect(a, 'an active agreement (M-5-01 / M-5-04)').to.exist
+        expect(a.terms.unsoldReturnDays).to.eq(180)
+        expect(a.terms.unsoldReturnBearer).to.eq('CONSIGNOR')
+      })
+      seedPolicies(`${run}rt`).then((p) => {
+        RT5.p = p
+        asOperator()
+        cy.then(() => publishOffer(WAREHOUSE, { run: `${run}rt`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { RT5.mkt = o.mktProductId })
+        cy.then(() => publishOffer(SELLER_B, { run: `${run}rt`, price: 52000, qty: 5, mktProductId: RT5.mkt, warrantyPolicyId: p.warranty,
+          returnPolicyId: p.returns })).then((o) => { RT5.product = o.sourceProductId })
+      })
+      as(SELLER_B)
+      cy.then(() => post('/mkt/transferOffer', { mktProductId: RT5.mkt, quantity: 3, unitPrice: 40000, kind: 'CONSIGN', note: 'walk M-5-05' }))
+        .then((r) => { RT5.st = data(r.body) })
+      as(WAREHOUSE)
+      cy.then(() => post('/mkt/transferReceive', { transferNo: RT5.st.transferNo, version: RT5.st.version }))
+        .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+      as(SELLER_B)
+      cy.then(() => post('/mkt/consignedList', { mktProductId: RT5.mkt, price: 52000, deliveryAreas: 'Karachi', promiseHours: 48,
+        warrantyPolicyId: RT5.p.warranty, returnPolicyId: RT5.p.returns })).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    })
+    const backRow = () => cy.get(`#mktHeld tr.mkt-held-back[data-product="${RT5.mkt}"]`)
+    const line = () => cy.get(`#mktHeld tr.mkt-held-back[data-product="${RT5.mkt}"] .mkt-return[data-return-no="${RT5.no}"]`)
+    const level = () => cy.request('/productStockLevels').then((r) => (r.body.levels || {})[String(RT5.product)])
+    const account = () => get('/mkt/settlementAccount').then((r) => data(r.body))
+    const back = () => get('/mkt/transfers').then((r) => (data(r.body).held || []).find((h) => h.mktProductId === RT5.mkt))
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". Under the phone read the line about unsold stock, then type 2 in "Units to go back" and press "Ask for them back".',
+      'The line reads "Unsold stock goes back after 180 days, at the cost of the owner" and "Up to 3 can go back now …". After the press: "Asked for back as RT-…: 2 × …, at the owner\'s cost. No longer sold; the warehouse hands it over next." The return reads "RT-… · 2 · asked for by the owner · at the cost of the owner  Waiting to be handed over", and the listing now shows 1 available.', () => {
+        as(SELLER_B)
+        cy.then(() => level()).then((l) => { RT5.sellable = Number(l.sellable != null ? l.sellable : l.onHand); RT5.onHand = Number(l.onHand) })
+        cy.then(() => account()).then((a) => { RT5.balance = Number(a.balance) })
+        openMarketplace()
+        cy.then(() => backRow().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-return-terms')
+          .should('have.text', 'Unsold stock goes back after 180 days, at the cost of the owner'))
+        cy.then(() => backRow().find('.mkt-return-hint').should('contain', 'Up to 3 can go back now'))
+        cy.then(() => backRow().find('.mkt-return-n').type('2'))
+        cy.then(() => backRow().find('.mkt-return-ask').click())
+        cy.get('#mktTransferMsg').should('contain', 'Asked for back as RT-').and('contain', ': 2 × ')
+          .and('contain', ", at the owner's cost. No longer sold; the warehouse hands it over next.")
+        cy.then(() => back()).then((h) => { RT5.no = h.back.returns[0].returnNo; RT5.id = h.back.returns[0].id })
+        cy.then(() => line().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-return-status').should('have.text', 'Waiting to be handed over'))
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${RT5.mkt}"] .mkt-held-listing`).should('contain', '1 available'))
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". On RT-… type cost 500 and press "Hand over"; then type the carrier\'s reference "TCS 5521-0916" and press "Hand over" again.',
+      'Without a reference: "Give the carrier\'s reference, or who collected it." (the cost you typed stays). With it: "Handed over: RT-…, Rs 500.00 charged to the owner. The owner confirms when it arrives." The return reads "Handed over · TCS 5521-0916 · Rs 500.00 (charged to the owner)".', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.then(() => line().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-return-cost').type('500'))
+        cy.then(() => line().find('.mkt-return-dispatch').click())
+        cy.get('#mktTransferMsg').should('have.text', "Give the carrier's reference, or who collected it.")
+        cy.then(() => line().find('.mkt-return-ref').type('TCS 5521-0916'))
+        cy.then(() => line().find('.mkt-return-dispatch').click())
+        cy.get('#mktTransferMsg').should('have.text', `Handed over: ${RT5.no}, Rs 500.00 charged to the owner. The owner confirms when it arrives.`)
+        cy.then(() => line().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-return-status').should('have.text', 'Handed over'))
+        cy.then(() => line().find('.mkt-return-ref-said').should('contain', 'TCS 5521-0916').and('contain', '(charged to the owner)'))
+      })
+    step('As owner.mobile@myplus.com: look at your marketplace account (Settlement) and the phone\'s stock.',
+      'Your account has a debit of Rs 500.00 with reference RT-… ("Consigned stock sent back, RT-…"). The phone\'s free stock is unchanged: it has not arrived yet.', () => {
+        as(SELLER_B)
+        cy.then(() => call('GET /mkt/settlementAccount', get('/mkt/settlementAccount'))).then((r) => {
+          const e = data(r.body).entries.find((x) => x.ref === RT5.no)
+          expect(e, 'the debit').to.exist
+          expect(Number(e.debit)).to.eq(500)
+          expect(Number(data(r.body).balance)).to.eq(RT5.balance - 500)
+        })
+        cy.then(() => level()).then((l) => expect(Number(l.sellable != null ? l.sellable : l.onHand)).to.eq(RT5.sellable))
+      })
+    step('Still as owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". On RT-… press "Received" and confirm.',
+      'The browser asks "Confirm 2 arrived back? They go back into your stock for sale." After OK: "Back in your stock: 2 × … (RT-…)." The return reads "Back with the owner"; the row holds 1. The phone\'s free stock is 2 more; its stock on hand is unchanged (it never left your books).', () => {
+        openMarketplace()
+        cy.on('window:confirm', (t) => { expect(t).to.eq('Confirm 2 arrived back? They go back into your stock for sale.'); return true })
+        cy.then(() => line().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-return-receive').click())
+        cy.get('#mktTransferMsg').should('contain', 'Back in your stock: 2 × ').and('contain', `(${RT5.no}).`)
+        cy.then(() => line().scrollIntoView({ offset: { top: -200, left: 0 } }).find('.mkt-return-status').should('have.text', 'Back with the owner'))
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${RT5.mkt}"] .mkt-held-units`).should('have.text', '1'))
+        cy.then(() => level()).then((l) => {
+          expect(Number(l.sellable != null ? l.sellable : l.onHand)).to.eq(RT5.sellable + 2)
+          expect(Number(l.onHand)).to.eq(RT5.onHand)
+        })
+      })
+    cleanup('Take the last phone back the same way: as owner.mobile@myplus.com ask for 1 back; as owner.warehouse@myplus.com hand it over with cost 0 and reference "Collected"; as owner.mobile@myplus.com press "Received".',
+      'The phone is no longer listed under "Consigned stock at MaxTheService": nothing of it is held, and no cost was charged for this one.', () => {
+        as(SELLER_B)
+        cy.then(() => post('/mkt/consignedReturn', { mktProductId: RT5.mkt, units: 1, idempotencyKey: `walk-${run}-rt` })).then((r) => { RT5.last = data(r.body) })
+        as(WAREHOUSE)
+        cy.then(() => post('/mkt/consignedReturnDecision', { id: RT5.last.id, version: RT5.last.version, action: 'DISPATCH', cost: 0, reference: 'Collected' }))
+          .then((r) => { RT5.last = data(r.body) })
+        as(SELLER_B)
+        cy.then(() => post('/mkt/consignedReturnDecision', { id: RT5.last.id, version: RT5.last.version, action: 'RECEIVE' }))
+          .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+        openMarketplace()
+        cy.then(() => cy.get('#mktHeldBox').scrollIntoView({ offset: { top: -200, left: 0 } }))
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${RT5.mkt}"]`).should('not.exist'))
+      })
+  })
 })

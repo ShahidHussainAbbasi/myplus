@@ -37,20 +37,53 @@ public final class TransferDTOs {
      * warehouse's listing of it, if any.
      */
     public record Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value,
-                       Long consignorOrgId, long sold, boolean canList, Listing listing, Shrink shrink) {
+                       Long consignorOrgId, long sold, boolean canList, Listing listing, Shrink shrink, Back back) {
         public Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value) {
-            this(consignorName, mktProductId, productName, units, value, null, 0, false, null, null);
+            this(consignorName, mktProductId, productName, units, value, null, 0, false, null, null, null);
         }
 
         public Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value,
                     Long consignorOrgId, long sold, boolean canList, Listing listing) {
-            this(consignorName, mktProductId, productName, units, value, consignorOrgId, sold, canList, listing, null);
+            this(consignorName, mktProductId, productName, units, value, consignorOrgId, sold, canList, listing, null, null);
+        }
+
+        public Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value,
+                    Long consignorOrgId, long sold, boolean canList, Listing listing, Shrink shrink) {
+            this(consignorName, mktProductId, productName, units, value, consignorOrgId, sold, canList, listing, shrink, null);
         }
 
         public Held withShrink(Shrink s) {
-            return new Held(consignorName, mktProductId, productName, units, value, consignorOrgId, sold, canList, listing, s);
+            return new Held(consignorName, mktProductId, productName, units, value, consignorOrgId, sold, canList, listing, s, back);
+        }
+
+        public Held withBack(Back b) {
+            return new Held(consignorName, mktProductId, productName, units, value, consignorOrgId, sold, canList, listing, shrink, b);
         }
     }
+
+    /**
+     * MKT-5e — stock going back to its owner. {@code returnable}: on the shelf, not promised to an order, not already
+     * going back; {@code due}: of those, held longer than the agreement's {@code unsoldReturnDays} (the warehouse may send
+     * them back; the owner gets them back at the agreement's {@code unsoldReturnBearer}'s cost). {@code canAsk}: the
+     * caller is the owner; {@code canSend}: the warehouse.
+     */
+    public record Back(long returnable, long due, Integer unsoldReturnDays, String unsoldReturnBearer, boolean canAsk,
+                       boolean canSend, List<ReturnRow> returns) { }
+
+    /** One return. {@code byOwner}: the owner asked (RECALL), else the warehouse sent it back (UNSOLD). */
+    public record ReturnRow(Long id, String returnNo, Integer version, String productName, int units, String reason,
+                            String bearer, BigDecimal cost, String reference, String settlementRef, String note,
+                            String status, boolean byOwner, LocalDateTime requestedAt, LocalDateTime dispatchedAt,
+                            LocalDateTime receivedAt) { }
+
+    /** MKT-5e — ask for units back (the owner; {@code consignorOrgId} names none) or send them back (the warehouse). */
+    public record ReturnRequest(Long consignorOrgId, Long mktProductId, Integer units, String note, String idempotencyKey) { }
+
+    /**
+     * MKT-5e — CANCEL (whoever asked, before hand-over), DISPATCH (the warehouse: {@code cost}, {@code reference}) or
+     * RECEIVE (the owner).
+     */
+    public record ReturnDecision(Long id, Integer version, String action, BigDecimal cost, String reference) { }
 
     /**
      * MKT-5d — counts of one owner's product and what they found missing. {@code missing}: units still unresolved (in

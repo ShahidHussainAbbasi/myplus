@@ -637,7 +637,84 @@
 				.on('click', function () { mktListOpen(h); }).appendTo($a);
 			$tb.append($tr);
 			if (h.shrink) $tb.append(shrinkRow(h, warehouse ? 7 : 6));
+			if (h.back) $tb.append(backRow(h, warehouse ? 7 : 6));
 		});
+	}
+
+	// ── MKT-5e: unsold stock goes back to its owner ─────────────────────────────────────────────────────
+
+	var RT_ST = { REQUESTED: 'Waiting to be handed over', DISPATCHED: 'Handed over', RECEIVING: 'Handed over',
+		RECEIVED: 'Back with the owner', CANCELLED: 'Cancelled' };
+	function rtWho(p) { return p === 'CONSIGNEE' ? tr('ui.js.mktCaMts', 'MaxTheService') : tr('ui.js.mktCaOwner', 'the owner'); }
+
+	/**
+	 * Under each held row: the agreement's unsold-return term, what is past it, the owner's "Ask for them back" (any time;
+	 * before the term at its own cost) or the warehouse's "Send back" (only what is past the term), and each return:
+	 * the warehouse hands it over with the carrier's reference and the cost; the owner confirms it has it back.
+	 */
+	function backRow(h, span) {
+		var b = h.back;
+		var $tr = $('<tr class="mkt-held-back"></tr>').attr('data-product', h.mktProductId).attr('data-owner', h.consignorOrgId);
+		var $td = $('<td style="border-top:0;padding-top:0;font-size:13px;white-space:normal"></td>').attr('colspan', span).appendTo($tr);
+		var $head = $('<div class="mkt-return-head text-muted"></div>').appendTo($td);
+		if (b.unsoldReturnDays) $head.append($('<span class="mkt-return-terms"></span>').text(tr('ui.js.mktCaUnsold',
+			'Unsold stock goes back after {0} days, at the cost of {1}').replace('{0}', b.unsoldReturnDays).replace('{1}', rtWho(b.unsoldReturnBearer))));
+		if (b.due > 0) $head.append(' · ').append($('<span class="mkt-return-due" style="color:#8a5300;font-weight:600"></span>')
+			.text(tr('ui.js.mktRtDue', '{0} held past the term').replace('{0}', b.due)));
+		var max = b.canSend ? b.due : b.canAsk ? b.returnable : 0;
+		if (max > 0) {
+			var $f = $('<div class="form-inline mkt-return-form" style="margin-top:4px"></div>').appendTo($td);
+			var $n = $('<input type="number" min="1" step="1" class="form-control input-sm mkt-return-n" style="width:110px" inputmode="numeric">')
+				.attr('max', max).attr('placeholder', tr('ui.js.mktRtUnits', 'Units to go back')).attr('aria-label', tr('ui.js.mktRtUnits', 'Units to go back')).appendTo($f);
+			var key = 'rt-' + h.consignorOrgId + '-' + h.mktProductId + '-' + Date.now();
+			$('<button type="button" class="btn btn-xs btn-default" style="margin-left:4px"></button>')
+				.addClass(b.canSend ? 'mkt-return-send' : 'mkt-return-ask')
+				.text(b.canSend ? tr('ui.js.mktRtSend', 'Send back to the owner') : tr('ui.js.mktRtAsk', 'Ask for them back'))
+				.on('click', function () {
+					transferPost('mkt/consignedReturn', { consignorOrgId: b.canSend ? h.consignorOrgId : null, mktProductId: h.mktProductId,
+						units: $n.val() === '' ? null : Number($n.val()), idempotencyKey: key }, $(this));
+				}).appendTo($f);
+			$('<div class="text-muted mkt-return-hint" style="font-size:12px"></div>').text(b.canSend
+				? tr('ui.js.mktRtSendHint', 'Up to {0} have been held longer than the term.').replace('{0}', b.due)
+				: tr('ui.js.mktRtAskHint', 'Up to {0} can go back now (on the shelf and not promised to an order). Asked for before the term, you pay to send them.').replace('{0}', b.returnable))
+				.appendTo($f);
+		}
+		(b.returns || []).forEach(function (r) { $td.append(returnLine(r, b)); });
+		return $tr;
+	}
+
+	function returnLine(r, b) {
+		var $r = $('<div class="mkt-return" style="margin-top:6px"></div>').attr('data-return-no', r.returnNo).attr('data-status', r.status);
+		var said = r.returnNo + ' · ' + r.units + ' · ' + (r.byOwner ? tr('ui.js.mktRtByOwner', 'asked for by the owner')
+			: tr('ui.js.mktRtByWh', 'sent back by MaxTheService')) + ' · ' + tr('ui.js.mktRtCost', 'at the cost of {0}').replace('{0}', rtWho(r.bearer));
+		$r.append($('<span class="mkt-return-said"></span>').text(said));
+		$r.append(' ').append($('<strong class="mkt-return-status"></strong>').text(tr('ui.js.mktRtSt_' + r.status, RT_ST[r.status] || r.status)));
+		if (r.reference) $r.append($('<span class="text-muted mkt-return-ref-said"></span>').text(' · ' + r.reference
+			+ (r.cost != null ? ' · ' + money(r.cost) : '') + (r.settlementRef ? ' ' + tr('ui.js.mktRtCharged', '(charged to the owner)') : '')));
+		var mine = r.byOwner ? b.canAsk : b.canSend;
+		if (r.status === 'REQUESTED' && mine)
+			$('<button type="button" class="btn btn-xs btn-link mkt-return-cancel"></button>').text(tr('ui.js.mktTrCancel', 'Cancel'))
+				.on('click', function () { transferPost('mkt/consignedReturnDecision', { id: r.id, version: r.version, action: 'CANCEL' }, $(this)); })
+				.appendTo($r);
+		if (r.status === 'REQUESTED' && b.canSend) {
+			var $f = $('<div class="form-inline" style="margin:2px 0 0 14px"></div>').appendTo($r);
+			var $cost = $('<input type="number" min="0" step="0.01" class="form-control input-sm mkt-return-cost" style="width:140px" inputmode="decimal">')
+				.attr('placeholder', tr('ui.js.mktRtCostL', 'Cost to send (Rs)')).attr('aria-label', tr('ui.js.mktRtCostL', 'Cost to send (Rs)')).appendTo($f);
+			var $ref = $('<input type="text" maxlength="100" class="form-control input-sm mkt-return-ref" style="width:220px;margin-left:4px">')
+				.attr('placeholder', tr('ui.js.mktRtRefL', "Carrier's reference")).attr('aria-label', tr('ui.js.mktRtRefL', "Carrier's reference")).appendTo($f);
+			$('<button type="button" class="btn btn-xs btn-primary mkt-return-dispatch" style="margin-left:4px"></button>').text(tr('ui.js.mktRtDispatch', 'Hand over'))
+				.on('click', function () {
+					transferPost('mkt/consignedReturnDecision', { id: r.id, version: r.version, action: 'DISPATCH',
+						cost: $cost.val() === '' ? null : $cost.val(), reference: $ref.val() || null }, $(this));
+				}).appendTo($f);
+		}
+		if ((r.status === 'DISPATCHED' || r.status === 'RECEIVING') && b.canAsk)
+			$('<button type="button" class="btn btn-xs btn-success mkt-return-receive" style="margin-left:4px"></button>').text(tr('ui.js.mktRtReceive', 'Received'))
+				.on('click', function () {
+					if (!global.confirm(tr('ui.js.mktRtReceiveAsk', 'Confirm {0} arrived back? They go back into your stock for sale.').replace('{0}', r.units))) return;
+					transferPost('mkt/consignedReturnDecision', { id: r.id, version: r.version, action: 'RECEIVE' }, $(this));
+				}).appendTo($r);
+		return $r;
 	}
 
 	// ── MKT-5d: counts and shrinkage claims ─────────────────────────────────────────────────────────────
@@ -847,8 +924,9 @@
 		var $msg = $('#mktTransferMsg').text('').css('color', '');
 		// a row's action redraws the list (see below); a refused Send keeps the form as typed
 		var refused = function (why) {
-			// a refused Send, count or claim keeps what was typed (MKT-5d)
-			if (path === 'mkt/transferOffer' || path === 'mkt/consignedCount' || path === 'mkt/consignedClaim') {
+			// a refused Send, count, claim (MKT-5d), return or hand-over (MKT-5e) keeps what was typed
+			if (path === 'mkt/transferOffer' || path === 'mkt/consignedCount' || path === 'mkt/consignedClaim'
+				|| path === 'mkt/consignedReturn' || (path === 'mkt/consignedReturnDecision' && body.action === 'DISPATCH')) {
 				$msg.css('color', '#b3261e').text(why); return;
 			}
 			mktTransfersLoad().always(function () { $('#mktTransferMsg').css('color', '#b3261e').text(why); });

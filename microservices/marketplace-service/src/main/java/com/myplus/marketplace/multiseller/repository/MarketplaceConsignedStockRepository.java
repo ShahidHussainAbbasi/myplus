@@ -38,11 +38,15 @@ public interface MarketplaceConsignedStockRepository extends JpaRepository<Marke
     /**
      * MKT-5c — units the consignee holds for this consignor of one product: what its listing can sell. MKT-5d — less
      * the units a count found missing and nobody has resolved yet (they are still in the ledger and the owner's books,
-     * but not on the shelf). Readers (4): the listing, checkout's promise count, the projection, a count's expected.
+     * but not on the shelf). MKT-5e — less the units going back to the owner (asked for, handed over, being received:
+     * still in the ledger until the owner has them). Readers (5): the listing, checkout's promise count, the
+     * projection, a count's expected, a return's limit.
      */
     @Query("SELECT COALESCE(SUM(c.quantity), 0) - (SELECT COALESCE(SUM(k.missing - k.writtenOff - k.approved), 0) "
             + "FROM MarketplaceConsignmentCount k WHERE k.consignorOrgId = :consignor AND k.consigneeOrgId = :consignee "
-            + "AND k.mktProductId = :product) FROM MarketplaceConsignedStock c "
+            + "AND k.mktProductId = :product) - (SELECT COALESCE(SUM(r.units), 0) FROM MarketplaceConsignedReturn r "
+            + "WHERE r.consignorOrgId = :consignor AND r.consigneeOrgId = :consignee AND r.mktProductId = :product "
+            + "AND r.status IN ('REQUESTED', 'DISPATCHED', 'RECEIVING')) FROM MarketplaceConsignedStock c "
             + "WHERE c.consignorOrgId = :consignor AND c.consigneeOrgId = :consignee AND c.mktProductId = :product")
     long balance(@Param("consignor") Long consignor, @Param("consignee") Long consignee, @Param("product") Long product);
 
@@ -61,6 +65,17 @@ public interface MarketplaceConsignedStockRepository extends JpaRepository<Marke
 
     /** MKT-5c — the voided tries of one line and lot: the next try's attempt number. */
     long countByTransferIdAndOrderLineIdAndMovement(Long transferId, Long orderLineId, String movement);
+
+    /**
+     * MKT-5e — units of one owner's product still held from lots received on or before {@code cutoff}: what is past the
+     * agreement's unsold-return term (lot by lot, as each came in).
+     */
+    @Query("SELECT COALESCE(SUM(c.quantity), 0) FROM MarketplaceConsignedStock c WHERE c.consignorOrgId = :consignor "
+            + "AND c.consigneeOrgId = :consignee AND c.mktProductId = :product AND c.transferId IN (SELECT r.transferId "
+            + "FROM MarketplaceConsignedStock r WHERE r.movement = 'RECEIVED' AND r.consignorOrgId = :consignor "
+            + "AND r.consigneeOrgId = :consignee AND r.mktProductId = :product AND r.createdAt <= :cutoff)")
+    long heldSince(@Param("consignor") Long consignor, @Param("consignee") Long consignee, @Param("product") Long product,
+                   @Param("cutoff") java.time.LocalDateTime cutoff);
 
     /** MKT-5d — the first time this owner's product came in: when its first count falls due. */
     java.util.Optional<MarketplaceConsignedStock> findFirstByConsignorOrgIdAndConsigneeOrgIdAndMktProductIdAndMovementOrderByIdAsc(

@@ -10,6 +10,8 @@ import com.myplus.marketplace.multiseller.entity.MarketplaceConsignedStock;
 import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentAgreement;
 import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentCount;
 import com.myplus.marketplace.multiseller.entity.MarketplaceShrinkageClaim;
+import com.myplus.marketplace.multiseller.entity.MarketplaceConsignedReturn;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedReturnRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignmentAgreementRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignmentCountRepository;
@@ -79,6 +81,7 @@ public class ShrinkageService {
     private final TradeClient trade;
     private final InventoryClient inventory;
     private final PlatformTransactionManager txManager;
+    private final MarketplaceConsignedReturnRepository returns;
 
     // ── the count ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -103,6 +106,10 @@ public class ShrinkageService {
                     .orElseThrow(() -> new ValidationException("There is no active consignment agreement with "
                             + sale.name(owner) + ", so its stock cannot be counted."));
             agreements.lockById(a.getId());   // one count or checkout of this owner's stock at a time
+            // MKT-5e: units asked back are still on the shelf but no longer in the balance; count once they are handed over
+            if (returns.units(owner, warehouse, req.mktProductId(), java.util.Set.of(MarketplaceConsignedReturn.REQUESTED)) > 0)
+                throw new ValidationException("Some of this stock is waiting to go back to " + sale.name(owner)
+                        + ". Hand it over (or cancel the return) first, then count.");
             int expected = (int) Math.max(0, consigned.balance(owner, warehouse, req.mktProductId()));
             if (expected == 0)
                 throw new ValidationException("MaxTheService holds none of this product for " + sale.name(owner)

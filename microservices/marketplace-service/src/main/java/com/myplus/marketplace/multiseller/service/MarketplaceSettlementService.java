@@ -558,6 +558,24 @@ public class MarketplaceSettlementService {
                 .grandTotal(Money.scale(amount)).build());
     }
 
+    /**
+     * MKT-5e — sending consigned stock back at the owner's cost (the agreement's unsold-return term, or the owner asked
+     * for it back early): a NEW debit on the owner's account of what the warehouse paid the carrier, the return number
+     * its reference. The same return charges once. Joins the caller's transaction.
+     */
+    @Transactional
+    public void chargeReturn(Long org, BigDecimal amount, String returnNo, String memo) {
+        if (amount == null || amount.signum() <= 0) return;
+        String key = "return:" + returnNo;
+        if (entries.existsByIdempotencyKey(key)) return;
+        Books books = ensureBooks();
+        append(org, null, null, LedgerEntryType.ADJUSTMENT, Money.scale(amount), Money.ZERO, returnNo, clip(memo, 300), key,
+                access.userId());
+        gl.enqueue(books.organizationId(), books.userId(), PostingEventRequest.builder()
+                .eventType("MKT_ADJUSTMENT").eventKey("MKT-RETURN-" + returnNo).date(TenantClock.today()).ref(returnNo)
+                .grandTotal(Money.scale(amount).negate()).build());
+    }
+
     // ── MKT-2d: cash orders: what sellers owe, and the money they pay ───────────────────────────────────────
 
     /**

@@ -497,6 +497,23 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/seller/consigned/shrinkage", body, "Could not record it.");
     }
 
+    // ── MKT-5e: unsold consigned stock goes back to its owner ──
+
+    /** The owner asks for units back; the warehouse sends back units past the term. Body: {consignorOrgId, mktProductId,
+     *  units, note, idempotencyKey}. */
+    @RequestMapping(value = "/mkt/consignedReturn", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignedReturn(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consigned/return", body, "Could not record the return.");
+    }
+
+    /** Body: {id, version, action: CANCEL|DISPATCH|RECEIVE, cost, reference}. */
+    @RequestMapping(value = "/mkt/consignedReturnDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignedReturnDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consigned/return/decision", body, "Could not record it.");
+    }
+
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/shrinkageClaims", method = RequestMethod.GET)
     @ResponseBody

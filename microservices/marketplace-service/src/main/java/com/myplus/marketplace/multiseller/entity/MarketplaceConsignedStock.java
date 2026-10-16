@@ -36,6 +36,9 @@ public class MarketplaceConsignedStock {
     /** MKT-5d — units a count found missing, taken out once the owner wrote them off or a claim for them was approved. */
     public static final String LOST = "LOST";
 
+    /** MKT-5e — units back with their owner: written when it confirms it has them (doc_no = the return, RT-…). */
+    public static final String RETURNED = "RETURNED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -96,7 +99,7 @@ public class MarketplaceConsignedStock {
     @Column(name = "unit_price", precision = 19, scale = 2)
     private BigDecimal unitPrice;
 
-    /** MKT-5d (V43): the count write-off or claim a LOST row resolves (CC-000001-W1, SC-000001); empty otherwise. */
+    /** MKT-5d (V43): the count write-off or claim a LOST row resolves (CC-000001-W1, SC-000001), MKT-5e the return of a RETURNED row (RT-000001); empty otherwise. */
     @Column(name = "doc_no", nullable = false, length = 20)
     private String docNo = "";
 
