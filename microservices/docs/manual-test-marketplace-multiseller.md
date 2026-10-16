@@ -1579,7 +1579,7 @@
 **Who:** MaxTheService operator, then a customer (incognito window)  
 **Before:** A test system (marketplace-service started with MKT_ROUTING_TEST_SWITCH=true). Phone Supplier is marked as a supplier and lists one phone at Rs 46,000 in Karachi. Every seller is being asked.  
 **Covers:** MKT-R22.5  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-15 20:43 UTC  
 **Automated by:** MKT-4c-01, MKT-4c-02
 
 | # | Do this | Expect |
@@ -1597,7 +1597,7 @@
 **Who:** a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)  
 **Before:** Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 47,000, delivering to Karachi.  
 **Covers:** MKT-R20.5  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-15 20:31 UTC  
 **Automated by:** MKT-4b-01, MKT-4b-02
 
 | # | Do this | Expect |
@@ -1612,7 +1612,7 @@
 **Who:** owner.supplier@myplus.com (Phone Supplier), a customer (incognito), MaxTheService operator  
 **Before:** Two days after M-4-03 (the whole system restarted on a clock two days later). Phone Supplier accepted the order and has not sent it.  
 **Covers:** MKT-R20.5, MKT-R8.2, MKT-R12.4  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-15 20:36 UTC  
 **Automated by:** MKT-4b-04, MKT-4b-05, MKT-4b-06
 
 | # | Do this | Expect |
@@ -1629,7 +1629,7 @@
 **Who:** a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)  
 **Before:** Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.  
 **Covers:** MKT-R11.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-15 21:08 UTC  
 **Automated by:** MKT-4d-01
 
 | # | Do this | Expect |
@@ -1648,7 +1648,7 @@
 **Who:** MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)  
 **Before:** The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.  
 **Covers:** MKT-R2.1, MKT-R2.2, MKT-R4.6, MKT-R12.2  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-16 00:15 UTC  
 **Automated by:** MKT-5a-01, MKT-5a-02, MKT-5a-03
 
 | # | Do this | Expect |
@@ -1664,7 +1664,7 @@
 **Who:** owner.warehouse@myplus.com (the MaxTheService warehouse) → owner.mobile@myplus.com (Mobile Distributor) → admin@myplus.com (operator)  
 **Before:** As M-5-04: Mobile Distributor has an active consignment agreement (MaxTheService bears damage and theft, the owner expiry; 1% tolerance; claims within 14 days, with proof) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit.  
 **Covers:** MKT-R12.1, MKT-R12.2, MKT-R12.3, MKT-R12.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-16 10:47 UTC  
 **Automated by:** MKT-5d-01, MKT-5d-02, MKT-5d-03, MKT-5d-05
 
 | # | Do this | Expect |
@@ -1681,7 +1681,7 @@
 **Who:** owner.mobile@myplus.com (Mobile Distributor) → Customer (incognito window) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
 **Before:** As M-5-04: Mobile Distributor has an active consignment agreement where it sets the selling price, ownership passes on sale and MaxTheService keeps 10%, and 2 of a phone consigned to the MaxTheService warehouse (5 on its own shelf).  
 **Covers:** MKT-R2.1, MKT-R4.5, MKT-R15.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-16 08:25 UTC  
 **Automated by:** MKT-5c-02, MKT-5c-03, MKT-5c-04, MKT-5c-05
 
 | # | Do this | Expect |
@@ -1698,7 +1698,7 @@
 **Who:** owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
 **Before:** The MaxTheService warehouse is named (M-3-01). Mobile Distributor has an active consignment agreement (accepted as in M-5-01) and 5 of a phone that MaxTheService also carries.  
 **Covers:** MKT-R2.1, MKT-R4.5, MKT-R20.5  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-16 07:15 UTC  
 **Automated by:** MKT-5b-02, MKT-5b-03, MKT-5b-04, MKT-5b-05
 
 | # | Do this | Expect |
@@ -1715,7 +1715,7 @@
 **Who:** owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
 **Before:** As M-5-04: Mobile Distributor has an active consignment agreement (unsold stock goes back after 180 days, at the owner's cost) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit, listed for sale.  
 **Covers:** MKT-R20.5, MKT-R4.6, MKT-R2.1  
-**Evidence:** written from the design — not built yet  
+**Evidence:** recorded 2026-10-16 11:13 UTC  
 **Automated by:** MKT-5e-01, MKT-5e-02, MKT-5e-03
 
 | # | Do this | Expect |
@@ -1749,14 +1749,18 @@
 ### M-X-01 Who is accountable is always visible
 
 **Who:** admin@myplus.com (operator)  
-**Before:** Any order in any phase.  
-**Covers:** MKT-R23.1, MKT-R3.1, MKT-R3.2  
-**Evidence:** written from the design — not built yet
+**Before:** A customer has just ordered a phone from Shahzad Mobile Shop (its own stock, Samsung Pakistan warranty 12 months, 7-day returns); an order for consigned stock exists (M-5-04 / gate 5c).  
+**Covers:** MKT-R23.1, MKT-R8.1, MKT-R3.1, MKT-R3.2  
+**Evidence:** recorded 2026-10-16 13:05 UTC  
+**Automated by:** MKT-Xa-01, MKT-Xa-02, MKT-Xa-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Open the order's Parties panel. | Customer relationship: MaxTheService. Named seller, stock owner, custodian, fulfiller, carrier and warranty provider — none blank, none assumed. |
-| C1 | Nothing to undo. | — |
+| 1 | As admin@myplus.com: Platform → "Marketplace orders" (opens on "Waiting for a seller"). On Hina's order press "Who answers for it". | A row opens under the order: "Customer relationship: MaxTheService", "Support: MaxTheService: support, complaints and returns"; the part: "Seller: Shahzad Mobile Shop", "Carrier: None yet: no seller has accepted"; the line: "The seller's own stock", Stock owner, Custodian and Fulfiller all "Shahzad Mobile Shop", "Warranty: Samsung Pakistan, 12 months", "Returns: 7 days, coordinated by MaxTheService". Nothing is blank. |
+| 2 | Press "Who answers for it" again. | The row closes. |
+| 3 | Choose the filter the consigned order is under ("Confirmed" after the warehouse accepted it, else "Cancelled" or "All"); press "Who answers for it" on it. | The line reads "Consigned stock". "Stock owner: Mobile Distributor" (who consigned it), while "Seller", "Custodian" and "Fulfiller" read "MaxTheService warehouse": the owner is named apart from who sold and holds it. A confirmed part names its carrier, or "Not sent yet: the fulfiller books it at dispatch". |
+| 4 | As owner.business@ (a shop): GET /platform/mkt/orderParties?orderNo=<Hina's order>. As the operator: the same with "MKT-999999". | The shop is refused and sees no party. The operator gets "No such order.". |
+| C1 | As owner.business@: Reject Hina's order with "walk cleanup". | Released; the order no longer waits. |
 
 ### M-X-02 Tenant scope on every artefact
 

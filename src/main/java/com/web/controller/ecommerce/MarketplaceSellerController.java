@@ -333,6 +333,22 @@ public class MarketplaceSellerController {
         return relayGet("/mkt/operator/orders", request, "Could not load marketplace orders.", "status", "page", "size");
     }
 
+    /** MKT-Xa — who answers for what in one order (R23.1). The order number goes into the path, so it is checked first. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/orderParties", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> orderParties(final HttpServletRequest request) {
+        String orderNo = request.getParameter("orderNo");
+        String no = orderNo == null ? "" : orderNo.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!no.matches("[A-Z0-9-]{1,40}")) {
+            Map<String, Object> out = new java.util.LinkedHashMap<>();
+            out.put("success", false);
+            out.put("message", "No such order.");
+            return out;
+        }
+        return relayGet("/mkt/operator/orders/" + no + "/parties", request, "Could not load the order's parties.");
+    }
+
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/acceptWindow", method = RequestMethod.GET)
     @ResponseBody

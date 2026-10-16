@@ -491,6 +491,99 @@ class MarketplaceOrderFlowTest {
         assertThat(foreign.parcels()).isEmpty();
     }
 
+    // ── MKT-Xa: who answers for an order ───────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("[MKT-R23.1] [MKT-R8.1] [MKT-R3.1] the operator sees who answers for every line: MaxTheService for the customer and support, each party by name, warranty and returns as snapshotted")
+    void partiesNamesEveryone() {
+        MarketplaceSellerOrder so = offered();
+        String no = orderTable.get(so.getMktOrderId()).getOrderNo();
+
+        MarketplaceOrderDTOs.Parties p = checkout.parties(" " + no.toLowerCase() + " ");
+        assertThat(p.orderNo()).isEqualTo(no);
+        assertThat(p.customer()).isEqualTo("Ali");
+        assertThat(p.customerRelationship()).isEqualTo("MaxTheService");
+        assertThat(p.support()).isEqualTo("MaxTheService: support, complaints and returns");
+        assertThat(p.parts()).hasSize(1);
+        MarketplaceOrderDTOs.PartParties part = p.parts().get(0);
+        assertThat(part.seller()).isEqualTo("Shahzad Mobile Shop");
+        assertThat(part.carrier()).isEqualTo("None yet: no seller has accepted");
+        MarketplaceOrderDTOs.LineParties l = part.lines().get(0);
+        assertThat(l.stockSource()).isEqualTo("MERCHANT");
+        assertThat(List.of(l.seller(), l.stockOwner(), l.custodian(), l.fulfiller())).containsOnly("Shahzad Mobile Shop");
+        assertThat(l.warranty()).isEqualTo("Samsung Pakistan, 12 months");
+        assertThat(l.returns()).isEqualTo("7 days, coordinated by MaxTheService");
+    }
+
+    @Test
+    @DisplayName("[MKT-R3.1] [MKT-R3.2] [MKT-R23.1] consigned stock: the owner is not the seller, the warehouse is named, and a party with no account says so; never blank")
+    void partiesConsigned() {
+        MarketplaceSellerOrder so = offered();
+        com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting wh = new com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting();
+        wh.setSettingValue("40");
+        when(settingRows.findById(com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting.WAREHOUSE_ORG)).thenReturn(Optional.of(wh));
+        MarketplaceOrderLine line = lineTable.get(0);
+        line.setStockSourceType("CONSIGNMENT");
+        line.setStockOwnerOrganizationId(OTHER_SELLER);                   // no seller account
+        line.setCustodianOrganizationId(40L);
+        line.setFulfillerOrganizationId(40L);
+        line.setWarrantyProvider(null);
+        line.setWarrantyMonths(1);
+        line.setReturnDays(0);
+
+        MarketplaceOrderDTOs.LineParties l = checkout.parties(orderTable.get(so.getMktOrderId()).getOrderNo()).parts().get(0).lines().get(0);
+        assertThat(l.seller()).isEqualTo("Shahzad Mobile Shop");
+        assertThat(l.stockOwner()).isEqualTo("Organisation 8 (no seller account)");
+        assertThat(l.custodian()).isEqualTo("MaxTheService warehouse");
+        assertThat(l.fulfiller()).isEqualTo("MaxTheService warehouse");
+        assertThat(l.warranty()).isEqualTo("The seller (no provider named), 1 month");
+        assertThat(l.returns()).isEqualTo("No return window; complaints go to MaxTheService");
+        line.setStockOwnerOrganizationId(null);
+        line.setWarrantyMonths(null);
+        l = checkout.parties(orderTable.get(so.getMktOrderId()).getOrderNo()).parts().get(0).lines().get(0);
+        assertThat(l.stockOwner()).isEqualTo("Not recorded");
+        assertThat(l.warranty()).isEqualTo("No warranty");
+    }
+
+    @Test
+    @DisplayName("[MKT-R23.1] the carrier follows the part: none before Accept, the fulfiller's booking until sent, then the parcels' carriers; none for a part that did not go ahead")
+    void partiesCarrier() {
+        MarketplaceSellerOrder so = offered();
+        when(catalog.getProductsFresh(anyList(), anyBoolean())).thenReturn(List.of());
+        when(storeOrders.placeMarketplace(any())).thenReturn(sale());
+        sellerSide.accept(so.getId(), new MarketplaceOrderDTOs.AcceptRequest(so.getVersion(), null));
+        String no = orderTable.get(so.getMktOrderId()).getOrderNo();
+        com.myplus.marketplace.entity.Order store = new com.myplus.marketplace.entity.Order();
+        store.setId(9001L);
+        store.setOrganizationId(SELLER);
+        when(storeOrderRows.findById(9001L)).thenReturn(Optional.of(store));
+        when(shipmentRows.findByOrderIdOrderByShipmentSeqAsc(9001L)).thenReturn(List.of());
+        assertThat(checkout.parties(no).parts().get(0).carrier()).isEqualTo("Not sent yet: the fulfiller books it at dispatch");
+
+        com.myplus.marketplace.entity.Shipment a = new com.myplus.marketplace.entity.Shipment(), b = new com.myplus.marketplace.entity.Shipment(),
+                c = new com.myplus.marketplace.entity.Shipment();
+        a.setCarrier("TCS");
+        b.setCarrier("TCS");
+        c.setCarrier(" ");
+        when(shipmentRows.findByOrderIdOrderByShipmentSeqAsc(9001L)).thenReturn(List.of(a, b, c));
+        assertThat(checkout.parties(no).parts().get(0).carrier()).isEqualTo("TCS, The fulfiller's own delivery");
+
+        so.setAcceptanceStatus("REJECTED");
+        assertThat(checkout.parties(no).parts().get(0).carrier()).isEqualTo("None: this part did not go ahead");
+    }
+
+    @Test
+    @DisplayName("[MKT-R23.1] only the operator may see who answers for an order; an unknown number is 'No such order.'")
+    void partiesOperatorOnly() {
+        assertThatThrownBy(() -> checkout.parties("MKT-999999")).isInstanceOf(ResourceNotFoundException.class).hasMessage("No such order.");
+        assertThatThrownBy(() -> checkout.parties(null)).isInstanceOf(ResourceNotFoundException.class);
+        MarketplaceSellerOrder so = offered();
+        doThrow(new org.springframework.security.access.AccessDeniedException("operators only")).when(access).assertOperator();
+        assertThatThrownBy(() -> checkout.parties(orderTable.get(so.getMktOrderId()).getOrderNo()))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+        verify(accounts, never()).findByOrganizationId(OTHER_SELLER);
+    }
+
     @Test
     @DisplayName("[MKT-R10.1] a serial-tracked phone needs its IMEI BEFORE the hold is let go")
     void serialsBeforeRelease() {

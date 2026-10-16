@@ -7376,7 +7376,8 @@
      "expect": "The order reads Cancelled; \"Phone Supplier sells its own stock as a seller.\"",
      "shot": "shots/M-4-02/c01.jpg"
     }
-   ]
+   ],
+   "evidence": "recorded"
   },
   {
    "id": "M-4-03",
@@ -7420,7 +7421,8 @@
      "do": "None: the order is left unsent on purpose; M-4-04 continues it two days later.",
      "expect": "—"
     }
-   ]
+   ],
+   "evidence": "recorded"
   },
   {
    "id": "M-4-04",
@@ -7480,7 +7482,8 @@
      "expect": "The order reads DELIVERED; \"Phone Supplier sells its own stock as a seller.\"",
      "shot": "shots/M-4-04/c01.jpg"
     }
-   ]
+   ],
+   "evidence": "recorded"
   },
   {
    "id": "M-4-05",
@@ -7531,7 +7534,8 @@
      "expect": "\"Phone Supplier sells its own stock as a seller.\"",
      "shot": "shots/M-4-05/c01.jpg"
     }
-   ]
+   ],
+   "evidence": "recorded"
   },
   {
    "id": "M-5-01",
@@ -7586,7 +7590,8 @@
      "expect": "\"CA-… has ended. No new stock can be consigned under it.\"",
      "shot": "shots/M-5-01/c01.jpg"
     }
-   ]
+   ],
+   "evidence": "recorded"
   },
   {
    "id": "M-5-02",
@@ -7648,7 +7653,8 @@
    ],
    "recordedAt": "2026-10-16T10:47:27.345Z",
    "startedAt": "2026-10-16T10:46:08.352Z",
-   "result": "passed"
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-5-03",
@@ -7710,7 +7716,8 @@
    ],
    "recordedAt": "2026-10-16T08:25:15.447Z",
    "startedAt": "2026-10-16T08:23:39.851Z",
-   "result": "passed"
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-5-04",
@@ -7771,7 +7778,8 @@
    ],
    "recordedAt": "2026-10-16T07:15:33.630Z",
    "startedAt": "2026-10-16T07:14:22.520Z",
-   "result": "passed"
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-5-05",
@@ -7824,7 +7832,8 @@
    ],
    "recordedAt": "2026-10-16T11:13:42.416Z",
    "startedAt": "2026-10-16T11:12:25.924Z",
-   "result": "passed"
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-6-01",
@@ -7870,30 +7879,54 @@
    "slice": "Programme",
    "title": "Who is accountable is always visible",
    "persona": "admin@myplus.com (operator)",
-   "pre": "Any order in any phase.",
+   "reqs": [
+    "MKT-R23.1",
+    "MKT-R8.1",
+    "MKT-R3.1",
+    "MKT-R3.2"
+   ],
+   "pre": "A customer has just ordered a phone from Shahzad Mobile Shop (its own stock, Samsung Pakistan warranty 12 months, 7-day returns); an order for consigned stock exists (M-5-04 / gate 5c).",
+   "auto": [
+    "MKT-Xa-01",
+    "MKT-Xa-02",
+    "MKT-Xa-03"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "Open the order's Parties panel.",
-     "expect": "Customer relationship: MaxTheService. Named seller, stock owner, custodian, fulfiller, carrier and warranty provider — none blank, none assumed."
+     "do": "As admin@myplus.com: Platform → \"Marketplace orders\" (opens on \"Waiting for a seller\"). On Hina's order press \"Who answers for it\".",
+     "expect": "A row opens under the order: \"Customer relationship: MaxTheService\", \"Support: MaxTheService: support, complaints and returns\"; the part: \"Seller: Shahzad Mobile Shop\", \"Carrier: None yet: no seller has accepted\"; the line: \"The seller's own stock\", Stock owner, Custodian and Fulfiller all \"Shahzad Mobile Shop\", \"Warranty: Samsung Pakistan, 12 months\", \"Returns: 7 days, coordinated by MaxTheService\". Nothing is blank.",
+     "shot": "shots/M-X-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Press \"Who answers for it\" again.",
+     "expect": "The row closes.",
+     "shot": "shots/M-X-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Choose the filter the consigned order is under (\"Confirmed\" after the warehouse accepted it, else \"Cancelled\" or \"All\"); press \"Who answers for it\" on it.",
+     "expect": "The line reads \"Consigned stock\". \"Stock owner: Mobile Distributor\" (who consigned it), while \"Seller\", \"Custodian\" and \"Fulfiller\" read \"MaxTheService warehouse\": the owner is named apart from who sold and holds it. A confirmed part names its carrier, or \"Not sent yet: the fulfiller books it at dispatch\".",
+     "shot": "shots/M-X-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.business@ (a shop): GET /platform/mkt/orderParties?orderNo=<Hina's order>. As the operator: the same with \"MKT-999999\".",
+     "expect": "The shop is refused and sees no party. The operator gets \"No such order.\"."
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
-     "expect": "—"
+     "do": "As owner.business@: Reject Hina's order with \"walk cleanup\".",
+     "expect": "Released; the order no longer waits."
     }
    ],
-   "reqs": [
-    "MKT-R23.1",
-    "MKT-R3.1",
-    "MKT-R3.2"
-   ],
-   "evidence": "design",
-   "source": "Programme rule; MKT-1e already stores the parties per line.",
-   "warn": false,
-   "auto": []
+   "recordedAt": "2026-10-16T13:05:56.066Z",
+   "startedAt": "2026-10-16T13:05:26.585Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-X-02",

@@ -89,7 +89,7 @@ const walk = (meta, body) => (only(meta.id) ? it : it.skip)(`${meta.id} ${meta.t
   })
   body(step, call, cleanup)
   cy.then(() => cy.writeFile(`${OUT}/${meta.id}.json`, Object.assign({}, meta, {
-    steps, cleanup: cleanups, recordedAt: new Date().toISOString(), startedAt: started, result: 'passed',
+    steps, cleanup: cleanups, recordedAt: new Date().toISOString(), startedAt: started, result: 'passed', evidence: 'recorded',
   })))
 })
 
@@ -4956,5 +4956,80 @@ on('MKT manual walk — recorded', () => {
         cy.then(() => cy.get('#mktHeldBox').scrollIntoView({ offset: { top: -200, left: 0 } }))
         cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${RT5.mkt}"]`).should('not.exist'))
       })
+  })
+
+  const PX = {}
+  walk({ id: 'M-X-01', slice: 'Programme', title: 'Who is accountable is always visible',
+    persona: 'admin@myplus.com (operator)', reqs: ['MKT-R23.1', 'MKT-R8.1', 'MKT-R3.1', 'MKT-R3.2'],
+    pre: 'A customer has just ordered a phone from Shahzad Mobile Shop (its own stock, Samsung Pakistan warranty 12 months, 7-day returns); an order for consigned stock exists (M-5-04 / gate 5c).',
+    auto: ['MKT-Xa-01', 'MKT-Xa-02', 'MKT-Xa-03'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: this walk's own order, and the newest consigned one
+      seedPolicies(`${run}px`).then((p) => {
+        cy.then(() => publishOffer(SELLER_A, { run: `${run}px`, price: 52000, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { PX.offer = o.offerId })
+      })
+      cy.then(() => {
+        customer()
+        cy.visit(UI.publicPage)
+        return post(API.checkout, { offerId: PX.offer, quantity: 1, expectedPrice: 52000, customerName: 'Hina', customerPhone: phone(31),
+          address: '4 Clifton', city: 'Karachi', idempotencyKey: `w-${run}-px` })
+      }).then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); PX.o = data(r.body) })
+      cy.task('latestOrderOfSource', { source: 'CONSIGNMENT' }).then((c) => {
+        expect(c, 'an order for consigned stock').to.not.eq(null)
+        expect(c.owner).to.not.eq(c.seller)
+        PX.c = c
+      })
+    })
+    const row = (no) => `#mktOrderList tr.mkt-order-row[data-order-no="${no}"]`
+    const panel = (no) => `#mktOrderList tr.mkt-parties[data-order-no="${no}"]`
+    step('As admin@myplus.com: Platform → "Marketplace orders" (opens on "Waiting for a seller"). On Hina\'s order press "Who answers for it".',
+      'A row opens under the order: "Customer relationship: MaxTheService", "Support: MaxTheService: support, complaints and returns"; the part: "Seller: Shahzad Mobile Shop", "Carrier: None yet: no seller has accepted"; the line: "The seller\'s own stock", Stock owner, Custodian and Fulfiller all "Shahzad Mobile Shop", "Warranty: Samsung Pakistan, 12 months", "Returns: 7 days, coordinated by MaxTheService". Nothing is blank.', () => {
+        console_('#platMktOrdersBtn')
+        cy.then(() => cy.get(`${row(PX.o.orderNo)} .mkt-parties-btn`).should('contain', 'Who answers for it').click())
+        cy.then(() => {
+          const p = panel(PX.o.orderNo)
+          cy.get(`${p} .mkt-party-customer`).should('contain', 'MaxTheService')
+          cy.get(`${p} .mkt-party-support`).should('contain', 'MaxTheService: support, complaints and returns')
+          cy.get(`${p} .mkt-party-seller`).should('contain', 'Shahzad Mobile Shop')
+          cy.get(`${p} .mkt-party-carrier`).should('contain', 'None yet: no seller has accepted')
+          cy.get(`${p} .mkt-party-source`).should('contain', 'The seller\'s own stock')
+          for (const c of ['owner', 'custodian', 'fulfiller']) cy.get(`${p} .mkt-party-${c}`).should('contain', 'Shahzad Mobile Shop')
+          cy.get(`${p} .mkt-party-warranty`).should('contain', 'Samsung Pakistan, 12 months')
+          cy.get(`${p} .mkt-party-returns`).should('contain', '7 days, coordinated by MaxTheService')
+          cy.get(`${p} .mkt-party-line b`).each(($b) => expect($b.text().trim()).to.not.eq(''))
+        })
+      })
+    step('Press "Who answers for it" again.', 'The row closes.', () => {
+      cy.then(() => cy.get(`${row(PX.o.orderNo)} .mkt-parties-btn`).click())
+      cy.then(() => cy.get(panel(PX.o.orderNo)).should('not.exist'))
+    })
+    step('Choose the filter the consigned order is under ("Confirmed" after the warehouse accepted it, else "Cancelled" or "All"); press "Who answers for it" on it.',
+      'The line reads "Consigned stock". "Stock owner: Mobile Distributor" (who consigned it), while "Seller", "Custodian" and "Fulfiller" read "MaxTheService warehouse": the owner is named apart from who sold and holds it. A confirmed part names its carrier, or "Not sent yet: the fulfiller books it at dispatch".', () => {
+        cy.then(() => {
+          const st = ['SUBMITTED', 'CONFIRMED', 'CANCELLED'].includes(PX.c.status) ? PX.c.status : ''
+          cy.get(`#platMktOrderStatus button[data-status="${st}"]`).click()
+          cy.get(`${row(PX.c.orderNo)} .mkt-parties-btn`).click()
+          const p = panel(PX.c.orderNo)
+          cy.get(`${p} .mkt-party-source`).first().should('contain', 'Consigned stock')
+          cy.get(`${p} .mkt-party-owner`).first().should('contain', 'Mobile Distributor')
+          for (const c of ['seller', 'custodian', 'fulfiller']) cy.get(`${p} .mkt-party-${c}`).first().should('contain', 'MaxTheService warehouse')
+          if (PX.c.status === 'CONFIRMED') cy.get(`${p} .mkt-party-carrier`).first().should('not.contain', 'None yet')
+          cy.get(p).scrollIntoView({ offset: { top: -200, left: 0 } })
+        })
+      })
+    step('As owner.business@ (a shop): GET /platform/mkt/orderParties?orderNo=<Hina\'s order>. As the operator: the same with "MKT-999999".',
+      'The shop is refused and sees no party. The operator gets "No such order.".', () => {
+        as(SELLER_A)
+        cy.then(() => call('GET /platform/mkt/orderParties (as a shop)', get(`/platform/mkt/orderParties?orderNo=${PX.o.orderNo}`)))
+          .then((r) => expect(r.status === 403 || !ok(r.body)).to.eq(true))
+        asOperator()
+        call('GET /platform/mkt/orderParties?orderNo=MKT-999999', get('/platform/mkt/orderParties?orderNo=MKT-999999'))
+          .then((r) => expect(msg(r.body)).to.eq('No such order.'))
+      })
+    cleanup('As owner.business@: Reject Hina\'s order with "walk cleanup".', 'Released; the order no longer waits.', () => {
+      as(SELLER_A)
+      cy.then(() => call('POST /mkt/rejectOrder', post(API.rejectOrder, { id: PX.o.sellerOrderId, version: PX.o.sellerOrderVersion, reason: 'walk cleanup' })))
+        .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    })
   })
 })

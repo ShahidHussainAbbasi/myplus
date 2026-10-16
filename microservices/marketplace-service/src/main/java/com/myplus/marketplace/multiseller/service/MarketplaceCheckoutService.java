@@ -477,6 +477,62 @@ public class MarketplaceCheckoutService {
                 this::view);
     }
 
+    /**
+     * MKT-Xa (R23.1) — who answers for what in one order: MaxTheService owns the customer relationship, support,
+     * complaints and return coordination (R8.1); each line names the parties its snapshot recorded at checkout (R3.1,
+     * R3.2), by name. A party not decided yet says why instead of being blank.
+     */
+    @Transactional(readOnly = true)
+    public MarketplaceOrderDTOs.Parties parties(String orderNo) {
+        access.assertOperator();
+        MarketplaceOrder o = orderNo == null ? null : orders.findByOrderNo(orderNo.trim().toUpperCase(Locale.ROOT)).orElse(null);
+        if (o == null) throw new ResourceNotFoundException("No such order.");
+        Map<Long, String> names = new java.util.HashMap<>();
+        java.util.function.Function<Long, String> name = org -> names.computeIfAbsent(org, this::partyName);
+        List<MarketplaceOrderDTOs.PartParties> parts = new ArrayList<>();
+        for (MarketplaceSellerOrder so : sellerOrders.findByMktOrderId(o.getId()).stream()
+                .sorted(java.util.Comparator.comparing(MarketplaceSellerOrder::getId)).toList()) {
+            List<MarketplaceOrderDTOs.LineParties> ls = lines.findBySellerOrderIdOrderByIdAsc(so.getId()).stream()
+                    .map(l -> new MarketplaceOrderDTOs.LineParties(l.getProductName(), l.getQuantity() == null ? 0 : l.getQuantity(),
+                            l.getStockSourceType(), name.apply(l.getSellerOrganizationId()), name.apply(l.getStockOwnerOrganizationId()),
+                            name.apply(l.getCustodianOrganizationId()), name.apply(l.getFulfillerOrganizationId()), warranty(l),
+                            l.getReturnDays() == null || l.getReturnDays() <= 0 ? "No return window; complaints go to MaxTheService"
+                                    : l.getReturnDays() + " days, coordinated by MaxTheService"))
+                    .toList();
+            parts.add(new MarketplaceOrderDTOs.PartParties(so.getId(), name.apply(so.getSellerOrganizationId()),
+                    so.getAcceptanceStatus(), carrier(so), ls));
+        }
+        return new MarketplaceOrderDTOs.Parties(o.getOrderNo(), o.getStatus(), o.getCustomerName(), "MaxTheService",
+                "MaxTheService: support, complaints and returns", parts);
+    }
+
+    /** A party by name, for the operator: never "A seller". */
+    String partyName(Long org) {
+        if (org == null) return "Not recorded";
+        if (settings.warehouseOrg().filter(org::equals).isPresent()) return PlatformWarehouseService.NAME + " warehouse";
+        return sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).filter(n -> n != null && !n.isBlank())
+                .orElse("Organisation " + org + " (no seller account)");
+    }
+
+    /** Who carries a part: the parcels' carriers once sent, else why there is none yet. */
+    String carrier(MarketplaceSellerOrder so) {
+        String st = so.getAcceptanceStatus();
+        if (LIVE_PARTS.contains(st)) return "None yet: no seller has accepted";
+        if (!ACCEPTED_PARTS.contains(st)) return "None: this part did not go ahead";
+        List<String> cs = parcels(storeOrder(so)).stream()
+                .map(p -> p.carrier() == null || p.carrier().isBlank() ? "The fulfiller's own delivery" : p.carrier())
+                .distinct().toList();
+        return cs.isEmpty() ? "Not sent yet: the fulfiller books it at dispatch" : String.join(", ", cs);
+    }
+
+    /** The line's warranty as snapshotted: who gives it, for how long; or that there is none. */
+    static String warranty(MarketplaceOrderLine l) {
+        if (l.getWarrantyMonths() == null || l.getWarrantyMonths() <= 0) return "No warranty";
+        String who = l.getWarrantyProvider() == null || l.getWarrantyProvider().isBlank() ? "The seller (no provider named)"
+                : l.getWarrantyProvider();
+        return who + ", " + l.getWarrantyMonths() + (l.getWarrantyMonths() == 1 ? " month" : " months");
+    }
+
     // ── shared ─────────────────────────────────────────────────────────────────────────────────────────
 
     /**

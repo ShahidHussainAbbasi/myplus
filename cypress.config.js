@@ -158,6 +158,22 @@ module.exports = defineConfig({
           { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
           return Number(String(out).trim().split(/\s+/).pop())
         },
+        /**
+         * MKT-Xa — the newest marketplace order with a line of the given stock source, read-only, so a gate can open the
+         * parties of an order another gate placed (5c's consigned sale). Only an upper-case source name reaches the
+         * statement. Yields { orderNo, status, seller, owner, custodian, fulfiller } (organisation ids), or null.
+         */
+        latestOrderOfSource({ source }) {
+          if (!/^[A-Z]{1,20}$/.test(String(source || ''))) throw new Error(`latestOrderOfSource: not a source: ${source}`)
+          const { execFileSync } = require('child_process')
+          const out = execFileSync('docker', ['exec', 'myplus-mysql', 'sh', '-c',
+            `mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" myplusdb_marketplace -e "SELECT o.order_no, o.status, l.seller_organization_id, l.stock_owner_organization_id, l.custodian_organization_id, l.fulfiller_organization_id FROM mkt_order o JOIN mkt_seller_order so ON so.mkt_order_id = o.id JOIN mkt_order_line l ON l.seller_order_id = so.id WHERE l.stock_source_type = '${source}' ORDER BY o.id DESC LIMIT 1"`],
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+          const f = String(out).trim().split(/\t/)
+          if (f.length < 6) return null
+          const n = (x) => (x === 'NULL' ? null : Number(x))
+          return { orderNo: f[0], status: f[1], seller: n(f[2]), owner: n(f[3]), custodian: n(f[4]), fulfiller: n(f[5]) }
+        },
       })
     },
   },

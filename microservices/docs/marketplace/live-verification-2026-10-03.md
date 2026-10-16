@@ -578,3 +578,24 @@ the last one back at no cost and the row leaves the screen.
 **Found while running (test side only):** the first run failed 3 of 5 on the spec itself (a return number read before
 it existed, a `.then()` yielding undefined, and a stale press now answered "already back with the owner", the clearer
 sentence). Fixed in the spec; nothing in the product changed.
+
+## 29. MKT-Xa — who answers for an order (run 2026-10-16)
+
+**Gate `mkt-Xa-parties.cy.js`: 3 / 3**, run after MKT-5c (6 / 6) in the same run so the consigned order it opens is that
+run's own, after marketplace-service and the monolith were rebuilt and the whole stack restarted (the machine had
+restarted). Unit: marketplace-service 513/513.
+
+**Walk M-X-01: recorded**, 4 steps and a cleanup, screens looked at: the operator's "Who answers for it" on a fresh
+order shows MaxTheService for the customer relationship and support, Shahzad Mobile Shop as seller, owner, custodian
+and fulfiller, "Samsung Pakistan, 12 months" and "7 days, coordinated by MaxTheService"; pressed again it closes; on a
+consigned order the owner reads Mobile Distributor while seller, custodian and fulfiller read "MaxTheService warehouse";
+a shop is refused and an unknown number is "No such order.".
+
+**Found while running:**
+- **DEFECT, fixed:** Platform → Marketplace orders could list every order twice. Opening the panel and choosing a filter
+  each start a load, and both appended to the table; the gate's click then hit two buttons. Only the newest load now
+  draws the table.
+- The first combined run failed MKT-5c-04 on a 5-second wait for Accept, on services just started cold; the re-runs
+  passed it (6.6 s and 6.9 s). Not a product change.
+- Ten recorded cases (M-4-02 to M-5-05) were merged into the manual cases without `evidence: recorded`, so the test page
+  listed them as not recorded. Marked, and the walk now writes the field itself.

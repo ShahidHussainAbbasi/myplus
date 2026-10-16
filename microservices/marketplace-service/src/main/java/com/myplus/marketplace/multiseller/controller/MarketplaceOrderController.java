@@ -86,6 +86,12 @@ public class MarketplaceOrderController {
         return ApiResponse.success(checkout.operatorOrders(status, page, size));
     }
 
+    /** MKT-Xa — who answers for what in one order (R23.1). */
+    @GetMapping("/mkt/operator/orders/{orderNo}/parties")
+    public ApiResponse<MarketplaceOrderDTOs.Parties> parties(@PathVariable String orderNo) {
+        return ApiResponse.success(checkout.parties(orderNo));
+    }
+
     @GetMapping("/mkt/operator/settings/accept-window")
     public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> acceptWindow() {
         return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.operatorAcceptMinutes(), settings.multiSeller(),

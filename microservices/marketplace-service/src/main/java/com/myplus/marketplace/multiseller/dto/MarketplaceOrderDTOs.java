@@ -184,4 +184,22 @@ public final class MarketplaceOrderDTOs {
 
     /** POST /mkt/operator/routing/close. */
     public record RoutingClose(Long sellerOrganizationId) {}
+
+    /**
+     * MKT-Xa (R23.1, R3.1, R3.2) — who answers for what in one order, for the operator. MaxTheService owns the customer
+     * relationship; each line names its seller, stock owner, custodian, fulfiller, carrier and warranty provider. Nothing
+     * is left blank: a party not decided yet says why.
+     */
+    public record Parties(String orderNo, String status, String customer, String customerRelationship, String support,
+            List<PartParties> parts) {
+    }
+
+    /** One seller's part: its status and who carries it. */
+    public record PartParties(Long id, String seller, String status, String carrier, List<LineParties> lines) {
+    }
+
+    /** One line's parties, by name. {@code stockSource}: MERCHANT, PLATFORM, SUPPLIER or CONSIGNMENT. */
+    public record LineParties(String productName, int quantity, String stockSource, String seller, String stockOwner,
+            String custodian, String fulfiller, String warranty, String returns) {
+    }
 }

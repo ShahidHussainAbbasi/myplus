@@ -389,10 +389,13 @@
 	var ORD_LABEL = { SUBMITTED: ['ui.js.mktOrdWaiting', 'Waiting for a seller'], CONFIRMED: ['ui.js.mktOrdConfirmed', 'Confirmed'],
 		CANCELLED: ['ui.js.mktOrdCancelled', 'Cancelled'] };
 
+	var ordersSeq = 0;
 	function loadOrders() {
-		var $tb = $('#mktOrderList tbody').empty();
+		var $tb = $('#mktOrderList tbody').empty(), seq = ++ordersSeq;
 		$.ajax({ url: ctx() + 'platform/mkt/orders?size=100' + (orderStatus ? '&status=' + encodeURIComponent(orderStatus) : ''),
 			dataType: 'json' }).done(function (res) {
+			if (seq !== ordersSeq) return;          // a newer load (another filter, the panel reopened) owns the table
+			$tb.empty();
 			if (!ok(res)) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(message(res, '')).end()); return; }
 			var rows = (data(res) || {}).content || [];
 			if (!rows.length) {
@@ -401,8 +404,12 @@
 			}
 			rows.forEach(function (o) {
 				var lbl = ORD_LABEL[o.status] || [null, o.status];
-				$tb.append($('<tr></tr>').attr('data-order-no', o.orderNo)
-					.append($('<td></td>').append($('<b></b>').text(o.orderNo)).append($('<div class="plat__hint"></div>').text(money(o.total))))
+				var $btn = $('<button type="button" class="btn btn-xs btn-default mkt-parties-btn" style="margin-top:4px"></button>')
+					.text(tr('ui.js.mktPartiesBtn', 'Who answers for it')).attr('aria-expanded', 'false');
+				var $row = $('<tr class="mkt-order-row"></tr>').attr('data-order-no', o.orderNo);
+				$btn.on('click', function () { toggleParties(o.orderNo, $row, $btn); });
+				$tb.append($row
+					.append($('<td></td>').append($('<b></b>').text(o.orderNo)).append($('<div class="plat__hint"></div>').text(money(o.total))).append($btn))
 					.append($('<td></td>').text(o.sellerName || ''))
 					.append($('<td></td>').text((o.lines || []).map(function (l) { return l.productName + ' × ' + l.quantity; }).join(', ')))
 					.append($('<td></td>').text(o.city || ''))
@@ -410,6 +417,45 @@
 						.append(o.cancelReason ? $('<div class="plat__hint"></div>').text(o.cancelReason) : null)));
 			});
 		});
+	}
+
+	// ── MKT-Xa: who answers for what in one order (R23.1) ────────────────────────────────────────────────
+	var SRC = { MERCHANT: 'The seller\'s own stock', PLATFORM: 'MaxTheService stock', SUPPLIER: 'Supplier stock', CONSIGNMENT: 'Consigned stock' };
+
+	/** Under the order's row: MaxTheService's part, then each seller's part and line with every party by name. */
+	function toggleParties(orderNo, $row, $btn) {
+		var $open = $row.next('tr.mkt-parties');
+		if ($open.length) { $open.remove(); $btn.attr('aria-expanded', 'false'); return; }
+		var $tr = $('<tr class="mkt-parties"></tr>').attr('data-order-no', orderNo);
+		var $td = $('<td colspan="5" style="white-space:normal;font-size:13px"></td>').text(tr('ui.js.loading', 'Loading…')).appendTo($tr);
+		$row.after($tr);
+		$btn.attr('aria-expanded', 'true');
+		$.ajax({ url: ctx() + 'platform/mkt/orderParties?orderNo=' + encodeURIComponent(orderNo), dataType: 'json' }).done(function (res) {
+			$td.empty();
+			if (!ok(res)) { $td.css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			var p = data(res) || {};
+			var pair = function (cls, label, value) {
+				return $('<div></div>').addClass(cls).append($('<span class="plat__hint"></span>').text(label + ': ')).append($('<b></b>').text(value));
+			};
+			$td.append(pair('mkt-party-customer', tr('ui.js.mktPartyCustomer', 'Customer relationship'), p.customerRelationship))
+				.append(pair('mkt-party-support', tr('ui.js.mktPartySupport', 'Support'), p.support));
+			(p.parts || []).forEach(function (pt) {
+				var $pt = $('<div class="mkt-party-part" style="margin-top:8px;padding-left:10px;border-left:3px solid #d0d7de"></div>')
+					.attr('data-part', pt.id).appendTo($td);
+				$pt.append(pair('mkt-party-seller', tr('ui.js.mktPartySeller', 'Seller'), pt.seller))
+					.append(pair('mkt-party-carrier', tr('ui.js.mktPartyCarrier', 'Carrier'), pt.carrier));
+				(pt.lines || []).forEach(function (l) {
+					var $l = $('<div class="mkt-party-line" style="margin-top:4px"></div>').appendTo($pt);
+					$l.append($('<div></div>').append($('<b class="mkt-party-product"></b>').text(l.productName + ' × ' + l.quantity))
+						.append($('<span class="plat__hint mkt-party-source"></span>').text(' · ' + tr('ui.js.mktSrc_' + l.stockSource, SRC[l.stockSource] || l.stockSource))));
+					$l.append(pair('mkt-party-owner', tr('ui.js.mktPartyOwner', 'Stock owner'), l.stockOwner))
+						.append(pair('mkt-party-custodian', tr('ui.js.mktPartyCustodian', 'Custodian'), l.custodian))
+						.append(pair('mkt-party-fulfiller', tr('ui.js.mktPartyFulfiller', 'Fulfiller'), l.fulfiller))
+						.append(pair('mkt-party-warranty', tr('ui.js.mktPartyWarranty', 'Warranty'), l.warranty))
+						.append(pair('mkt-party-returns', tr('ui.js.mktPartyReturns', 'Returns'), l.returns));
+				});
+			});
+		}).fail(function (xhr) { $td.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))); });
 	}
 
 	function loadAcceptWindow() {
