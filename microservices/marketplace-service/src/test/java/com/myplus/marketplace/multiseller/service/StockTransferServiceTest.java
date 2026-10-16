@@ -68,13 +68,21 @@ class StockTransferServiceTest {
     @Mock MarketplaceAuditService audit;
     @Mock ConsignmentAgreementService consignments;
     @Mock MarketplaceConsignedStockRepository consigned;
+    @Mock ConsignedSaleService consignedSale;
     StockTransferService service;
 
     @BeforeEach
     void wire() {
         service = new StockTransferService(transfers, sources, products, accounts, settings, sellers, access, trade, catalog, audit,
-                consignments, consigned);
+                consignments, consigned, consignedSale);
         lenient().when(settings.warehouseOrg()).thenReturn(Optional.of(WAREHOUSE));
+        // MKT-5c decorates the held rows; here, the 5b columns as they are
+        lenient().when(consignedSale.decorate(anyLong(), anyLong(), any(), any())).thenAnswer(i -> {
+            java.util.function.Function<Long, String> names = i.getArgument(3);
+            List<Object[]> rows = i.getArgument(2);
+            return rows.stream().map(r -> new TransferDTOs.Held(names.apply((Long) r[0]), (Long) r[1], (String) r[2],
+                    ((Number) r[3]).longValue(), new java.math.BigDecimal(r[4].toString()).setScale(2))).toList();
+        });
         lenient().when(transfers.save(any())).thenAnswer(i -> {
             MarketplaceStockTransfer t = i.getArgument(0);
             if (t.getId() == null) t.setId(5L);

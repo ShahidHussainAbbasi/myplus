@@ -466,6 +466,14 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/seller/transfers/receive", body, "Could not receive it.");
     }
 
+    /** MKT-5c — list consigned stock for sale. Body: {consignorOrgId, mktProductId, price, deliveryAreas, promiseHours,
+     *  warrantyPolicyId, returnPolicyId, version}. */
+    @RequestMapping(value = "/mkt/consignedList", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignedList(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consigned/list", body, "Could not list it.");
+    }
+
     // ── MKT-5a: consignment agreements (the operator offers terms; the consignor accepts, declines or ends) ──
 
     @RequestMapping(value = "/mkt/consignments", method = RequestMethod.GET)

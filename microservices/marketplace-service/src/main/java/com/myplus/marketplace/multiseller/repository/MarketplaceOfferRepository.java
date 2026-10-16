@@ -14,7 +14,16 @@ public interface MarketplaceOfferRepository extends JpaRepository<MarketplaceOff
     /** Anti-IDOR single read: an offer id from the browser resolves only inside the caller's org. */
     Optional<MarketplaceOffer> findByIdAndOrganizationId(Long id, Long organizationId);
 
-    Optional<MarketplaceOffer> findByOrganizationIdAndMktProductId(Long organizationId, Long mktProductId);
+    /**
+     * The seller's own offer of a product: every source but CONSIGNMENT. MKT-5c lets the warehouse hold one more offer
+     * per product for each consignor (V42: unique per org, product and owner), which this never returns.
+     */
+    Optional<MarketplaceOffer> findFirstByOrganizationIdAndMktProductIdAndStockSourceTypeNot(Long organizationId,
+            Long mktProductId, String stockSourceType);
+
+    /** MKT-5c — the warehouse's listing of one consignor's stock of a product. */
+    Optional<MarketplaceOffer> findByOrganizationIdAndMktProductIdAndStockOwnerOrganizationIdAndStockSourceType(
+            Long organizationId, Long mktProductId, Long stockOwnerOrganizationId, String stockSourceType);
 
     /** Seller list — idx_mkt_offer_org_created. */
     Page<MarketplaceOffer> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId, Pageable page);

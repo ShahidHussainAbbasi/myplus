@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 76,
- "cypress": 73,
- "automated": 77,
+ "unit": 77,
+ "cypress": 75,
+ "automated": 78,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -54,6 +54,9 @@
    "phase": "5",
    "text": "Consignment: consignor = legal owner, consignee = holder/seller; ownership/payment changes on sale per agreement",
    "unit": [
+    "ConsignedSaleServiceTest.ownerLists",
+    "ConsignedSaleServiceTest.whoMayList",
+    "ConsignedSaleServiceTest.sell",
     "ConsignmentAgreementServiceTest.acceptAndReplace",
     "ConsignmentAgreementServiceTest.noEndWhileStockIsHeld",
     "StockTransferServiceTest.consignOffer",
@@ -66,7 +69,10 @@
     "MKT-5b-02",
     "MKT-5b-03",
     "MKT-5b-05",
-    "MKT-5b-06"
+    "MKT-5b-06",
+    "MKT-5c-01",
+    "MKT-5c-02",
+    "MKT-5c-04"
    ],
    "manual": [
     "M-5-01",
@@ -218,12 +224,15 @@
    "phase": "5",
    "text": "CONSIGNMENT: owner = consignor, custodian = consignee",
    "unit": [
+    "ConsignedSaleServiceTest.ownerLists",
+    "MarketplaceOfferServiceTest.consignedStockNotFromTheForm",
     "StockTransferServiceTest.consignOffer",
     "StockTransferServiceTest.consignReceive"
    ],
    "cypress": [
     "MKT-5b-02",
-    "MKT-5b-03"
+    "MKT-5b-03",
+    "MKT-5c-02"
    ],
    "manual": [
     "M-5-03",
@@ -1085,7 +1094,9 @@
    "unit": [
     "MarketplaceSettlementServiceTest.noBooksNoSettlement"
    ],
-   "cypress": [],
+   "cypress": [
+    "MKT-5c-05"
+   ],
    "manual": [
     "M-1g-02"
    ]
@@ -1094,8 +1105,15 @@
    "req": "MKT-R15.4",
    "phase": "5",
    "text": "Consignment settles on sell-through → return period → reconciliation",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ConsignedSaleServiceTest.terms",
+    "ConsignedSaleServiceTest.sell",
+    "MarketplaceSettlementServiceTest.consignedSettlesToTheOwner"
+   ],
+   "cypress": [
+    "MKT-5c-04",
+    "MKT-5c-05"
+   ],
    "manual": [
     "M-5-03"
    ]
@@ -1605,6 +1623,11 @@
    "text": "Phase 4 supplier stock: supplier API/portal, acceptance, tracking, SLA, returns, settlement · Phase 5 consignment: agreements, roles, consigned stock ledger, custodian counts, sell-through, shrinkage claims, ownership transfer, unsold return",
    "unit": [
     "SellerPerformanceTest.dispatch",
+    "ConsignedSaleServiceTest.promised",
+    "ConsignedSaleServiceTest.replayAndShort",
+    "ConsignedSaleServiceTest.purchaseRefused",
+    "ConsignedSaleServiceTest.ownStockUntouched",
+    "ConsignedSaleServiceTest.holdAndAvailability",
     "ConsignmentAgreementServiceTest.noEndWhileStockIsHeld",
     "MarketplaceOrderFlowTest.supplierOwnsItsShortage",
     "PlatformWarehouseServiceTest.consignedStockKeepsTheWarehouse",
@@ -1625,7 +1648,9 @@
     "MKT-4d-01",
     "MKT-4d-02",
     "MKT-4d-03",
-    "MKT-5b-04"
+    "MKT-5b-04",
+    "MKT-5c-03",
+    "MKT-5c-06"
    ],
    "manual": [
     "M-4-03",

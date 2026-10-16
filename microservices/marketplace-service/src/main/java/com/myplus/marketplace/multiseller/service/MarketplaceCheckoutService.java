@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,6 +121,8 @@ public class MarketplaceCheckoutService {
     private final com.myplus.marketplace.repository.ShipmentRepository shipments;
     /** MKT-4b: how long a supplier has left to send a part, or that it is late. */
     private final SupplierDispatchService dispatch;
+    /** MKT-5c: consigned lines are counted against the consigned stock ledger, not held in anyone's inventory. */
+    private final ConsignedSaleService consignedSale;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -199,8 +202,24 @@ public class MarketplaceCheckoutService {
 
         // ── remote: hold every part's stock as its seller, all at once, outside any transaction (MKT-2c: each seller
         //    has its own timeout and the whole checkout one deadline; never wait on a seller past them) ──
-        List<LiveRouting.Answer> answers = routing.holdAll(parts.stream()
-                .map(so -> ask(so, lines.findBySellerOrderIdOrderByIdAsc(so.getId()))).toList(), routing.deadlineFromNow());
+        // MKT-5c: consigned lines first, locally, under their agreements' locks; a part with nothing left to hold remotely
+        // (only consigned lines) is held by that count alone, and one whose count failed is not asked at all
+        Set<Long> unpromised = consignedSale.unpromised(parts, id -> lines.findBySellerOrderIdOrderByIdAsc(id));
+        List<LiveRouting.Answer> answers = new ArrayList<>(java.util.Collections.nCopies(parts.size(), (LiveRouting.Answer) null));
+        List<Integer> remote = new ArrayList<>();
+        List<LiveRouting.Ask> asks = new ArrayList<>();
+        for (int i = 0; i < parts.size(); i++) {
+            MarketplaceSellerOrder so = parts.get(i);
+            LiveRouting.Ask ask = ask(so, lines.findBySellerOrderIdOrderByIdAsc(so.getId()));
+            if (unpromised.contains(so.getId())) answers.set(i, new LiveRouting.Answer(LiveRouting.Kind.REFUSED, "consigned stock already promised"));
+            else if (ask.request().getLines().isEmpty()) answers.set(i, new LiveRouting.Answer(LiveRouting.Kind.HELD, null));
+            else {
+                remote.add(i);
+                asks.add(ask);
+            }
+        }
+        List<LiveRouting.Answer> remoteAnswers = asks.isEmpty() ? List.of() : routing.holdAll(asks, routing.deadlineFromNow());
+        for (int j = 0; j < remote.size(); j++) answers.set(remote.get(j), remoteAnswers.get(j));
         Long refusedSeller = null;
         boolean silent = false;
         for (int i = 0; i < parts.size(); i++) {
@@ -254,6 +273,8 @@ public class MarketplaceCheckoutService {
             for (MarketplaceSellerOrder so : sellerOrders.findByMktOrderId(orderId)) sellerSide.getObject().release(so);
             throw new ValidationException(refused != null ? refusedFor : DECLINED);
         }
+        // MKT-5c: what a consigned listing can still promise just went down; show it now, not at the next sweep
+        for (MarketplaceSellerOrder so : parts) consignedSale.resync(lines.findBySellerOrderIdOrderByIdAsc(so.getId()));
         return view(orders.findById(orderId).orElseThrow());
     }
 
@@ -360,6 +381,8 @@ public class MarketplaceCheckoutService {
             l.setCommissionRate(cm.getCommissionRate());
             l.setCommissionFixed(cm.getCommissionFixed());
         }
+        // MKT-5c: consigned stock is sold on the agreement's commission, not an offer policy
+        if (StockSourceType.CONSIGNMENT.name().equals(offer.getStockSourceType())) consignedSale.terms(l);
         l.setSettlementStatus(Settlement.NOT_ELIGIBLE.name());
         return l;
     }
@@ -395,7 +418,11 @@ public class MarketplaceCheckoutService {
     /** Every line of one part under the part's key. A product on two lines is held once, for both quantities. */
     static StockHoldRequest holdRequest(MarketplaceSellerOrder so, List<MarketplaceOrderLine> partLines) {
         Map<Long, BigDecimal> qty = new LinkedHashMap<>();
-        for (MarketplaceOrderLine l : partLines) qty.merge(l.getSourceProductId(), BigDecimal.valueOf(l.getQuantity()), BigDecimal::add);
+        for (MarketplaceOrderLine l : partLines) {
+            // MKT-5c: consigned units are set aside in their OWNER's books already; nothing of the seller's is held for them
+            if (StockSourceType.CONSIGNMENT.name().equals(l.getStockSourceType())) continue;
+            qty.merge(l.getSourceProductId(), BigDecimal.valueOf(l.getQuantity()), BigDecimal::add);
+        }
         return StockHoldRequest.builder()
                 .organizationId(so.getSellerOrganizationId())
                 .holdKey(so.getHoldKey())

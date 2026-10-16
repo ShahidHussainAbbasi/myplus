@@ -222,6 +222,8 @@ public class MarketplaceShortageService {
                 if (inOrder.contains(c.sellerOrganizationId()) || best.containsKey(c.sellerOrganizationId())) continue;
                 MarketplaceOffer offer = offers.findById(c.offerId()).orElse(null);
                 if (offer == null) continue;
+                // MKT-5c: consigned stock is counted at checkout, not held by a routed call, so it is never a reroute
+                if (com.myplus.marketplace.multiseller.domain.StockSourceType.CONSIGNMENT.name().equals(offer.getStockSourceType())) continue;
                 best.put(c.sellerOrganizationId(), new NewLine(offer, product, c.price().setScale(2, RoundingMode.HALF_UP),
                         l.getQuantity(), c.promiseHours()));
             }

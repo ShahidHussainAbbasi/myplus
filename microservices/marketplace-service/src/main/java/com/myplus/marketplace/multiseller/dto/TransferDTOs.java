@@ -30,8 +30,32 @@ public final class TransferDTOs {
                            String saleInvoiceNo, Long purchaseId, LocalDateTime createdAt, LocalDateTime decidedAt,
                            Integer version, String kind, String agreementNo) { }
 
-    /** MKT-5b — consigned stock the warehouse holds: per owner and product, the units and their declared value. */
-    public record Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value) { }
+    /**
+     * MKT-5b — consigned stock the warehouse holds: per owner and product, the units and their declared value. MKT-5c —
+     * the units sold so far, whether the caller is the party its agreement lets set the price ({@code canList}), and the
+     * warehouse's listing of it, if any.
+     */
+    public record Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value,
+                       Long consignorOrgId, long sold, boolean canList, Listing listing) {
+        public Held(String consignorName, Long mktProductId, String productName, long units, BigDecimal value) {
+            this(consignorName, mktProductId, productName, units, value, null, 0, false, null);
+        }
+    }
+
+    /**
+     * MKT-5c — the warehouse's offer of one owner's consigned stock: its terms, whether shoppers see it ({@code live})
+     * and how many units it can still promise ({@code available}: held less what open orders were promised).
+     */
+    public record Listing(Long offerId, Integer version, BigDecimal price, boolean live, long available, String deliveryAreas,
+                          Integer promiseHours, Long warrantyPolicyId, Long returnPolicyId, String agreementNo) { }
+
+    /**
+     * MKT-5c — list consigned stock for sale, or change its terms. {@code consignorOrgId}: whose stock, when the
+     * warehouse lists it (the owner's own call names none). The first listing needs every term; a change keeps what it
+     * does not mention.
+     */
+    public record ListRequest(Long consignorOrgId, Long mktProductId, BigDecimal price, String deliveryAreas,
+                              Integer promiseHours, Long warrantyPolicyId, Long returnPolicyId, Integer version) { }
 
     /**
      * What the screen shows. The warehouse sees what was sent to it; any other seller the products it can send and its

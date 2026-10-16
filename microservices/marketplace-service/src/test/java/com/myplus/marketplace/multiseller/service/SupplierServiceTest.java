@@ -122,6 +122,8 @@ class SupplierServiceTest {
         assertThat(StockSourceType.SUPPLIER.enabledIn(1, false, false)).isFalse();
         assertThat(StockSourceType.SUPPLIER.enabledIn(1, false, true)).isTrue();
         assertThat(StockSourceType.SUPPLIER.enabledIn(1, true, false)).as("the warehouse is not a supplier").isFalse();
-        assertThat(StockSourceType.CONSIGNMENT.enabledIn(1, true, true)).isFalse();
+        assertThat(StockSourceType.CONSIGNMENT.enabledIn(1, false, true)).isFalse();
+        // MKT-5c: consigned stock rides on the warehouse switch, not the supplier one
+        assertThat(StockSourceType.CONSIGNMENT.enabledIn(1, true, false)).isTrue();
     }
 }

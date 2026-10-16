@@ -42,6 +42,10 @@ public enum StockSourceType {
      * same shape as PLATFORM: only a marked supplier's offers are SUPPLIER stock, so the operator's mark is the switch.
      */
     public boolean enabledIn(int enabledPhase, boolean platformStock, boolean supplierStock) {
-        return launchPhase <= enabledPhase || (this == PLATFORM && platformStock) || (this == SUPPLIER && supplierStock);
+        return launchPhase <= enabledPhase || (this == PLATFORM && platformStock) || (this == SUPPLIER && supplierStock)
+                // MKT-5c: consigned stock is held and sold by the warehouse (ruling "Warehouse first"), so it rides on the
+                // same switch. Only ConsignedSaleService creates a CONSIGNMENT offer, and only under an active agreement;
+                // the offer form refuses the source outright.
+                || (this == CONSIGNMENT && platformStock);
     }
 }

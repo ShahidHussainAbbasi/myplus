@@ -71,8 +71,9 @@ class MarketplaceOfferServiceTest {
         lenient().when(offers.findByIdAndOrganizationId(anyLong(), anyLong())).thenAnswer(i -> Optional.ofNullable(
                 offerRows.get(i.<Long>getArgument(0))).filter(o -> o.getOrganizationId().equals(i.getArgument(1))));
         lenient().when(offers.findById(anyLong())).thenAnswer(i -> Optional.ofNullable(offerRows.get(i.<Long>getArgument(0))));
-        lenient().when(offers.findByOrganizationIdAndMktProductId(anyLong(), anyLong())).thenAnswer(i -> offerRows.values()
-                .stream().filter(o -> o.getOrganizationId().equals(i.getArgument(0)) && o.getMktProductId().equals(i.getArgument(1))).findFirst());
+        lenient().when(offers.findFirstByOrganizationIdAndMktProductIdAndStockSourceTypeNot(anyLong(), anyLong(), any())).thenAnswer(i -> offerRows.values()
+                .stream().filter(o -> o.getOrganizationId().equals(i.getArgument(0)) && o.getMktProductId().equals(i.getArgument(1))
+                        && !o.getStockSourceType().equals(i.getArgument(2))).findFirst());
         lenient().when(offers.save(any())).thenAnswer(i -> {
             MarketplaceOffer o = i.getArgument(0);
             if (o.getId() == null) o.setId(++seq);
@@ -156,6 +157,18 @@ class MarketplaceOfferServiceTest {
     }
 
     @Test
+    @DisplayName("[MKT-R4.5] MKT-5c: no seller lists consigned stock from the offer form, and a consigned listing is not edited or submitted there")
+    void consignedStockNotFromTheForm() {
+        assertThatThrownBy(() -> service.save(new OfferDTOs.SaveRequest(null, PHONE, "CONSIGNMENT", null, null,
+                new BigDecimal("52000"), "Karachi", 4, null, null, null, null)))
+                .hasMessage(MarketplaceOfferService.CONSIGNED_ELSEWHERE);
+        OfferDTOs.Offer o = service.save(offer(null, "52000"));
+        offerRows.get(o.id()).setStockSourceType("CONSIGNMENT");
+        assertThatThrownBy(() -> service.save(offer(o.id(), "50000"))).hasMessage(MarketplaceOfferService.CONSIGNED_ELSEWHERE);
+        assertThatThrownBy(() -> service.submit(o.id())).hasMessage(MarketplaceOfferService.CONSIGNED_ELSEWHERE);
+    }
+
+    @Test
     @DisplayName("[MKT-R7.4] [MKT-R7.5] the seller sets the price, inside the operator's limits")
     void priceLimits() {
         assertThatThrownBy(() -> service.save(offer(null, "75000")))
@@ -236,7 +249,7 @@ class MarketplaceOfferServiceTest {
         assertThatThrownBy(() -> service.save(offer(null, "51000"))).hasMessageContaining("already have an offer");
         doThrow(new ValidationException("MaxTheService is still reviewing your seller account.")).when(sellers).assertActiveSeller();
         assertThatThrownBy(() -> service.save(offer(null, "52000"))).hasMessageContaining("still reviewing");
-        verify(offers, never()).findByOrganizationIdAndMktProductId(eq(99L), anyLong());
+        verify(offers, never()).findFirstByOrganizationIdAndMktProductIdAndStockSourceTypeNot(eq(99L), anyLong(), any());
     }
 
     @Test

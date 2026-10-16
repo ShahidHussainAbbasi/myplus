@@ -153,8 +153,18 @@ public class MarketplaceSettlementService {
                 : policy.commissionOn(items.add(delivery), delivery).min(items);
         SettlementCalculator.Breakdown b = SettlementCalculator.calculate(new SettlementCalculator.Inputs(customer,
                 CommissionPolicy.fixed(commission), Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO));
-        boolean sellerCollected = o == null || !CARD.equals(o.getPaymentMode());
+        // MKT-5c: consigned stock is delivered and paid for to MaxTheService's warehouse, cash or card; its owner collected nothing
+        boolean sellerCollected = !consigned(l) && (o == null || !CARD.equals(o.getPaymentMode()));
         return new Figures(b, sellerCollected);
+    }
+
+    static boolean consigned(MarketplaceOrderLine l) {
+        return com.myplus.marketplace.multiseller.domain.StockSourceType.CONSIGNMENT.name().equals(l.getStockSourceType());
+    }
+
+    /** MKT-5c — who a line settles to: its seller, or, for consigned stock the warehouse sold, the stock's OWNER (R15.4). */
+    static Long payee(MarketplaceOrderLine l) {
+        return consigned(l) ? l.getStockOwnerOrganizationId() : l.getSellerOrganizationId();
     }
 
     /** The snapshot, or none: a line sold with no commission policy earns MaxTheService nothing. */
@@ -243,19 +253,19 @@ public class MarketplaceSettlementService {
         SettlementCalculator.Breakdown b = f.breakdown();
         String ref = ref(o, l);
         String key = "line:" + l.getId() + ":";
-        append(l.getSellerOrganizationId(), l.getId(), null, LedgerEntryType.SALE, Money.ZERO, b.customerAmount(), ref,
+        append(payee(l), l.getId(), null, LedgerEntryType.SALE, Money.ZERO, b.customerAmount(), ref,
                 "Customer paid for " + clip(l.getProductName(), 200), key + "SALE", null);
-        append(l.getSellerOrganizationId(), l.getId(), null, LedgerEntryType.COMMISSION, b.commission(), Money.ZERO, ref,
+        append(payee(l), l.getId(), null, LedgerEntryType.COMMISSION, b.commission(), Money.ZERO, ref,
                 "MaxTheService commission", key + "COMMISSION", null);
         if (f.sellerCollected())
-            append(l.getSellerOrganizationId(), l.getId(), null, LedgerEntryType.COLLECTED_BY_SELLER, b.customerAmount(),
+            append(payee(l), l.getId(), null, LedgerEntryType.COLLECTED_BY_SELLER, b.customerAmount(),
                     Money.ZERO, ref, "Cash collected by your rider on delivery", key + "COLLECTED", null);
         move(l, Settlement.ELIGIBLE);
         gl.enqueue(books.organizationId(), books.userId(), PostingEventRequest.builder()
                 .eventType("MKT_SETTLEMENT").eventKey("MKT-SET-" + l.getId()).date(today).ref(ref)
                 .grandTotal(b.customerAmount()).paidAmount(f.sellerCollected() ? Money.ZERO : b.customerAmount())
                 .commission(b.commission()).method("BANK").build());
-        audit.event("MKT_LINE_SETTLED", "MKT_ORDER_LINE", ref, l.getSellerOrganizationId(), Actor.SYSTEM, null,
+        audit.event("MKT_LINE_SETTLED", "MKT_ORDER_LINE", ref, payee(l), Actor.SYSTEM, null,
                 Settlement.ELIGIBLE.name(), b.merchantPayable(), "commission " + b.commission().toPlainString());
         return Settlement.ELIGIBLE.name();
     }

@@ -531,3 +531,19 @@ inventory-service reservation and hold tests 40/40, `InternalStockControllerHold
 with, while the server had claimed and given the row back. The next press on it read "This transfer changed
 meanwhile." A refused row action now redraws the list before showing the refusal; a refused Send keeps the form as
 typed. One consignment the first, failing run left waiting (ST-000036) was cancelled in the test database.
+
+## 26. MKT-5c — MaxTheService sells consigned stock (run 2026-10-16)
+
+**Gate `mkt-5c-consigned-sale.cy.js`: 6 / 6** on the usual clock, after marketplace-service (V42, started under
+`ddl-auto=validate`) and the monolith were rebuilt. Regression: MKT-5b 6/6, MKT-3a 6/6, MKT-3c 6/6, MKT-1g 6/6,
+MKT-2a 8/8, MKT-1e 10/10. Unit: marketplace-service 487/487.
+
+**Walk M-5-03: recorded**, 5 steps and a cleanup, each expected result asserted, screens captured and looked at: the
+owner lists in the real form, a shopper buys "from MaxTheService" (the owner is not named), the warehouse accepts, the
+owner's row reads 1 held / 1 sold and its phone 4 on hand / 3 free, and after delivery and settlement the owner's
+statement reads 52,000 / 5,200 / 46,800, "Return days running".
+
+**Defects found and fixed while running:** the offer form's duplicate check answered before the CONSIGNMENT refusal, so
+a consigned product read "already listed" (the refusal now comes first); the listing form's button had the same id as
+its handler, so the inline submit called the button ("mktListSave is not a function") and the button is renamed; the
+policy pickers did not show their options until refreshed.

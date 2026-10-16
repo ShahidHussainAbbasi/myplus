@@ -25,12 +25,34 @@ public interface MarketplaceConsignedStockRepository extends JpaRepository<Marke
 
     /**
      * What is held, per consignor and product, for one side of the pair: the consignor reads its own rows, the
-     * consignee every consignor's. Columns: consignorOrgId, mktProductId, productName, units, value. Rows that net to
-     * nothing are left out.
+     * consignee every consignor's. Columns: consignorOrgId, mktProductId, productName, units, value, units sold (5c),
+     * consigneeOrgId. Rows that net to nothing are left out.
      */
-    @Query("SELECT c.consignorOrgId, c.mktProductId, MAX(c.productName), SUM(c.quantity), SUM(c.quantity * c.unitValue) "
+    @Query("SELECT c.consignorOrgId, c.mktProductId, MAX(c.productName), SUM(c.quantity), SUM(c.quantity * c.unitValue), "
+            + "SUM(CASE WHEN c.movement = 'SOLD' THEN -c.quantity ELSE 0 END), MAX(c.consigneeOrgId) "
             + "FROM MarketplaceConsignedStock c WHERE c.consignorOrgId = :org OR c.consigneeOrgId = :org "
             + "GROUP BY c.consignorOrgId, c.mktProductId HAVING SUM(c.quantity) <> 0 "
             + "ORDER BY c.consignorOrgId, MAX(c.productName)")
     List<Object[]> heldFor(@Param("org") Long org);
+
+    /** MKT-5c — units the consignee holds for this consignor of one product: what its listing can sell. */
+    @Query("SELECT COALESCE(SUM(c.quantity), 0) FROM MarketplaceConsignedStock c "
+            + "WHERE c.consignorOrgId = :consignor AND c.consigneeOrgId = :consignee AND c.mktProductId = :product")
+    long balance(@Param("consignor") Long consignor, @Param("consignee") Long consignee, @Param("product") Long product);
+
+    /**
+     * MKT-5c — the lots still held of one product, oldest first: each transfer the stock came in on, with its hold in
+     * the consignor's books. Columns: transferId, holdKey, consignorProductId, units left, unitValue (as declared).
+     */
+    @Query("SELECT c.transferId, MAX(c.holdKey), MAX(c.consignorProductId), SUM(c.quantity), MAX(c.unitValue) "
+            + "FROM MarketplaceConsignedStock c WHERE c.consignorOrgId = :consignor AND c.consigneeOrgId = :consignee "
+            + "AND c.mktProductId = :product AND c.transferId IS NOT NULL "
+            + "GROUP BY c.transferId HAVING SUM(c.quantity) > 0 ORDER BY MIN(c.id)")
+    List<Object[]> lots(@Param("consignor") Long consignor, @Param("consignee") Long consignee, @Param("product") Long product);
+
+    /** MKT-5c — the SOLD rows of one order line: what an Accept retried after it was written already moved. */
+    List<MarketplaceConsignedStock> findByOrderLineIdAndMovement(Long orderLineId, String movement);
+
+    /** MKT-5c — the voided tries of one line and lot: the next try's attempt number. */
+    long countByTransferIdAndOrderLineIdAndMovement(Long transferId, Long orderLineId, String movement);
 }

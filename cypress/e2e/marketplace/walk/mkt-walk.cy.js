@@ -4621,4 +4621,118 @@ on('MKT manual walk — recorded', () => {
           .should('have.text', '2'))
       })
   })
+  // ── MKT-5c: MaxTheService sells consigned stock; the owner is paid on sell-through. Mobile Distributor consigns 2 of a
+  //    new phone (as in M-5-04), lists them (its agreement lets it set the price), a shopper buys one from MaxTheService.
+  const CS5 = {}
+  walk({ id: 'M-5-03', slice: 'MKT-5', title: 'A consigned phone sells: MaxTheService sells it, the owner is paid after the return days',
+    persona: 'owner.mobile@myplus.com (Mobile Distributor) → Customer (incognito window) → owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R2.1', 'MKT-R4.5', 'MKT-R15.4', 'MKT-R20.5'],
+    pre: 'As M-5-04: Mobile Distributor has an active consignment agreement where it sets the selling price, ownership passes on sale and MaxTheService keeps 10%, and 2 of a phone consigned to the MaxTheService warehouse (5 on its own shelf).',
+    auto: ['MKT-5c-02', 'MKT-5c-03', 'MKT-5c-04', 'MKT-5c-05'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition, through the same calls as M-5-04's screens
+      makeSeller(SELLER_B)
+      makeSeller(WAREHOUSE, 'Central Warehouse')
+      asOperator()
+      cy.orgOf(SELLER_B).then((o) => { CS5.org = o.id })
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      cy.then(() => get('/platform/mkt/consignments?status=ACTIVE')).then((r) => {
+        const a = (data(r.body) || []).find((x) => x.consignorOrganizationId === CS5.org)
+        expect(a, 'an active agreement (M-5-01 / M-5-04)').to.exist
+        expect(a.terms.priceSetBy).to.eq('CONSIGNOR')
+        CS5.no = a.agreementNo
+      })
+      seedPolicies(`${run}cs`).then((p) => {
+        CS5.policies = p
+        asOperator()
+        cy.then(() => publishOffer(WAREHOUSE, { run: `${run}cs`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { CS5.mkt = o.mktProductId })
+        cy.then(() => publishOffer(SELLER_B, { run: `${run}cs`, price: 52000, qty: 5, mktProductId: CS5.mkt, warrantyPolicyId: p.warranty,
+          returnPolicyId: p.returns })).then((o) => { CS5.product = o.sourceProductId })
+      })
+      as(SELLER_B)
+      cy.then(() => post('/mkt/transferOffer', { mktProductId: CS5.mkt, quantity: 2, unitPrice: 40000, kind: 'CONSIGN', note: 'walk M-5-03' }))
+        .then((r) => { CS5.st = data(r.body) })
+      as(WAREHOUSE)
+      cy.then(() => post('/mkt/transferReceive', { transferNo: CS5.st.transferNo, version: CS5.st.version }))
+        .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    })
+    const heldRow = () => cy.get(`#mktHeld tr.mkt-held[data-product="${CS5.mkt}"]`)
+    const level = () => cy.request('/productStockLevels').then((r) => (r.body.levels || {})[String(CS5.product)])
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". On the phone\'s row press "List for sale". Selling price 52000, cities "Karachi", 48 hours, a warranty and a return policy → "Save listing".',
+      '"Listed for sale by MaxTheService at Rs 52,000.00, under CA-…. Shoppers see 2 available." The row reads 2 units held, 0 sold, "Rs 52,000.00 a unit, 2 available".', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.then(() => heldRow().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-held-listing').should('have.text', 'Not listed'))
+        cy.then(() => heldRow().find('.mkt-held-list').click())
+        cy.get('#mktListPrice').clear().type('52000')
+        cy.get('#mktListArea').clear().type('Karachi')
+        cy.get('#mktListHours').clear().type('48')
+        cy.then(() => {
+          cy.get('#mktListWarranty').select(String(CS5.policies.warranty), { force: true })
+          cy.get('#mktListReturn').select(String(CS5.policies.returns), { force: true })
+        })
+        cy.get('#mktListSaveBtn').click()
+        cy.then(() => cy.get('#mktTransferMsg').should('have.text',
+          `Listed for sale by MaxTheService at Rs 52,000.00, under ${CS5.no}. Shoppers see 2 available.`))
+        cy.then(() => heldRow().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-held-listing').should('contain', 'a unit, 2 available'))
+        cy.then(() => get('/mkt/transfers')).then((r) => {
+          CS5.offer = data(r.body).held.find((h) => h.mktProductId === CS5.mkt).listing.offerId
+        })
+      })
+    step(`Customer: open the phone (Karachi). Choose the offer from MaxTheService that shows 2 available, press "Buy from MaxTheService". Name "Sana", phone ${phone(53)}, address "9 Clifton" → "Place order".`,
+      'The offer reads "Sold and shipped by MaxTheService"; Mobile Distributor is not named on it. After Place order: "Waiting for MaxTheService to confirm" and an order number MKT-….', () => {
+        customer()
+        cy.visit(page(`product=${CS5.mkt}&city=Karachi`))
+        cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${CS5.offer}"]`).should('contain', 'Sold and shipped by MaxTheService')
+          .and('not.contain', 'Mobile Distributor'))
+        cy.then(() => buy(CS5.offer, { name: 'Sana', ph: phone(53), address: '9 Clifton' }))
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for MaxTheService to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { CS5.order = no })
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders" → on the order press Accept.',
+      'The row turns to "Accepted" with "Invoice INV-…". Behind it Mobile Distributor sold the phone to MaxTheService for Rs 46,800 (52,000 less 10%) and MaxTheService bought it; then MaxTheService sold it to Sana.', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.then(() => cy.contains(`${UI.incoming} tr`, CS5.order).scrollIntoView({ offset: { top: -160, left: 0 } }).find(UI.acceptBtn).click())
+        cy.then(() => cy.contains(`${UI.incoming} tr`, CS5.order).should('contain', 'Accepted').and('contain', 'Invoice'))
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService", then the phone\'s stock.',
+      'The row reads 1 unit held, 1 sold, "Rs 52,000.00 a unit, 1 available". The phone counts 4 in your stock (one sold to MaxTheService), of which 3 are free to sell: the 1 still at the warehouse is set aside.', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.then(() => heldRow().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-held-units').should('have.text', '1'))
+        cy.then(() => heldRow().find('.mkt-held-sold').should('have.text', '1'))
+        cy.then(() => heldRow().find('.mkt-held-listing').should('contain', 'a unit, 1 available'))
+        cy.then(() => level()).then((l) => {
+          expect(Number(l.onHand), 'one sold out of the owner\'s books').to.eq(4)
+          expect(Number(l.sellable), 'the shop\'s free stock').to.eq(3)
+        })
+      })
+    step('The warehouse packs, ships and delivers it (its own orders screen), and MaxTheService runs "Settle now". Then, as owner.mobile@myplus.com: Sale → Marketplace → "Settlement statement" → "Show statement".',
+      'The order is on Mobile Distributor\'s statement (not the warehouse\'s): "Return days running", Customer paid Rs 52,000.00, Commission Rs 5,200.00, Payable Rs 46,800.00, with the date it becomes payable.', () => {
+        as(WAREHOUSE)
+        cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`)).then((r) => {
+          CS5.store = list(r.body).find((x) => x.orderNo === CS5.order).storeOrderId
+        })
+        cy.then(() => call('POST /updateOrderStatus PACKED', post('/updateOrderStatus', { id: CS5.store, status: 'PACKED' })))
+        cy.then(() => get(`/getOrder?id=${CS5.store}`)).then((r) => {
+          const line = data(r.body).items[0]
+          call('POST /shipOrder', post('/shipOrder', { id: CS5.store, lines: [{ orderItemId: line.id, quantity: line.quantity }],
+            carrier: 'Own rider', trackingNumber: `RID-${run}cs` }))
+        })
+        cy.then(() => call('POST /updateOrderStatus DELIVERED', post('/updateOrderStatus', { id: CS5.store, status: 'DELIVERED' })))
+        asOperator()
+        cy.then(() => call('POST /platform/mkt/runSettlement', post('/platform/mkt/runSettlement', {})))
+        as(SELLER_B)
+        openMarketplace()
+        cy.get('#mktStatementTab').scrollIntoView({ offset: { top: -120, left: 0 } }).click()
+        cy.then(() => cy.contains('#mktStatementTable tr.mkt-line', CS5.order).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('contain', 'Return days running').and('contain', '52,000').and('contain', '5,200').and('contain', '46,800'))
+      }, { alsoScreen: true })
+    cleanup('Nothing to undo through the screens: the sale is real. The 1 phone left stays consigned until the unsold-returns slice. Check it is still listed with 1 available.',
+      'The row reads 1 unit held, 1 sold, "… 1 available".', () => {
+        cy.then(() => heldRow().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-held-listing').should('contain', '1 available'))
+      })
+  })
 })
