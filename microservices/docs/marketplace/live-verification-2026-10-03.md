@@ -517,3 +517,17 @@ Found while running: MKT-0a leaves the shared shop's marketplace module switched
 first walk attempt could not open Sale → Marketplace. The 5a gate and walk now switch it on first, as other gates do.
 The container had restarted, so Docker, MySQL and Redis were started again before the stack.
 
+
+## 25. MKT-5b — consigned stock into the warehouse (run 2026-10-16)
+
+**Gate `mkt-5b-consigned-stock.cy.js`: 6 / 6** on the usual clock, after commerce-contracts, inventory-service,
+business-service, marketplace-service (V41, started under `ddl-auto=validate`) and the monolith were rebuilt.
+Regression: MKT-3c 6/6 (the buy path and the same screens), MKT-5a 6/6, MKT-3a 6/6. Unit: marketplace-service 476/476,
+inventory-service reservation and hold tests 40/40, `InternalStockControllerHoldKindTest` 3/3.
+
+**Walk M-5-04: recorded**, 5 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+**Defect found and fixed (also in 3c):** after a refused Receive the warehouse's row kept the version it was drawn
+with, while the server had claimed and given the row back. The next press on it read "This transfer changed
+meanwhile." A refused row action now redraws the list before showing the refusal; a refused Send keeps the form as
+typed. One consignment the first, failing run left waiting (ST-000036) was cancelled in the test database.

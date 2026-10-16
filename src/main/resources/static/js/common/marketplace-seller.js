@@ -583,12 +583,45 @@
 			var $sel = $('#mktTrProduct').empty();
 			(v.products || []).forEach(function (p) { $('<option></option>').val(p.mktProductId).text(p.name).appendTo($sel); });
 			$('#mktTransferForm').toggle(!v.warehouse);
+			// MKT-5b: the kind picker only under an active agreement; without one every transfer is a sale (BUY)
+			mktConsignUnder = v.consignUnder || null;
+			$('#mktTrKind').toggle(!v.warehouse && !!mktConsignUnder);
+			if (!mktConsignUnder) $('#mktTrKind').val('BUY');
+			mktTrKindChanged();
+			heldTable(v.held || [], v.warehouse);
 			if (!v.warehouse && !(v.products || []).length)
 				$('#mktTransferMsg').css('color', '').text(tr('ui.js.mktTrNoProducts', 'None of your products is carried by MaxTheService yet.'));
 			var rows = v.transfers || [];
 			if (!rows.length) $tb.append($('<tr><td colspan="7" class="text-muted"></td></tr>').find('td')
 				.text(v.warehouse ? tr('ui.js.mktTrNoneIn', 'Nothing has been sent to you.') : tr('ui.js.mktTrNoneOut', 'You have not sent anything yet.')).end());
 			rows.forEach(function (t) { $tb.append(transferRow(t, v.warehouse)); });
+		});
+	}
+
+	var mktConsignUnder = null;
+
+	/** MKT-5b — the form reads differently when the stock stays the seller's. */
+	function mktTrKindChanged() {
+		var consign = !!mktConsignUnder && $('#mktTrKind').val() === 'CONSIGN';
+		var price = consign ? tr('ui.js.mktTrValue', 'Value a unit') : tr('ui.js.mktTrPriceL', 'Price a unit');
+		$('#mktTrPrice').attr('placeholder', price).attr('aria-label', price);
+		$('#mktTrSend').text(consign ? tr('ui.js.mktTrSendConsign', 'Consign to MaxTheService') : tr('ui.js.mktTrSendBuy', 'Send to MaxTheService'));
+		if (consign) $('#mktTransferHint').text(tr('ui.js.mktTrConsignHint', 'On consignment under {0}: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells.').replace('{0}', mktConsignUnder));
+		else if (!$('#mktTransferForm').is(':hidden')) $('#mktTransferHint').text(tr('ui.js.mktTrOutHint', 'MaxTheService buys it: when the warehouse receives it, it is a sale in your books and MaxTheService owes you the total.'));
+	}
+
+	/** MKT-5b — consigned stock held at the warehouse: the owner sees its own; the warehouse sees every owner's. */
+	function heldTable(rows, warehouse) {
+		var $tb = $('#mktHeld tbody').empty();
+		$('#mktHeldBox').toggle(rows.length > 0);
+		$('#mktHeld .mkt-held-owner').toggle(!!warehouse);
+		rows.forEach(function (h) {
+			var $tr = $('<tr class="mkt-held"></tr>').attr('data-product', h.mktProductId);
+			if (warehouse) $('<td></td>').text(h.consignorName).appendTo($tr);
+			$('<td style="white-space:normal"></td>').text(h.productName).appendTo($tr);
+			$('<td class="mkt-held-units" style="font-variant-numeric:tabular-nums"></td>').text(h.units).appendTo($tr);
+			$('<td style="font-variant-numeric:tabular-nums"></td>').text(money(h.value)).appendTo($tr);
+			$tb.append($tr);
 		});
 	}
 
@@ -605,6 +638,8 @@
 		var $s = $('<td class="mkt-transfer-status"></td>').text(st[0] ? tr(st[0], st[1]) : st[1]).appendTo($tr);
 		if (t.status === 'REJECTED' && t.rejectReason) $s.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.rejectReason));
 		if (t.status === 'RECEIVED' && t.saleInvoiceNo) $s.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.saleInvoiceNo));
+		if (t.kind === 'CONSIGN') $s.append($('<div class="text-muted mkt-tr-kind" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktTrConsigned', 'On consignment, {0}').replace('{0}', t.agreementNo || '')));
 		var $a = $('<td style="white-space:normal"></td>').appendTo($tr);
 		var open = t.status === 'OFFERED' || (warehouse && t.status === 'RECEIVING');
 		if (!open) return $tr;
@@ -640,19 +675,33 @@
 		var label = $b.text();
 		$b.prop('disabled', true);
 		var $msg = $('#mktTransferMsg').text('').css('color', '');
+		// a row's action redraws the list (see below); a refused Send keeps the form as typed
+		var refused = function (why) {
+			if (path === 'mkt/transferOffer') { $msg.css('color', '#b3261e').text(why); return; }
+			mktTransfersLoad().always(function () { $('#mktTransferMsg').css('color', '#b3261e').text(why); });
+		};
 		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
 			.done(function (res) {
-				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				// A refused Receive still moved the row (claimed, then given back), so the drawn version is stale: redraw it,
+				// then show the refusal, or the next press on the same row reads "changed meanwhile".
+				if (!ok(res)) {
+					var why = message(res, tr('ui.js.saveFailed', 'Save failed'));
+					refused(why);
+					return;
+				}
 				var said = message(res, '');
 				mktTransfersLoad().done(function () { $('#mktTransferMsg').css('color', '#1b5e20').text(said); });
 			})
-			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.fail(function (xhr) {
+				refused(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed')));
+			})
 			.always(function () { $b.prop('disabled', false).text(label); });
 	}
 
 	function mktTransferSend() {
 		transferPost('mkt/transferOffer', { mktProductId: Number($('#mktTrProduct').val()) || null, quantity: Number($('#mktTrQty').val()) || null,
-			unitPrice: $('#mktTrPrice').val() || null, note: $('#mktTrNote').val() }, $('#mktTrSend'));
+			unitPrice: $('#mktTrPrice').val() || null, note: $('#mktTrNote').val(),
+			kind: mktConsignUnder ? $('#mktTrKind').val() : 'BUY' }, $('#mktTrSend'));
 	}
 
 	// ── MKT-5a: consignment agreements ─────────────────────────────────────────────────────────────────
@@ -948,6 +997,7 @@
 	global.mktTasksLoad = mktTasksLoad;
 	global.mktTransfersLoad = mktTransfersLoad;
 	global.mktTransferSend = mktTransferSend;
+	global.mktTrKindChanged = mktTrKindChanged;
 	global.mktConsignLoad = mktConsignLoad;
 	global.mktStatementLoad = mktStatementLoad;
 	global.mktPerfLoad = mktPerfLoad;

@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 75,
- "cypress": 72,
- "automated": 76,
+ "unit": 76,
+ "cypress": 73,
+ "automated": 77,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -54,14 +54,24 @@
    "phase": "5",
    "text": "Consignment: consignor = legal owner, consignee = holder/seller; ownership/payment changes on sale per agreement",
    "unit": [
-    "ConsignmentAgreementServiceTest.acceptAndReplace"
+    "ConsignmentAgreementServiceTest.acceptAndReplace",
+    "ConsignmentAgreementServiceTest.noEndWhileStockIsHeld",
+    "StockTransferServiceTest.consignOffer",
+    "StockTransferServiceTest.consignReceive",
+    "StockTransferServiceTest.consignRefused"
    ],
    "cypress": [
-    "MKT-5a-03"
+    "MKT-5a-03",
+    "MKT-5b-01",
+    "MKT-5b-02",
+    "MKT-5b-03",
+    "MKT-5b-05",
+    "MKT-5b-06"
    ],
    "manual": [
     "M-5-01",
-    "M-5-03"
+    "M-5-03",
+    "M-5-04"
    ]
   },
   {
@@ -207,10 +217,17 @@
    "req": "MKT-R4.5",
    "phase": "5",
    "text": "CONSIGNMENT: owner = consignor, custodian = consignee",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "StockTransferServiceTest.consignOffer",
+    "StockTransferServiceTest.consignReceive"
+   ],
+   "cypress": [
+    "MKT-5b-02",
+    "MKT-5b-03"
+   ],
    "manual": [
-    "M-5-03"
+    "M-5-03",
+    "M-5-04"
    ]
   },
   {
@@ -229,7 +246,8 @@
     "MKT-5a-02",
     "MKT-5a-03",
     "MKT-5a-04",
-    "MKT-5a-06"
+    "MKT-5a-06",
+    "MKT-5b-01"
    ],
    "manual": [
     "M-5-01"
@@ -1587,7 +1605,10 @@
    "text": "Phase 4 supplier stock: supplier API/portal, acceptance, tracking, SLA, returns, settlement · Phase 5 consignment: agreements, roles, consigned stock ledger, custodian counts, sell-through, shrinkage claims, ownership transfer, unsold return",
    "unit": [
     "SellerPerformanceTest.dispatch",
+    "ConsignmentAgreementServiceTest.noEndWhileStockIsHeld",
     "MarketplaceOrderFlowTest.supplierOwnsItsShortage",
+    "PlatformWarehouseServiceTest.consignedStockKeepsTheWarehouse",
+    "StockTransferServiceTest.consignReceive",
     "SupplierDispatchServiceTest.stamp",
     "SupplierDispatchServiceTest.clock",
     "SupplierDispatchServiceTest.verdict",
@@ -1603,13 +1624,15 @@
     "MKT-4b-06",
     "MKT-4d-01",
     "MKT-4d-02",
-    "MKT-4d-03"
+    "MKT-4d-03",
+    "MKT-5b-04"
    ],
    "manual": [
     "M-4-03",
     "M-4-04",
     "M-4-05",
-    "M-5-03"
+    "M-5-03",
+    "M-5-04"
    ]
   },
   {

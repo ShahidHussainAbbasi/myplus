@@ -95,8 +95,13 @@ public class InternalStockController {
             return ResponseEntity.ok(StockHoldResponse.builder().held(false)
                     .reason("Nothing outstanding to hold").build());
 
+        // MKT-5b: a consignment hold (no deadline) when the caller says so; otherwise an ORDER hold, as before.
+        StockReservationRequest.HoldKind kind = request.getHoldKind() == null
+                ? StockReservationRequest.HoldKind.ORDER : request.getHoldKind();
+        if (kind == StockReservationRequest.HoldKind.CHECKOUT)
+            throw new ValidationException("A hold here is for an order or for consigned stock, not a checkout");
         StockReservationResponse r = inventoryClient.reserve(new StockReservationRequest(
-                request.getHoldKey(), lines, StockReservationRequest.HoldKind.ORDER));
+                request.getHoldKey(), lines, kind));
 
         boolean held = r != null && r.getStatus() == ReservationStatus.RESERVED;
         if (!held) {

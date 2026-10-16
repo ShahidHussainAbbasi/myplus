@@ -4526,4 +4526,99 @@ on('MKT manual walk — recorded', () => {
         cy.then(() => cy.get('#mktConsignMsg').should('have.text', `${CS.no} has ended. No new stock can be consigned under it.`))
       })
   })
+  // ── MKT-5b: consigned stock into the warehouse. The owner keeps owning it; the warehouse holds it. Mobile Distributor
+  //    consigns, not the 5a shop: consigned stock cannot go back until the unsold-returns slice.
+  const CN = {}
+  walk({ id: 'M-5-04', slice: 'MKT-5', title: 'A seller consigns phones to the MaxTheService warehouse: they stay its own',
+    persona: 'owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R2.1', 'MKT-R4.5', 'MKT-R20.5'],
+    pre: 'The MaxTheService warehouse is named (M-3-01). Mobile Distributor has an active consignment agreement (accepted as in M-5-01) and 5 of a phone that MaxTheService also carries.',
+    auto: ['MKT-5b-02', 'MKT-5b-03', 'MKT-5b-04', 'MKT-5b-05'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: an active agreement for the owner, one phone both list, 5 on the owner's shelf
+      makeSeller(SELLER_B)
+      makeSeller(WAREHOUSE, 'Central Warehouse')
+      asOperator()
+      cy.orgOf(SELLER_B).then((o) => { CN.org = o.id })
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      cy.then(() => get('/platform/mkt/consignments?status=ACTIVE')).then((r) => {
+        const a = (data(r.body) || []).find((x) => x.consignorOrganizationId === CN.org)
+        if (a) { CN.no = a.agreementNo; return }
+        post('/platform/mkt/consignmentOffer', { consignorOrganizationId: CN.org, note: 'walk M-5-04', terms: {
+          ownershipTransfer: 'ON_SALE', priceSetBy: 'CONSIGNOR', commissionPct: 10, settleEveryDays: 7, reconcileEveryDays: 30,
+          countEveryDays: 30, shrinkageTolerancePct: 1, damageBearer: 'CONSIGNEE', expiryBearer: 'CONSIGNOR', insuredBy: 'CONSIGNEE',
+          claimWindowDays: 14, proofRequired: true, unsoldReturnDays: 180, unsoldReturnBearer: 'CONSIGNOR' } }).then((o) => {
+          const x = data(o.body)
+          CN.no = x.agreementNo
+          as(SELLER_B)
+          post('/mkt/consignmentDecision', { id: x.id, action: 'ACCEPT', version: x.version })
+        })
+      })
+      seedPolicies(`${run}cn`).then((p) => {
+        asOperator()
+        cy.then(() => publishOffer(WAREHOUSE, { run: `${run}cn`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { CN.mkt = o.mktProductId })
+        cy.then(() => publishOffer(SELLER_B, { run: `${run}cn`, price: 52000, qty: 5, mktProductId: CN.mkt, warrantyPolicyId: p.warranty,
+          returnPolicyId: p.returns })).then((o) => { CN.product = o.sourceProductId })
+      })
+    })
+    const free = () => cy.request('/productStockLevels').then((r) => {
+      const l = (r.body.levels || {})[String(CN.product)]
+      return Number(l.sellable != null ? l.sellable : l.onHand)
+    })
+    const trRow = () => cy.get(`#mktTransfers tr[data-transfer-no="${CN.st}"]`)
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". Choose "On consignment: it stays mine".',
+      'The price box now reads "Value a unit", the button "Consign to MaxTheService", and the sentence above it: "On consignment under CA-…: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells."', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.get('#mktTrKind').scrollIntoView({ offset: { top: -160, left: 0 } }).should('be.visible').select('CONSIGN')
+        cy.get('#mktTrPrice').should('have.attr', 'placeholder', 'Value a unit')
+        cy.get('#mktTrSend').should('have.text', 'Consign to MaxTheService')
+        cy.then(() => cy.get('#mktTransferHint').should('contain', `On consignment under ${CN.no}: the stock stays yours.`))
+        cy.get('#mktTransferTitle').scrollIntoView({ offset: { top: -40, left: 0 } })
+      })
+    step('Choose the phone, Quantity 2, Value a unit 40000 → "Consign to MaxTheService".',
+      '"Sent to MaxTheService on consignment as ST-…, under CA-…. It stays yours, on the warehouse\'s shelf once received." The row reads "Sent, waiting for the warehouse" and "On consignment, CA-…", total Rs 80,000.', () => {
+        cy.get('#mktTrProduct').select(String(CN.mkt), { force: true })
+        cy.get('#mktTrQty').clear().type('2')
+        cy.get('#mktTrPrice').clear().type('40000')
+        cy.get('#mktTrSend').click()
+        cy.get('#mktTransferMsg').should('contain', 'on consignment as ST-').invoke('text').then((t) => { CN.st = t.match(/ST-\d+/)[0] })
+        cy.then(() => trRow().scrollIntoView({ offset: { top: -160, left: 0 } }).should('contain', 'Sent, waiting for the warehouse')
+          .and('contain', `On consignment, ${CN.no}`).and('contain', '80,000'))
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Stock sent to MaxTheService". Find the row from Mobile Distributor → "Receive".',
+      '"Received on consignment under CA-…. It is Mobile Distributor\'s stock on your shelf: nothing is owed until it sells." The row reads "Received" with no invoice. "Consigned stock at MaxTheService" lists Mobile Distributor, the phone, 2 units, Rs 80,000.', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.then(() => trRow().scrollIntoView({ offset: { top: -160, left: 0 } }).should('contain', 'From Mobile Distributor').find('.mkt-tr-receive').click())
+        cy.then(() => cy.get('#mktTransferMsg').should('have.text',
+          `Received on consignment under ${CN.no}. It is Mobile Distributor's stock on your shelf: nothing is owed until it sells.`))
+        cy.then(() => trRow().should('contain', 'Received').and('not.contain', 'INV-'))
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${CN.mkt}"]`).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('contain', 'Mobile Distributor').and('contain', '80,000').find('.mkt-held-units').should('have.text', '2'))
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace, then look at the phone\'s stock.',
+      '"Consigned stock at MaxTheService" lists the phone, 2 units, Rs 80,000. The phone still counts 5 in your stock, of which 3 are free to sell: the 2 at the warehouse are set aside.', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${CN.mkt}"]`).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('contain', '80,000').find('.mkt-held-units').should('have.text', '2'))
+        cy.then(() => free()).then((n) => expect(n, '3 of 5 free to sell').to.eq(3))
+      })
+    step('"Consignment agreements" → type "walk" in the reason box → "End the agreement".',
+      '"The warehouse still holds … units consigned under this agreement. They must be sold or returned before it can end." The agreement stays "Active".', () => {
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CN.no).scrollIntoView({ offset: { top: -120, left: 0 } }).within(() => {
+          cy.get('.mkt-consign-why').type('walk')
+          cy.get('.mkt-consign-end').click()
+        }))
+        cy.get('#mktConsignMsg').invoke('text').should('match', /^The warehouse still holds \d+ units? consigned under this agreement\. They must be sold or returned before it can end\.$/)
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CN.no).find('.mkt-consign-status').should('have.text', 'Active'))
+        cy.get('#mktConsignMsg').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    cleanup('Nothing to undo through the screens yet: the 2 phones stay consigned until the unsold-returns slice sends them back (M-5-03\'s cleanup). Check they are still listed under "Consigned stock at MaxTheService".',
+      'The phone is listed with 2 units; the agreement is still "Active".', () => {
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${CN.mkt}"] .mkt-held-units`).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('have.text', '2'))
+      })
+  })
 })

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.multiseller.dto.ConsignmentDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentAgreement;
 import com.myplus.marketplace.multiseller.entity.MarketplaceSellerAccount;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignmentAgreementRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRepository;
 
@@ -44,13 +46,14 @@ class ConsignmentAgreementServiceTest {
     @Mock MarketplaceSellerService sellers;
     @Mock SellerAccess access;
     @Mock MarketplaceAuditService audit;
+    @Mock MarketplaceConsignedStockRepository consigned;
     ConsignmentAgreementService service;
 
     final List<MarketplaceConsignmentAgreement> table = new ArrayList<>();
 
     @BeforeEach
     void wire() {
-        service = new ConsignmentAgreementService(agreements, accounts, settings, sellers, access, audit);
+        service = new ConsignmentAgreementService(agreements, accounts, settings, sellers, access, audit, consigned);
         MarketplaceSellerAccount a = new MarketplaceSellerAccount();
         a.setOrganizationId(SHOP);
         a.setDisplayName("Shahzad Mobile Shop");
@@ -179,5 +182,20 @@ class ConsignmentAgreementServiceTest {
         doThrow(new AccessDeniedException("Access denied")).when(access).assertOperator();
         assertThatThrownBy(() -> offer("10")).isInstanceOf(AccessDeniedException.class);
         verify(agreements, never()).findAllByOrderByIdDesc(any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R2.1] [MKT-R20.5] an agreement cannot end while the warehouse holds stock under it; new terms can still replace it")
+    void noEndWhileStockIsHeld() {
+        ConsignmentDTOs.Agreement a = answer(offer("10"), "ACCEPT", null, false);
+        when(consigned.heldUnits(SHOP, WAREHOUSE)).thenReturn(3L);
+        assertThatThrownBy(() -> answer(a, "END", "closing the shop", false)).hasMessage("The warehouse still holds 3 units "
+                + "consigned under this agreement. They must be sold or returned before it can end.");
+        assertThatThrownBy(() -> answer(a, "END", "operator ends", true)).hasMessageStartingWith("The warehouse still holds 3 units");
+        assertThat(table.get(0).getStatus()).isEqualTo("ACTIVE");
+        ConsignmentDTOs.Agreement second = answer(offer("8"), "ACCEPT", null, false);
+        assertThat(table.get(0).getStatus()).isEqualTo("REPLACED");
+        when(consigned.heldUnits(SHOP, WAREHOUSE)).thenReturn(0L);
+        assertThat(answer(second, "END", "all sold", false).status()).isEqualTo("ENDED");
     }
 }

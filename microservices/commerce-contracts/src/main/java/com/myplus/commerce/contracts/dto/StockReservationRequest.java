@@ -41,7 +41,13 @@ public class StockReservationRequest {
         /** A sale in flight. Minutes — the operator is at the screen. */
         CHECKOUT,
         /** A confirmed order awaiting dispatch. Days — the goods are promised to a named customer. */
-        ORDER
+        ORDER,
+        /**
+         * MKT-5b — stock its owner has placed with a consignee (the MaxTheService warehouse). No deadline: it stays set
+         * aside, still the owner's, until it sells or comes back, which only the marketplace knows. A deadline would let
+         * the shop sell goods that are physically on another business's shelf.
+         */
+        CONSIGNMENT
     }
 
     /** Back-compatible: an unqualified hold is a CHECKOUT hold, which is what every pre-D1c caller means. */

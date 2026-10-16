@@ -44,4 +44,11 @@ public class StockHoldRequest {
 
     /** What to set aside. Quantities are the WHOLE order's outstanding amounts, not one parcel's. */
     private List<StockReservationLine> lines;
+
+    /**
+     * MKT-5b — what kind of hold: null or {@code ORDER} (every caller before 5b) for a confirmed order, or
+     * {@code CONSIGNMENT} for stock placed with a consignee, which never lapses. {@code CHECKOUT} is refused here: a
+     * till's hold is taken by the sale itself.
+     */
+    private StockReservationRequest.HoldKind holdKind;
 }

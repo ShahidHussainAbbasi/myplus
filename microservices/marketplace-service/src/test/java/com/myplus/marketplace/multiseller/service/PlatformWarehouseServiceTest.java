@@ -29,6 +29,7 @@ import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.multiseller.dto.SellerDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceOffer;
 import com.myplus.marketplace.multiseller.entity.MarketplaceSellerAccount;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceOfferRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRepository;
 
@@ -43,6 +44,7 @@ class PlatformWarehouseServiceTest {
     @Mock MarketplaceOfferRepository offers;
     @Mock SellerAccess access;
     @Mock MarketplaceAuditService audit;
+    @Mock MarketplaceConsignedStockRepository consigned;
     PlatformWarehouseService service;
 
     Long warehouse;
@@ -50,7 +52,7 @@ class PlatformWarehouseServiceTest {
 
     @BeforeEach
     void wire() {
-        service = new PlatformWarehouseService(settings, accounts, offers, access, audit);
+        service = new PlatformWarehouseService(settings, accounts, offers, access, audit, consigned);
         lenient().when(settings.warehouseOrg()).thenAnswer(i -> Optional.ofNullable(warehouse));
         lenient().doAnswer(i -> { warehouse = i.getArgument(0); return null; }).when(settings).saveWarehouseOrg(any());
         lenient().when(accounts.findByOrganizationId(anyLong())).thenAnswer(i -> Optional.ofNullable(account(i.getArgument(0))));
@@ -110,6 +112,18 @@ class PlatformWarehouseServiceTest {
         assertThatThrownBy(() -> service.set(new SellerDTOs.WarehouseRequest(SHOP)))
                 .hasMessage("This organisation already has offers of its own. Choose one with none: its offers would become MaxTheService's.");
         offersOf.put(EMPTY, new ArrayList<>(List.of(offer("SUSPENDED"))));
+        assertThat(service.set(new SellerDTOs.WarehouseRequest(null)).organizationId()).isNull();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.5] the warehouse cannot be changed or removed while it holds consigned stock")
+    void consignedStockKeepsTheWarehouse() {
+        warehouse = EMPTY;
+        org.mockito.Mockito.when(consigned.heldAt(EMPTY)).thenReturn(2L);
+        assertThatThrownBy(() -> service.set(new SellerDTOs.WarehouseRequest(null)))
+                .hasMessage("The warehouse holds consigned stock. It must be sold or returned to its owners before removing the warehouse.");
+        verify(settings, never()).saveWarehouseOrg(any());
+        org.mockito.Mockito.when(consigned.heldAt(EMPTY)).thenReturn(0L);
         assertThat(service.set(new SellerDTOs.WarehouseRequest(null)).organizationId()).isNull();
     }
 

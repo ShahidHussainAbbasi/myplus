@@ -19,6 +19,7 @@ import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerAccount
 import com.myplus.marketplace.multiseller.dto.ConsignmentDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentAgreement;
 import com.myplus.marketplace.multiseller.entity.MarketplaceSellerAccount;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceConsignmentAgreementRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRepository;
 
@@ -53,6 +54,7 @@ public class ConsignmentAgreementService {
     private final MarketplaceSellerService sellers;
     private final SellerAccess access;
     private final MarketplaceAuditService audit;
+    private final MarketplaceConsignedStockRepository consigned;
 
     // ── the operator ──────────────────────────────────────────────────────────────────────────────────
 
@@ -162,6 +164,12 @@ public class ConsignmentAgreementService {
             case "END" -> {
                 assertStatus(c, MarketplaceConsignmentAgreement.ACTIVE, "Only an active agreement can be ended.");
                 if (reason == null) throw new ValidationException("Say why the agreement ends.");
+                // MKT-5b: stock held under it would be left with no terms to sell, count or return it by. Accepting new
+                // terms is the way to change them while stock is held: the stock carries over to the new agreement.
+                long held = consigned.heldUnits(c.getConsignorOrgId(), c.getConsigneeOrgId());
+                if (held > 0)
+                    throw new ValidationException("The warehouse still holds " + held + (held == 1 ? " unit" : " units")
+                            + " consigned under this agreement. They must be sold or returned before it can end.");
                 c.setStatus(MarketplaceConsignmentAgreement.ENDED);
                 c.setAnswerReason(reason);
                 c.setEndedAt(now);

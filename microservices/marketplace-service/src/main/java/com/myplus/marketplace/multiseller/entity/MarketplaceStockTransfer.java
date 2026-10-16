@@ -16,7 +16,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * MKT-3c — stock a seller sends to the MaxTheService warehouse, which MaxTheService buys (V37).
+ * MKT-3c — stock a seller sends to the MaxTheService warehouse, which MaxTheService buys (V37), or, MKT-5b, consigns
+ * to it under an active agreement and keeps owning ({@link #getKind()}, V41).
  *
  * <p>{@link #OFFERED} by the seller → ({@link #RECEIVING}) → {@link #RECEIVED} by the warehouse (the seller's sale and the warehouse's purchase
  * are written then, together) or {@link #REJECTED} by the warehouse, or {@link #CANCELLED} by the seller while still
@@ -35,6 +36,11 @@ public class MarketplaceStockTransfer {
     public static final String RECEIVED = "RECEIVED";
     public static final String REJECTED = "REJECTED";
     public static final String CANCELLED = "CANCELLED";
+
+    /** MKT-3c: MaxTheService buys the stock (a sale in the seller's books, a purchase in the warehouse's). */
+    public static final String BUY = "BUY";
+    /** MKT-5b: the seller keeps owning it; the warehouse holds it under the agreement (a hold in the seller's books). */
+    public static final String CONSIGN = "CONSIGN";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -87,6 +93,17 @@ public class MarketplaceStockTransfer {
      * retried with the SAME keys, so it replays and never books twice. A Receive whose sale was reversed because the
      * purchase was refused moves to the next attempt: the old key would replay the voided invoice.
      */
+    @Column(name = "kind", nullable = false, length = 16)
+    private String kind = BUY;
+
+    /** CONSIGN only: the agreement that was active when the seller sent it (V41). */
+    @Column(name = "agreement_id")
+    private Long agreementId;
+
+    /** CONSIGN only, once received: the hold that sets the stock aside in the seller's books. */
+    @Column(name = "hold_key", length = 64)
+    private String holdKey;
+
     @Column(name = "attempt", nullable = false)
     private Integer attempt = 0;
 

@@ -1675,7 +1675,7 @@
 ### M-5-03 A consigned phone sells: owner and holder are different
 
 **Who:** admin@myplus.com (operator)  
-**Before:** Phase 5. Shahzad Mobile Shop has an active consignment agreement (M-5-01) and has consigned 10 phones to the MaxTheService warehouse.  
+**Before:** Phase 5. A seller has an active consignment agreement (M-5-01) and has consigned phones to the MaxTheService warehouse (M-5-04).  
 **Covers:** MKT-R2.1, MKT-R4.5, MKT-R15.4, MKT-R20.5  
 **Evidence:** written from the design — not built yet
 
@@ -1683,6 +1683,23 @@
 |---|---|---|
 | 1 | Sell one consigned phone. | Owner Shahzad, custodian the warehouse; Shahzad is owed the price less MaxTheService's commission, after the sell-through report and the return period. |
 | C1 | Return the unsold phones; end the agreement. | Ended. |
+
+### M-5-04 A seller consigns phones to the MaxTheService warehouse: they stay its own
+
+**Who:** owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** The MaxTheService warehouse is named (M-3-01). Mobile Distributor has an active consignment agreement (accepted as in M-5-01) and 5 of a phone that MaxTheService also carries.  
+**Covers:** MKT-R2.1, MKT-R4.5, MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5b-02, MKT-5b-03, MKT-5b-04, MKT-5b-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". Choose "On consignment: it stays mine". | The price box now reads "Value a unit", the button "Consign to MaxTheService", and the sentence above it: "On consignment under CA-…: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells." |
+| 2 | Choose the phone, Quantity 2, Value a unit 40000 → "Consign to MaxTheService". | "Sent to MaxTheService on consignment as ST-…, under CA-…. It stays yours, on the warehouse's shelf once received." The row reads "Sent, waiting for the warehouse" and "On consignment, CA-…", total Rs 80,000. |
+| 3 | As owner.warehouse@myplus.com: Sale → Marketplace → "Stock sent to MaxTheService". Find the row from Mobile Distributor → "Receive". | "Received on consignment under CA-…. It is Mobile Distributor's stock on your shelf: nothing is owed until it sells." The row reads "Received" with no invoice. "Consigned stock at MaxTheService" lists Mobile Distributor, the phone, 2 units, Rs 80,000. |
+| 4 | As owner.mobile@myplus.com: Sale → Marketplace, then look at the phone's stock. | "Consigned stock at MaxTheService" lists the phone, 2 units, Rs 80,000. The phone still counts 5 in your stock, of which 3 are free to sell: the 2 at the warehouse are set aside. |
+| 5 | "Consignment agreements" → type "walk" in the reason box → "End the agreement". | "The warehouse still holds … units consigned under this agreement. They must be sold or returned before it can end." The agreement stays "Active". |
+| C1 | Nothing to undo through the screens yet: the 2 phones stay consigned until the unsold-returns slice sends them back (M-5-03's cleanup). Check they are still listed under "Consigned stock at MaxTheService". | The phone is listed with 2 units; the agreement is still "Active". |
 
 
 ## MKT-6

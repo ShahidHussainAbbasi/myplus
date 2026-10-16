@@ -65,6 +65,9 @@ public class ReservationPolicy {
      */
     public LocalDateTime expiryFor(Long org, LocalDateTime from,
                                    com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind kind) {
+        // MKT-5b: consigned stock is set aside until the marketplace sells or returns it. Null is "no deadline", which
+        // both sweeps already skip (expiresAt IS NOT NULL in findExpired and findExpiredScoped).
+        if (kind == com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind.CONSIGNMENT) return null;
         int minutes = (kind == com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind.ORDER)
                 ? orderHoldMinutes(org)
                 : holdMinutes(org);
