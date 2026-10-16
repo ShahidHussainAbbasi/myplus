@@ -1710,6 +1710,22 @@
 | 5 | "Consignment agreements" → type "walk" in the reason box → "End the agreement". | "The warehouse still holds … units consigned under this agreement. They must be sold or returned before it can end." The agreement stays "Active". |
 | C1 | Nothing to undo through the screens yet: the 2 phones stay consigned until the unsold-returns slice sends them back (M-5-03's cleanup). Check they are still listed under "Consigned stock at MaxTheService". | The phone is listed with 2 units; the agreement is still "Active". |
 
+### M-5-05 Unsold stock goes back: the owner asks for it, the warehouse hands it over, the owner confirms
+
+**Who:** owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** As M-5-04: Mobile Distributor has an active consignment agreement (unsold stock goes back after 180 days, at the owner's cost) and 3 of a phone consigned to the MaxTheService warehouse at Rs 40,000 a unit, listed for sale.  
+**Covers:** MKT-R20.5, MKT-R4.6, MKT-R2.1  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5e-01, MKT-5e-02, MKT-5e-03
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". Under the phone read the line about unsold stock, then type 2 in "Units to go back" and press "Ask for them back". | The line reads "Unsold stock goes back after 180 days, at the cost of the owner" and "Up to 3 can go back now …". After the press: "Asked for back as RT-…: 2 × …, at the owner's cost. No longer sold; the warehouse hands it over next." The return reads "RT-… · 2 · asked for by the owner · at the cost of the owner  Waiting to be handed over", and the listing now shows 1 available. |
+| 2 | As owner.warehouse@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". On RT-… type cost 500 and press "Hand over"; then type the carrier's reference "TCS 5521-0916" and press "Hand over" again. | Without a reference: "Give the carrier's reference, or who collected it." (the cost you typed stays). With it: "Handed over: RT-…, Rs 500.00 charged to the owner. The owner confirms when it arrives." The return reads "Handed over · TCS 5521-0916 · Rs 500.00 (charged to the owner)". |
+| 3 | As owner.mobile@myplus.com: look at your marketplace account (Settlement) and the phone's stock. | Your account has a debit of Rs 500.00 with reference RT-… ("Consigned stock sent back, RT-…"). The phone's free stock is unchanged: it has not arrived yet. |
+| 4 | Still as owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". On RT-… press "Received" and confirm. | The browser asks "Confirm 2 arrived back? They go back into your stock for sale." After OK: "Back in your stock: 2 × … (RT-…)." The return reads "Back with the owner"; the row holds 1. The phone's free stock is 2 more; its stock on hand is unchanged (it never left your books). |
+| C1 | Take the last phone back the same way: as owner.mobile@myplus.com ask for 1 back; as owner.warehouse@myplus.com hand it over with cost 0 and reference "Collected"; as owner.mobile@myplus.com press "Received". | The phone is no longer listed under "Consigned stock at MaxTheService": nothing of it is held, and no cost was charged for this one. |
+
 
 ## MKT-6
 

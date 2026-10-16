@@ -561,3 +561,20 @@ writes the unit off the owner's books.
 
 **Defect found and fixed while running:** a claim the operator rejected gave its units back to "claimable", so the owner
 could raise the same claim again and the dispute never ended. Rejected units can now only be written off.
+
+## 28. MKT-5e — unsold consigned stock goes back to its owner (run 2026-10-16)
+
+**Gate `mkt-5e-unsold-returns.cy.js`: 5 / 5** on the usual clock, after marketplace-service (V44, started under
+`ddl-auto=validate`) and the monolith were rebuilt and restarted. The 180-day term is reached by dating one lot's arrival
+back 181 days on the local database (Cypress task `ageConsignedLot`; the Cypress container now reaches the local Docker).
+Regression: MKT-5d 6/6, MKT-5c 6/6, MKT-5b 6/6. Unit: marketplace-service 509/509.
+
+**Walk M-5-05: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at: the
+owner asks for 2 of 3 back before the term (at its cost) and the listing drops to 1 available; the warehouse's hand-over
+without a reference is refused with the cost kept, then goes through with Rs 500 charged to the owner (a debit with the
+return number); the owner confirms receipt, its free stock rises by 2 with stock on hand unchanged; the cleanup takes
+the last one back at no cost and the row leaves the screen.
+
+**Found while running (test side only):** the first run failed 3 of 5 on the spec itself (a return number read before
+it existed, a `.then()` yielding undefined, and a stale press now answered "already back with the owner", the clearer
+sentence). Fixed in the spec; nothing in the product changed.

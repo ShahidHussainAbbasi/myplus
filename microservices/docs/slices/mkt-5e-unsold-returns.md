@@ -1,6 +1,6 @@
 # Slice MKT-5e — unsold consigned stock goes back to its owner
 
-**Status:** IN PROGRESS 2026-10-16. Migration V44 (`mkt_consigned_return`). Gate `mkt-5e-unsold-returns.cy.js` (5), walk M-5-05.
+**Status:** VERIFIED 2026-10-16. Migration V44 (`mkt_consigned_return`). Unit: marketplace-service 509 (11 new). Gate 5/5 live, walk M-5-05 recorded ([live verification](../marketplace/live-verification-2026-10-03.md) §28). Gate `mkt-5e-unsold-returns.cy.js` (5).
 
 Requirements: **MKT-R20.5** (unsold-stock return), **MKT-R4.6** (the agreement's return-of-unsold-stock term: after how
 many days, at whose cost), **MKT-R2.1** (the stock is the consignor's until it sells). Depends on 5a (the terms), 5b (the
