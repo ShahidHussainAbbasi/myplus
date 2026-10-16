@@ -64,17 +64,29 @@ public class MarketplaceOfferService {
     /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
     private final MarketplaceAuditService audit;
 
+    static final String CONSIGNED_ELSEWHERE = "Consigned stock is listed and priced under Consigned stock at MaxTheService, "
+            + "not on this form.";
+
+    /** MKT-5c — a CONSIGNMENT offer is changed only through {@link ConsignedSaleService#list}, under its agreement. */
+    static void consignedElsewhere(MarketplaceOffer o) {
+        if (StockSourceType.CONSIGNMENT.name().equals(o.getStockSourceType())) throw new ValidationException(CONSIGNED_ELSEWHERE);
+    }
+
     // ── seller ─────────────────────────────────────────────────────────────────────────────────────────
 
     @Transactional
     public OfferDTOs.Offer save(OfferDTOs.SaveRequest req) {
         sellers.assertActiveSeller();
         if (req == null) throw new ValidationException("Nothing to save.");
+        // MKT-5c: consigned stock is listed from the consigned stock itself, under its agreement, never from this form
+        if (req.stockSourceType() != null && StockSourceType.CONSIGNMENT.name().equalsIgnoreCase(req.stockSourceType().trim()))
+            throw new ValidationException(CONSIGNED_ELSEWHERE);
         Long org = access.org();
         MarketplaceOffer o;
         if (req.id() == null) {
             if (req.mktProductId() == null) throw new ValidationException("Choose the marketplace product.");
-            if (offers.findByOrganizationIdAndMktProductId(org, req.mktProductId()).isPresent())
+            if (offers.findFirstByOrganizationIdAndMktProductIdAndStockSourceTypeNot(org, req.mktProductId(),
+                    StockSourceType.CONSIGNMENT.name()).isPresent())
                 throw new ValidationException("You already have an offer for this product. Edit that one.");
             o = new MarketplaceOffer();
             o.setOrganizationId(org);
@@ -86,6 +98,7 @@ public class MarketplaceOfferService {
                     .orElseThrow(() -> new ResourceNotFoundException("No such offer."));
             if (req.version() != null && !req.version().equals(o.getVersion()))
                 throw new OptimisticLockingFailureException("offer changed");
+            consignedElsewhere(o);
         }
 
         MarketplaceProduct product = products.findById(o.getMktProductId())
@@ -148,6 +161,7 @@ public class MarketplaceOfferService {
         sellers.assertActiveSeller();
         MarketplaceOffer o = offers.findByIdAndOrganizationId(id, access.org())
                 .orElseThrow(() -> new ResourceNotFoundException("No such offer."));
+        consignedElsewhere(o);
         if (o.getWarrantyPolicyId() == null || o.getReturnPolicyId() == null)
             throw new ValidationException("Choose a warranty and a return policy before sending the offer for approval.");
         String before = o.getApprovalStatus();

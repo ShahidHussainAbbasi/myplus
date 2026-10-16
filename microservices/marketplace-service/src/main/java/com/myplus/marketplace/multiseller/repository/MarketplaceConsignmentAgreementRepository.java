@@ -23,4 +23,9 @@ public interface MarketplaceConsignmentAgreementRepository extends JpaRepository
     /** The pair's agreement in one status: at most one OFFERED and one ACTIVE at a time (the service keeps it so). */
     Optional<MarketplaceConsignmentAgreement> findFirstByConsignorOrgIdAndConsigneeOrgIdAndStatusOrderByIdDesc(
             Long consignor, Long consignee, String status);
+
+    /** MKT-5c — the agreement row locked: checkouts of one consignor's stock take their turn, so two never sell the same unit. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select c from MarketplaceConsignmentAgreement c where c.id = :id")
+    Optional<MarketplaceConsignmentAgreement> lockById(@org.springframework.data.repository.query.Param("id") Long id);
 }

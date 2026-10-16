@@ -84,6 +84,8 @@ public class SellerOrderService {
     /** MKT-4b: a supplier's part must leave within a day of Accept; stamped here, shown on its row. */
     private final SupplierDispatchService dispatch;
     private final com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;
+    /** MKT-5c: the warehouse's sale of consigned stock moves it out of its owner's books first. */
+    private final ConsignedSaleService consignedSale;
 
     @Transactional(readOnly = true)
     public PageResponse<MarketplaceOrderDTOs.SellerOrderView> mine(String status, Integer page, Integer size) {
@@ -132,6 +134,9 @@ public class SellerOrderService {
         Map<Long, List<String>> serials = req == null || req.serials() == null ? Map.of() : req.serials();
         checkSerials(ls, serials);                                     // before anything changes
 
+        // MKT-5c: consigned units become the warehouse's (the owner's sale to MaxTheService, its purchase) before its
+        // own sale takes them; a refusal leaves the part OFFERED and its own hold untouched
+        consignedSale.sell(so, order.getOrderNo(), ls, serials);
         release(so);
         OrderDTO sale;
         try {
@@ -171,6 +176,7 @@ public class SellerOrderService {
             MarketplaceCheckoutService.follow(parent, partsOf(parent.getId(), fresh), null);      // CONFIRMED, once
             orders.save(parent);
         });
+        consignedSale.resync(ls);                                       // MKT-5c: the listing's count, now
         MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
         if (SellerOrder.ACCEPTED.name().equals(done.acceptanceStatus()))                // a refused sale stays OFFERED: no row
             audit.event("MKT_ORDER_ACCEPTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
@@ -209,6 +215,7 @@ public class SellerOrderService {
             orders.save(parent);
         });
         release(sellerOrders.findById(so.getId()).orElseThrow());     // after the commit: the stock goes back
+        consignedSale.resync(lines.findBySellerOrderIdOrderByIdAsc(so.getId()));   // MKT-5c: free to promise again
         afterShort(so.getId(), moving[0]);
         MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
         if (SellerOrder.REJECTED.name().equals(done.acceptanceStatus()))

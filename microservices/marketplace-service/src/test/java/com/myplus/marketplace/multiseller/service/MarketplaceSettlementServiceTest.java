@@ -683,4 +683,26 @@ class MarketplaceSettlementServiceTest {
         assertThatThrownBy(() -> pay("1.00", "x", null, "k")).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> svc.codReconciliation()).isInstanceOf(AccessDeniedException.class);
     }
+
+    @Test
+    @DisplayName("[MKT-R15.4] MKT-5c: a consigned line settles to its OWNER, and MaxTheService collected the money even on cash")
+    void consignedSettlesToTheOwner() {
+        com.myplus.marketplace.multiseller.entity.MarketplaceOrderLine l = new com.myplus.marketplace.multiseller.entity.MarketplaceOrderLine();
+        l.setStockSourceType("CONSIGNMENT");
+        l.setSellerOrganizationId(23L);
+        l.setStockOwnerOrganizationId(7L);
+        l.setLineTotal(new BigDecimal("52000.00"));
+        l.setCommissionBasis("ITEMS");
+        l.setCommissionRate(new BigDecimal("0.100000"));
+        com.myplus.marketplace.multiseller.entity.MarketplaceOrder cod = new com.myplus.marketplace.multiseller.entity.MarketplaceOrder();
+        cod.setPaymentMode("COD");
+        assertThat(MarketplaceSettlementService.payee(l)).isEqualTo(7L);
+        var f = MarketplaceSettlementService.figures(l, cod, true, List.of());
+        assertThat(f.sellerCollected()).isFalse();
+        assertThat(f.breakdown().commission()).isEqualByComparingTo("5200.00");
+        assertThat(f.breakdown().merchantPayable()).isEqualByComparingTo("46800.00");
+        l.setStockSourceType("MERCHANT");
+        assertThat(MarketplaceSettlementService.payee(l)).isEqualTo(23L);
+        assertThat(MarketplaceSettlementService.figures(l, cod, true, List.of()).sellerCollected()).isTrue();
+    }
 }

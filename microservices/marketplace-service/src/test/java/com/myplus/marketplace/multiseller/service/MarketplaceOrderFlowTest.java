@@ -98,6 +98,7 @@ class MarketplaceOrderFlowTest {
     @Mock com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;   // MKT-2b
     @Mock com.myplus.marketplace.repository.OrderRepository storeOrderRows;                         // MKT-3b
     @Mock com.myplus.marketplace.repository.ShipmentRepository shipmentRows;
+    @Mock ConsignedSaleService consignedSale;                                                     // MKT-5c
     SupplierDispatchService dispatch;                                                              // MKT-4b                        // MKT-3b
 
     MarketplaceCheckoutService checkout;
@@ -124,11 +125,11 @@ class MarketplaceOrderFlowTest {
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
                 lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider,
                 routing = new LiveRouting(trade, java.time.Duration.ofMillis(1000), java.time.Duration.ofMillis(2000), 3,
-                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding, storeOrderRows, shipmentRows, dispatch);
+                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding, storeOrderRows, shipmentRows, dispatch, consignedSale);
         shortages = new MarketplaceShortageService(shortageRows, sellerOrders, orders, lines, offers, projections, products,
                 publicOffers, settings, checkout, payments, trade, access, audit, txManager, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
-                access, txManager, audit, shortages, dispatch, shortageRows);
+                access, txManager, audit, shortages, dispatch, shortageRows, consignedSale);
         lenient().when(sellerSideProvider.getObject()).thenReturn(sellerSide);
         sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager, shortages, dispatch);
 

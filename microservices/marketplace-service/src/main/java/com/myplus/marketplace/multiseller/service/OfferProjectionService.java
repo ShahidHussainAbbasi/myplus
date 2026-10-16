@@ -67,6 +67,9 @@ public class OfferProjectionService {
     private final InventoryClient inventory;
     private final ApplicationEventPublisher events;
     private final PlatformTransactionManager txManager;
+    /** MKT-5c: consigned stock is counted here, not in anyone's inventory (it is set aside in the owner's books). */
+    private final com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository consigned;
+    private final com.myplus.marketplace.multiseller.repository.MarketplaceOrderLineRepository lines;
 
     /** Re-derive one offer's published row. Call inside the transaction that changed the offer, seller or product. */
     @Transactional
@@ -78,7 +81,9 @@ public class OfferProjectionService {
         p.setMktProductId(offer.getMktProductId());
         p.setSellerOrganizationId(offer.getSellerOrganizationId());
         // MKT-3a: platform stock is sold and shipped by MaxTheService, whatever the warehouse organisation is called
+        // MKT-5c: so is consigned stock — the warehouse sells it; the owner is never a public field
         p.setSellerDisplayName(com.myplus.marketplace.multiseller.domain.StockSourceType.PLATFORM.name().equals(offer.getStockSourceType())
+                || com.myplus.marketplace.multiseller.domain.StockSourceType.CONSIGNMENT.name().equals(offer.getStockSourceType())
                 ? PlatformWarehouseService.NAME : seller == null ? "" : seller.getDisplayName());
         p.setStockSourceType(offer.getStockSourceType());
         // MKT-4a (R4.4): supplier stock reads as confirmed only when the operator trusts that supplier's counts
@@ -139,7 +144,16 @@ public class OfferProjectionService {
             MarketplaceOfferProjection p = projections.findById(offerId).orElse(null);
             if (p == null || !MarketplaceOfferProjection.LIVE.equals(p.getStatus())) return null;
             MarketplaceOffer o = offers.findById(offerId).orElse(null);
-            return o == null ? null : new long[] {o.getOrganizationId(), o.getSourceProductId()};
+            if (o == null) return null;
+            if (com.myplus.marketplace.multiseller.domain.StockSourceType.CONSIGNMENT.name().equals(o.getStockSourceType())) {
+                // MKT-5c: what the warehouse holds for this owner, less what shoppers were already promised; local, so
+                // it is always confirmed. Checkout re-counts under the agreement's lock: this figure is advisory too.
+                p.setAvailableQty(BigDecimal.valueOf(consignedAvailable(o)));
+                p.setLastSyncAt(LocalDateTime.now());
+                projections.save(p);
+                return null;
+            }
+            return new long[] {o.getOrganizationId(), o.getSourceProductId()};
         });
         if (target == null) return;
         Map<String, Float> detail = AsOrg.call(target[0], () -> inventory.getSellableDetail(target[1]));
@@ -150,6 +164,13 @@ public class OfferProjectionService {
             p.setLastSyncAt(LocalDateTime.now());
             projections.save(p);
         }));
+    }
+
+    /** MKT-5c — units of a CONSIGNMENT offer free to promise: the ledger balance less open orders' lines, never below 0. */
+    long consignedAvailable(MarketplaceOffer o) {
+        long held = consigned.balance(o.getStockOwnerOrganizationId(), o.getCustodianOrganizationId(), o.getMktProductId());
+        long promised = lines.consignedPromised(o.getStockOwnerOrganizationId(), o.getCustodianOrganizationId(), o.getMktProductId());
+        return Math.max(0, held - promised);
     }
 
     private TransactionTemplate tx() {

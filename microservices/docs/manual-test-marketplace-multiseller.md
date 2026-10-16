@@ -1672,17 +1672,22 @@
 | 2 | Look at the custodian's statement. | No debit until the claim is approved through the dispute step. |
 | C1 | Withdraw the test claim. | Withdrawn. |
 
-### M-5-03 A consigned phone sells: owner and holder are different
+### M-5-03 A consigned phone sells: MaxTheService sells it, the owner is paid after the return days
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 5. A seller has an active consignment agreement (M-5-01) and has consigned phones to the MaxTheService warehouse (M-5-04).  
+**Who:** owner.mobile@myplus.com (Mobile Distributor) → Customer (incognito window) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** As M-5-04: Mobile Distributor has an active consignment agreement where it sets the selling price, ownership passes on sale and MaxTheService keeps 10%, and 2 of a phone consigned to the MaxTheService warehouse (5 on its own shelf).  
 **Covers:** MKT-R2.1, MKT-R4.5, MKT-R15.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5c-02, MKT-5c-03, MKT-5c-04, MKT-5c-05
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Sell one consigned phone. | Owner Shahzad, custodian the warehouse; Shahzad is owed the price less MaxTheService's commission, after the sell-through report and the return period. |
-| C1 | Return the unsold phones; end the agreement. | Ended. |
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService". On the phone's row press "List for sale". Selling price 52000, cities "Karachi", 48 hours, a warranty and a return policy → "Save listing". | "Listed for sale by MaxTheService at Rs 52,000.00, under CA-…. Shoppers see 2 available." The row reads 2 units held, 0 sold, "Rs 52,000.00 a unit, 2 available". |
+| 2 | Customer: open the phone (Karachi). Choose the offer from MaxTheService that shows 2 available, press "Buy from MaxTheService". Name "Sana", phone 030092841953, address "9 Clifton" → "Place order". | The offer reads "Sold and shipped by MaxTheService"; Mobile Distributor is not named on it. After Place order: "Waiting for MaxTheService to confirm" and an order number MKT-…. |
+| 3 | As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders" → on the order press Accept. | The row turns to "Accepted" with "Invoice INV-…". Behind it Mobile Distributor sold the phone to MaxTheService for Rs 46,800 (52,000 less 10%) and MaxTheService bought it; then MaxTheService sold it to Sana. |
+| 4 | As owner.mobile@myplus.com: Sale → Marketplace → "Consigned stock at MaxTheService", then the phone's stock. | The row reads 1 unit held, 1 sold, "Rs 52,000.00 a unit, 1 available". The phone counts 4 in your stock (one sold to MaxTheService), of which 3 are free to sell: the 1 still at the warehouse is set aside. |
+| 5 | The warehouse packs, ships and delivers it (its own orders screen), and MaxTheService runs "Settle now". Then, as owner.mobile@myplus.com: Sale → Marketplace → "Settlement statement" → "Show statement". | The order is on Mobile Distributor's statement (not the warehouse's): "Return days running", Customer paid Rs 52,000.00, Commission Rs 5,200.00, Payable Rs 46,800.00, with the date it becomes payable. |
+| C1 | Nothing to undo through the screens: the sale is real. The 1 phone left stays consigned until the unsold-returns slice. Check it is still listed with 1 available. | The row reads 1 unit held, 1 sold, "… 1 available". |
 
 ### M-5-04 A seller consigns phones to the MaxTheService warehouse: they stay its own
 

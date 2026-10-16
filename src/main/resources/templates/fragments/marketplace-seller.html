@@ -124,10 +124,25 @@
 							<th th:text="#{ui.mktColProduct}">Product</th>
 							<th th:text="#{ui.mktHeldUnits}">Units held</th>
 							<th th:text="#{ui.mktHeldValue}">Declared value</th>
+							<th th:text="#{ui.mktHeldSold}">Sold</th>
+							<th th:text="#{ui.mktHeldListing}">For sale</th>
+							<th></th>
 						</tr></thead>
 						<tbody></tbody>
 					</table>
 				</div>
+				<!-- MKT-5c: list consigned stock for sale. MaxTheService sells it; only the party the agreement names sets the
+				     price, so the button shows on that side only. Filled by mktListOpen; saved by mktListSave. -->
+				<form id="mktListForm" class="form-inline" style="display:none;margin-top:6px" onsubmit="mktListSave();return false;">
+					<h5 style="font-weight:700" id="mktListTitle" th:text="#{ui.mktListTitle}">List consigned stock for sale</h5>
+					<input id="mktListPrice" type="number" min="0.01" step="0.01" class="form-control input-sm" style="width:130px" inputmode="decimal" th:attr="placeholder=#{ui.mktOfferPrice},aria-label=#{ui.mktOfferPrice}">
+					<input id="mktListArea" type="text" maxlength="500" class="form-control input-sm" style="width:200px" th:attr="placeholder=#{ui.mktListAreas},aria-label=#{ui.mktListAreas}">
+					<input id="mktListHours" type="number" min="1" max="720" class="form-control input-sm" style="width:110px" value="48" th:attr="placeholder=#{ui.mktOfferPromise},aria-label=#{ui.mktOfferPromise}">
+					<select id="mktListWarranty" class="form-control input-sm" style="max-width:200px" th:attr="aria-label=#{ui.mktOfferWarranty}"></select>
+					<select id="mktListReturn" class="form-control input-sm" style="max-width:200px" th:attr="aria-label=#{ui.mktOfferReturn}"></select>
+					<button type="submit" id="mktListSaveBtn" class="btn btn-sm btn-primary" th:text="#{ui.mktListSave}">Save listing</button>
+					<button type="button" id="mktListCancel" class="btn btn-sm btn-default" onclick="$('#mktListForm').hide()" th:text="#{ui.mktListCancel}">Close</button>
+				</form>
 			</div>
 		</div>
 		<!-- MKT-5a: consignment agreements — the terms MaxTheService offers for holding and selling a seller's stock in its

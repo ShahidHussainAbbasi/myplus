@@ -28,6 +28,10 @@ public class MarketplaceConsignedStock {
 
     /** Received at the warehouse from the consignor (5b). */
     public static final String RECEIVED = "RECEIVED";
+    /** MKT-5c — sold by the warehouse: the owner's sale to MaxTheService and MaxTheService's purchase, one per order line and lot. */
+    public static final String SOLD = "SOLD";
+    /** MKT-5c — a sale to MaxTheService that had to be voided (quantity 0): the next try is a new attempt with new keys. */
+    public static final String VOIDED = "VOIDED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,6 +72,26 @@ public class MarketplaceConsignedStock {
 
     @Column(name = "hold_key", length = 64)
     private String holdKey;
+
+    /** MKT-5c (V42): the order line a SOLD or VOIDED row belongs to; 0 on a RECEIVED row. */
+    @Column(name = "order_line_id", nullable = false)
+    private Long orderLineId = 0L;
+
+    /** MKT-5c (V42): which try of the same line and lot; 0 on a RECEIVED row. */
+    @Column(name = "attempt", nullable = false)
+    private Integer attempt = 0;
+
+    /** MKT-5c (V42): the owner's invoice to MaxTheService for a SOLD row. */
+    @Column(name = "sale_invoice_no", length = 64)
+    private String saleInvoiceNo;
+
+    /** MKT-5c (V42): the warehouse's purchase from the owner for a SOLD row. */
+    @Column(name = "purchase_id")
+    private Long purchaseId;
+
+    /** MKT-5c (V42): what MaxTheService owes the owner a unit for a SOLD row: the selling price less the commission. */
+    @Column(name = "unit_price", precision = 19, scale = 2)
+    private BigDecimal unitPrice;
 
     @Column(name = "created_by_user_id")
     private Long createdByUserId;

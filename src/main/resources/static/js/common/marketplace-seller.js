@@ -610,7 +610,10 @@
 		else if (!$('#mktTransferForm').is(':hidden')) $('#mktTransferHint').text(tr('ui.js.mktTrOutHint', 'MaxTheService buys it: when the warehouse receives it, it is a sale in your books and MaxTheService owes you the total.'));
 	}
 
-	/** MKT-5b — consigned stock held at the warehouse: the owner sees its own; the warehouse sees every owner's. */
+	/**
+	 * MKT-5b — consigned stock held at the warehouse: the owner sees its own; the warehouse sees every owner's. MKT-5c — with
+	 * the units sold and the listing; the party the agreement lets set the price gets List for sale / Change.
+	 */
 	function heldTable(rows, warehouse) {
 		var $tb = $('#mktHeld tbody').empty();
 		$('#mktHeldBox').toggle(rows.length > 0);
@@ -621,8 +624,63 @@
 			$('<td style="white-space:normal"></td>').text(h.productName).appendTo($tr);
 			$('<td class="mkt-held-units" style="font-variant-numeric:tabular-nums"></td>').text(h.units).appendTo($tr);
 			$('<td style="font-variant-numeric:tabular-nums"></td>').text(money(h.value)).appendTo($tr);
+			$('<td class="mkt-held-sold" style="font-variant-numeric:tabular-nums"></td>').text(h.sold || 0).appendTo($tr);
+			var l = h.listing, $l = $('<td class="mkt-held-listing" style="white-space:normal"></td>').appendTo($tr);
+			if (!l) $l.text(tr('ui.js.mktListNone', 'Not listed'));
+			else {
+				$l.text(tr('ui.js.mktListLive', '{0} a unit, {1} available').replace('{0}', money(l.price)).replace('{1}', l.available));
+				if (!l.live) $l.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktListHidden', 'Not shown to shoppers')));
+			}
+			var $a = $('<td></td>').appendTo($tr);
+			if (h.canList) $('<button type="button" class="btn btn-xs btn-default mkt-held-list"></button>')
+				.text(l ? tr('ui.js.mktListChange', 'Change') : tr('ui.js.mktListNew', 'List for sale'))
+				.on('click', function () { mktListOpen(h); }).appendTo($a);
 			$tb.append($tr);
 		});
+	}
+
+	var mktListing = null;
+
+	/** MKT-5c — the listing form for one held row: the terms it has, or the first listing's defaults. */
+	function mktListOpen(h) {
+		var l = h.listing || {};
+		mktListing = { consignorOrgId: h.consignorOrgId, mktProductId: h.mktProductId, version: l.version == null ? null : l.version };
+		$('#mktListTitle').text(tr('ui.js.mktListTitle', 'List consigned stock for sale') + ': ' + h.productName);
+		$('#mktListPrice').val(l.price == null ? '' : l.price);
+		$('#mktListArea').val(l.deliveryAreas || '');
+		$('#mktListHours').val(l.promiseHours || 48);
+		$.ajax({ url: ctx() + 'mkt/sellerPolicies', dataType: 'json' }).done(function (res) {
+			var list = typeof global.apiList === 'function' ? global.apiList(res) : ((res && res.data) || []);
+			var $w = $('#mktListWarranty').empty(), $r = $('#mktListReturn').empty();
+			(list || []).forEach(function (p) {
+				($(p.policyType === 'WARRANTY' ? $w : $r)).append($('<option></option>').attr('value', p.id).text(p.name));
+			});
+			if (l.warrantyPolicyId) $w.val(String(l.warrantyPolicyId));
+			if (l.returnPolicyId) $r.val(String(l.returnPolicyId));
+			if ($.fn.selectpicker) { $w.selectpicker('refresh'); $r.selectpicker('refresh'); }
+		});
+		$('#mktListForm').show();
+		$('#mktListPrice').trigger('focus');
+	}
+
+	function mktListSave() {
+		if (!mktListing) return;
+		var body = $.extend({}, mktListing, { price: $('#mktListPrice').val() || null, deliveryAreas: $('#mktListArea').val() || null,
+			promiseHours: Number($('#mktListHours').val()) || null, warrantyPolicyId: Number($('#mktListWarranty').val()) || null,
+			returnPolicyId: Number($('#mktListReturn').val()) || null });
+		var $b = $('#mktListSaveBtn'), label = $b.text();
+		$b.prop('disabled', true);
+		var $msg = $('#mktTransferMsg').text('').css('color', '');
+		var refused = function (why) { $msg.css('color', '#b3261e').text(why); };
+		$.ajax({ url: ctx() + 'mkt/consignedList', type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { refused(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var said = message(res, '');
+				$('#mktListForm').hide();
+				mktTransfersLoad().done(function () { $('#mktTransferMsg').css('color', '#1b5e20').text(said); });
+			})
+			.fail(function (xhr) { refused(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
 	}
 
 	function transferRow(t, warehouse) {
@@ -998,6 +1056,7 @@
 	global.mktTransfersLoad = mktTransfersLoad;
 	global.mktTransferSend = mktTransferSend;
 	global.mktTrKindChanged = mktTrKindChanged;
+	global.mktListSave = mktListSave;
 	global.mktConsignLoad = mktConsignLoad;
 	global.mktStatementLoad = mktStatementLoad;
 	global.mktPerfLoad = mktPerfLoad;

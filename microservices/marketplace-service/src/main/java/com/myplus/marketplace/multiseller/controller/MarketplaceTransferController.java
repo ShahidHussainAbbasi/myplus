@@ -9,6 +9,7 @@ import com.myplus.common.web.ApiResponse;
 import com.myplus.marketplace.multiseller.dto.TransferDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceStockTransfer;
 import com.myplus.marketplace.multiseller.service.PlatformWarehouseService;
+import com.myplus.marketplace.multiseller.service.ConsignedSaleService;
 import com.myplus.marketplace.multiseller.service.StockTransferService;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,9 @@ import lombok.RequiredArgsConstructor;
  *   POST /mkt/seller/transfers/cancel     seller: {transferNo, version}
  *   POST /mkt/seller/transfers/reject     warehouse: {transferNo, version, reason}
  *   POST /mkt/seller/transfers/receive    warehouse: {transferNo, version, serials[]}
+ *   POST /mkt/seller/consigned/list       MKT-5c, whoever the agreement lets set the price: {consignorOrgId (warehouse
+ *                                         only), mktProductId, price, deliveryAreas, promiseHours, warrantyPolicyId,
+ *                                         returnPolicyId, version}
  * </pre>
  */
 @RestController
@@ -29,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class MarketplaceTransferController {
 
     private final StockTransferService transfers;
+    private final ConsignedSaleService consigned;
 
     @GetMapping("/mkt/seller/transfers")
     public ApiResponse<TransferDTOs.View> view() {
@@ -63,5 +68,13 @@ public class MarketplaceTransferController {
                     + "'s stock on your shelf: nothing is owed until it sells.");
         return ApiResponse.success(t, "Received. It is in your stock, and you owe " + t.sellerName() + " Rs "
                 + String.format(java.util.Locale.ROOT, "%,.2f", t.total()) + ".");
+    }
+
+    @PostMapping("/mkt/seller/consigned/list")
+    public ApiResponse<TransferDTOs.Listing> list(@RequestBody(required = false) TransferDTOs.ListRequest body) {
+        TransferDTOs.Listing l = consigned.list(body);
+        return ApiResponse.success(l, "Listed for sale by " + PlatformWarehouseService.NAME + " at Rs "
+                + String.format(java.util.Locale.ROOT, "%,.2f", l.price()) + ", under " + l.agreementNo()
+                + ". Shoppers see " + l.available() + " available.");
     }
 }

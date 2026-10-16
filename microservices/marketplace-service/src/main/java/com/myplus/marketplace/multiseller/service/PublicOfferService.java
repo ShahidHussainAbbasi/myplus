@@ -164,7 +164,8 @@ public class PublicOfferService {
                 p.getWarrantyExcludes(), p.getReturnDays(), List.copyOf(areas(p.getDeliveryAreas())), p.getLastSyncAt(),
                 p.getLastSyncAt() == null ? null
                         : Math.max(0, java.time.Duration.between(p.getLastSyncAt(), java.time.LocalDateTime.now()).getSeconds()),
-                StockSourceType.PLATFORM.name().equals(p.getStockSourceType()),                 // MKT-3a
+                StockSourceType.PLATFORM.name().equals(p.getStockSourceType())                  // MKT-3a
+                        || StockSourceType.CONSIGNMENT.name().equals(p.getStockSourceType()),   // MKT-5c: sold by the warehouse
                 StockSourceType.SUPPLIER.name().equals(p.getStockSourceType()),                 // MKT-4a: dropship
                 // (named so, not "supplier": R9.2 keeps a shop's own suppliers out of every public field, by name)
                 !Boolean.FALSE.equals(p.getStockConfirmed()),

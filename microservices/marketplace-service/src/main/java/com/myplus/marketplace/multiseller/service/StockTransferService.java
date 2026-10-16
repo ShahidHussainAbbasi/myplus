@@ -94,6 +94,8 @@ public class StockTransferService {
     private final MarketplaceAuditService audit;
     private final ConsignmentAgreementService consignments;
     private final MarketplaceConsignedStockRepository consigned;
+    /** MKT-5c: the held rows carry their listing; a receipt re-counts it. */
+    private final ConsignedSaleService consignedSale;
 
     // ── both sides ────────────────────────────────────────────────────────────────────────────────────
 
@@ -109,23 +111,20 @@ public class StockTransferService {
             return new TransferDTOs.View(true, true, List.of(), in.stream()
                     .map(t -> toDto(t, names.computeIfAbsent(t.getSellerOrgId(), this::sellerName),
                             Boolean.TRUE.equals(serial.get(t.getId()))))
-                    .toList(), null, held(org, names));
+                    .toList(), null, held(org, org, names));
         }
         List<MarketplaceStockTransfer> out = transfers.findBySellerOrgIdOrderByIdDesc(org, PageRequest.of(0, PAGE)).getContent();
         String under = consignments.activeFor(org, warehouse).map(MarketplaceConsignmentAgreement::getAgreementNo).orElse(null);
         return new TransferDTOs.View(false, true, carried(org, warehouse), out.stream()
-                .map(t -> toDto(t, null, false)).toList(), under, held(org, new HashMap<>()));
+                .map(t -> toDto(t, null, false)).toList(), under, held(org, warehouse, new HashMap<>()));
     }
 
-    /** MKT-5b — the consigned stock ledger summed per owner and product, for either side of the pair. */
-    List<TransferDTOs.Held> held(Long org, Map<Long, String> names) {
-        List<TransferDTOs.Held> out = new ArrayList<>();
-        for (Object[] r : consigned.heldFor(org)) {
-            Long owner = (Long) r[0];
-            out.add(new TransferDTOs.Held(names.computeIfAbsent(owner, this::sellerName), (Long) r[1], (String) r[2],
-                    ((Number) r[3]).longValue(), r[4] == null ? BigDecimal.ZERO : new BigDecimal(r[4].toString()).setScale(2, RoundingMode.HALF_UP)));
-        }
-        return out;
+    /**
+     * MKT-5b — the consigned stock ledger summed per owner and product, for either side of the pair. MKT-5c — with the
+     * units sold, the listing, and whether this side may list it.
+     */
+    List<TransferDTOs.Held> held(Long org, Long warehouse, Map<Long, String> names) {
+        return consignedSale.decorate(org, warehouse, consigned.heldFor(org), owner -> names.computeIfAbsent(owner, this::sellerName));
     }
 
     // ── the seller ────────────────────────────────────────────────────────────────────────────────────
@@ -355,6 +354,7 @@ public class StockTransferService {
         t.setDecidedByUserId(access.userId());
         t.setDecidedAt(LocalDateTime.now());
         MarketplaceStockTransfer done = transfers.save(t);
+        consignedSale.resync(done.getSellerOrgId(), done.getWarehouseOrgId(), done.getMktProductId());   // MKT-5c
         audit.event("MKT_CONSIGN_RECEIVED", "MKT_STOCK_TRANSFER", done.getTransferNo(), done.getSellerOrgId(),
                 MarketplaceAuditService.Actor.SELLER, MarketplaceStockTransfer.OFFERED, MarketplaceStockTransfer.RECEIVED,
                 total(done), "consigned under " + agreement.getAgreementNo() + ", hold " + holdKey);
