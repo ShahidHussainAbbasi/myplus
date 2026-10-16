@@ -82,6 +82,9 @@
                 <!-- MKT-2e: how each seller handles its orders. A flag is a record, never a sanction (R12.4). -->
                 <button type="button" class="btn btn-default" id="platMktPerformanceBtn"
                         th:text="#{ui.mktPerfTitle}">Seller performance</button>
+                <!-- MKT-5a: consignment agreements with sellers (the warehouse holds and sells their stock). -->
+                <button type="button" class="btn btn-default" id="platMktConsignBtn"
+                        th:text="#{ui.mktConsignTitle}">Consignment agreements</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -264,6 +267,39 @@
         <!-- ── MKT-2e: seller performance ─────────────────────────────────────────────────────────── -->
         <!-- Read from the orders placed in the window, never stored. Flags are notes for the operator: nothing is
              stopped or charged by them (R12.4). -->
+        <!-- ── MKT-5a: consignment agreements ─────────────────────────────────────────────────────── -->
+        <!-- R4.6: every term is set before any stock is consigned. The seller accepts here or declines; terms are never
+             edited, newer terms replace the active ones when accepted. marketplace-sellers.js fills it. -->
+        <section id="platMktConsign" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back plat-mkt-back">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktConsignTitle}">Consignment agreements</h3>
+            <p class="plat__hint" th:text="#{ui.mktConsignOpHint}">Offer a seller the terms on which the MaxTheService warehouse holds and sells its stock. Nothing can be consigned until the seller accepts. Terms are never changed: offer new ones instead.</p>
+            <form id="mktCaForm" class="mkt-ca-form" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 14px;margin-bottom:10px" onsubmit="return false;">
+                <label><span th:text="#{ui.mktCaL1}">Seller</span><select id="mktCaSeller" class="form-control input-sm"></select></label>
+                <label><span th:text="#{ui.mktCaL2}">Ownership passes</span><select id="mktCaOwnership" class="form-control input-sm"><option value="ON_SALE" th:text="#{ui.mktCaO1}">When it is sold</option><option value="ON_DELIVERY" th:text="#{ui.mktCaO2}">On delivery</option></select></label>
+                <label><span th:text="#{ui.mktCaL3}">Selling price set by</span><select id="mktCaPriceBy" class="form-control input-sm"><option value="CONSIGNOR" th:text="#{ui.mktCaO3}">The owner</option><option value="CONSIGNEE" th:text="#{ui.mktCaO4}">MaxTheService</option></select></label>
+                <label><span th:text="#{ui.mktCaL4}">MaxTheService keeps (% of each sale)</span><input id="mktCaCommission" type="number" min="0" max="50" step="0.01" value="10" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL5}">Settle every (days)</span><input id="mktCaSettle" type="number" min="1" max="90" value="7" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL6}">Reconcile every (days)</span><input id="mktCaReconcile" type="number" min="1" max="365" value="30" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL7}">Count the stock every (days)</span><input id="mktCaCount" type="number" min="1" max="365" value="30" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL8}">Shrinkage tolerated (%)</span><input id="mktCaTolerance" type="number" min="0" max="10" step="0.01" value="1" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL9}">Damage borne by</span><select id="mktCaDamage" class="form-control input-sm"><option value="CONSIGNEE" th:text="#{ui.mktCaO4}">MaxTheService</option><option value="CONSIGNOR" th:text="#{ui.mktCaO3}">The owner</option></select></label>
+                <label><span th:text="#{ui.mktCaL10}">Expiry borne by</span><select id="mktCaExpiry" class="form-control input-sm"><option value="CONSIGNOR" th:text="#{ui.mktCaO3}">The owner</option><option value="CONSIGNEE" th:text="#{ui.mktCaO4}">MaxTheService</option></select></label>
+                <label><span th:text="#{ui.mktCaL11}">Insured by</span><select id="mktCaInsured" class="form-control input-sm"><option value="CONSIGNEE" th:text="#{ui.mktCaO4}">MaxTheService</option><option value="CONSIGNOR" th:text="#{ui.mktCaO3}">The owner</option><option value="NONE" th:text="#{ui.mktCaO5}">Nobody</option></select></label>
+                <label><span th:text="#{ui.mktCaL12}">Shrinkage claims within (days)</span><input id="mktCaClaim" type="number" min="1" max="90" value="14" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL13}">Claims need proof</span><select id="mktCaProof" class="form-control input-sm"><option value="true" th:text="#{ui.mktCaO6}">Yes</option><option value="false" th:text="#{ui.mktCaO7}">No</option></select></label>
+                <label><span th:text="#{ui.mktCaL14}">Return unsold stock after (days)</span><input id="mktCaUnsold" type="number" min="1" max="730" value="180" class="form-control input-sm"></label>
+                <label><span th:text="#{ui.mktCaL15}">Return paid by</span><select id="mktCaUnsoldBy" class="form-control input-sm"><option value="CONSIGNOR" th:text="#{ui.mktCaO3}">The owner</option><option value="CONSIGNEE" th:text="#{ui.mktCaO4}">MaxTheService</option></select></label>
+                <label><span th:text="#{ui.mktCaL16}">Note to the seller</span><input id="mktCaNote" type="text" maxlength="500" class="form-control input-sm"></label>
+                <div style="align-self:end"><button type="button" id="mktCaOffer" class="btn btn-sm btn-primary" th:text="#{ui.mktCaOffer}">Offer these terms</button></div>
+            </form>
+            <div id="mktCaMsg" role="status" style="font-size:13px;min-height:1.2em"></div>
+            <div id="mktCaList" class="plat__list" data-testid="mkt-consign-list"></div>
+        </section>
+
         <section id="platMktPerformance" class="plat__panel" style="display:none">
             <button type="button" class="plat__back plat-mkt-back">
                 <span class="glyphicon glyphicon-chevron-left"></span>

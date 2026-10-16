@@ -466,6 +466,44 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/seller/transfers/receive", body, "Could not receive it.");
     }
 
+    // ── MKT-5a: consignment agreements (the operator offers terms; the consignor accepts, declines or ends) ──
+
+    @RequestMapping(value = "/mkt/consignments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> consignments(final HttpServletRequest request) {
+        return relayGet("/mkt/seller/consignments", request, "Could not load the consignment agreements.");
+    }
+
+    /** Body: {id, action: ACCEPT|DECLINE|END, version, reason}. */
+    @RequestMapping(value = "/mkt/consignmentDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignmentDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consignments/decision", body, "Could not record your answer.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/consignments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> operatorConsignments(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/consignments", request, "Could not load the consignment agreements.", "status");
+    }
+
+    /** Body: {consignorOrganizationId, terms: {…every term…}, note}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/consignmentOffer", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignmentOffer(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/consignments", body, "Could not offer the agreement.");
+    }
+
+    /** Body: {id, action: WITHDRAW|END, version, reason}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/consignmentDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> operatorConsignmentDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/consignments/decision", body, "Could not record it.");
+    }
+
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/cases", method = RequestMethod.GET)
     @ResponseBody

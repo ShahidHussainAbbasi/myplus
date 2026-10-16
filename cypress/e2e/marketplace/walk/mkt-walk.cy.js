@@ -4455,4 +4455,75 @@ on('MKT manual walk — recorded', () => {
         }))
       })
   })
+
+  // ── MKT-5a: consignment agreements. The operator offers the terms, the seller (owner of the stock) accepts them
+  const CS = {}
+  walk({ id: 'M-5-01', slice: 'MKT-5', title: 'Consignment terms come first: MaxTheService offers them, the seller reads and accepts them',
+    persona: 'MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)',
+    reqs: ['MKT-R2.1', 'MKT-R2.2', 'MKT-R4.6', 'MKT-R12.2'],
+    pre: 'The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.',
+    auto: ['MKT-5a-01', 'MKT-5a-02', 'MKT-5a-03'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: the shop sells on the marketplace (M-0a-01), nothing waiting or active for it
+      makeSeller(SELLER_A)
+      asOperator()
+      cy.orgOf(SELLER_A).then((o) => { CS.org = o.id })
+      cy.then(() => get('/platform/mkt/consignments')).then((r) => (data(r.body) || [])
+        .filter((a) => a.consignorOrganizationId === CS.org && (a.status === 'OFFERED' || a.status === 'ACTIVE'))
+        .forEach((a) => post('/platform/mkt/consignmentDecision', { id: a.id, version: a.version,
+          action: a.status === 'OFFERED' ? 'WITHDRAW' : 'END', reason: 'walk reset' })))
+    })
+    const panel = () => {
+      asOperator()
+      cy.visit('/platformDashboard')
+      cy.intercept('GET', '**/platform/mkt/consignments*').as('csList')
+      cy.get('#platMktConsignBtn').should('be.visible').click()
+      cy.wait('@csList')
+    }
+    step('Operator: Platform → "Consignment agreements". Choose Shahzad Mobile Shop, set "MaxTheService keeps (% of each sale)" to 60, leave the other terms as filled in → "Offer these terms".',
+      '"Commission: enter a percentage from 0 to 50." Nothing is offered.', () => {
+        panel()
+        cy.get('#mktCaSeller').select(String(CS.org))
+        cy.get('#mktCaCommission').clear().type('60')
+        cy.get('#mktCaOffer').click()
+        cy.get('#mktCaMsg').should('have.text', 'Commission: enter a percentage from 0 to 50.')
+      })
+    step('Set it to 10 and press "Offer these terms" again.',
+      '"Offered to Shahzad Mobile Shop as CA-…. Nothing can be consigned until they accept." The agreement is listed as "Offered, waiting for the seller" with every term in words: ownership passes when it is sold, the owner sets the price, MaxTheService keeps 10%, settled every 7 days, counted every 30 days with 1% tolerated, who bears damage and expiry, claims within 14 days with proof, unsold stock back after 180 days.', () => {
+        cy.get('#mktCaCommission').clear().type('10')
+        cy.get('#mktCaOffer').click()
+        cy.get('#mktCaMsg').invoke('text').should('match', /^Offered to Shahzad Mobile Shop as CA-\d{6}\. Nothing can be consigned until they accept\.$/)
+          .then((t) => { CS.no = t.match(/CA-\d{6}/)[0] })
+        cy.then(() => cy.contains('#mktCaList .mkt-ca-row', CS.no).scrollIntoView({ offset: { top: -120, left: 0 } }).within(() => {
+          cy.get('.mkt-ca-status').should('have.text', 'Offered, waiting for the seller')
+          cy.get('.mkt-ca-terms li').should('have.length', 8).first().should('have.text', 'Ownership passes to the customer when it is sold')
+        }))
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Consignment agreements".',
+      'The agreement reads "Waiting for your answer" with the same eight terms, an "Accept these terms" button, a reason box and "Decline".', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).scrollIntoView({ offset: { top: -120, left: 0 } }).within(() => {
+          cy.get('.mkt-consign-status').should('have.text', 'Waiting for your answer')
+          cy.get('.mkt-consign-terms li').should('have.length', 8).eq(2).should('have.text', 'MaxTheService keeps 10% of each sale')
+          cy.get('.mkt-consign-accept').should('have.text', 'Accept these terms')
+        }))
+      })
+    step('Press "Accept these terms".',
+      '"CA-… is active. Stock can be consigned to MaxTheService on these terms." The agreement reads "Active", with "End the agreement".', () => {
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).find('.mkt-consign-accept').click())
+        cy.then(() => cy.get('#mktConsignMsg').should('have.text', `${CS.no} is active. Stock can be consigned to MaxTheService on these terms.`))
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).within(() => {
+          cy.get('.mkt-consign-status').should('have.text', 'Active')
+          cy.get('.mkt-consign-end').should('exist')
+        }))
+      })
+    cleanup('As the seller: type "walk cleanup" in the reason box → "End the agreement".',
+      '"CA-… has ended. No new stock can be consigned under it."', () => {
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).within(() => {
+          cy.get('.mkt-consign-why').type('walk cleanup')
+          cy.get('.mkt-consign-end').click()
+        }))
+        cy.then(() => cy.get('#mktConsignMsg').should('have.text', `${CS.no} has ended. No new stock can be consigned under it.`))
+      })
+  })
 })

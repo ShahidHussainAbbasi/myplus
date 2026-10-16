@@ -110,6 +110,15 @@
 				</table>
 			</div>
 		</div>
+		<!-- MKT-5a: consignment agreements — the terms MaxTheService offers for holding and selling a seller's stock in its
+		     warehouse. The seller (owner of the stock) accepts, declines or ends; the warehouse reads them. Filled by
+		     mktConsignLoad; hidden while the business has none. -->
+		<div id="mktConsignBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px" th:text="#{ui.mktConsignTitle}">Consignment agreements</h4>
+			<p class="text-muted" style="font-size:13px" id="mktConsignHint" th:text="#{ui.mktConsignHint}">On consignment the stock stays yours on MaxTheService's shelf until it sells. Nothing can be consigned until you accept terms here.</p>
+			<div id="mktConsignMsg" role="status" style="font-size:13px;min-height:1.2em"></div>
+			<div id="mktConsignList" aria-live="polite"></div>
+		</div>
 		<!-- MKT-1e: incoming marketplace orders — first, because each one has a clock running -->
 		<div id="mktIncomingBox" style="display:none;margin-top:18px">
 			<h4 style="font-weight:700;font-size:15px">

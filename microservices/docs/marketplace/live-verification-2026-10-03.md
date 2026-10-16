@@ -506,3 +506,14 @@ rebuilt with the change. Regression after the change: MKT-2b 8/8, MKT-4a 6/6, MK
 recorded with no responsible business and excused on its scorecard. Now refused by the server and not offered in the
 picker; a shop is unaffected.
 
+## 24. MKT-5a — consignment agreements (run 2026-10-16)
+
+**Gate `mkt-5a-consignment-agreements.cy.js`: 6 / 6** on the usual clock, after marketplace-service (V40) and the
+monolith were rebuilt. Regression: MKT-3c 6/6, MKT-0a 8/8. Unit: `ConsignmentAgreementServiceTest` 6/6.
+
+**Walk M-5-01: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+Found while running: MKT-0a leaves the shared shop's marketplace module switched off when it ends (by design), so the
+first walk attempt could not open Sale → Marketplace. The 5a gate and walk now switch it on first, as other gates do.
+The container had restarted, so Docker, MySQL and Redis were started again before the stack.
+

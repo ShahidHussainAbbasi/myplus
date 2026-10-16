@@ -61,6 +61,8 @@
 		// MKT-3c: stock sent to the MaxTheService warehouse (the warehouse receives it here)
 		$('#mktTransferBox').toggle(!!v.canSell);
 		if (v.canSell) mktTransfersLoad();
+		// MKT-5a: consignment agreements (shown once there is one)
+		if (a) mktConsignLoad(); else $('#mktConsignBox').hide();
 		// MKT-1g: the statement — loaded when asked for, it is a page of money, not a glance
 		$('#mktStatementBox').toggle(!!a);
 		// MKT-2e: the shop's own scorecard, the figures MaxTheService sees for it
@@ -653,6 +655,91 @@
 			unitPrice: $('#mktTrPrice').val() || null, note: $('#mktTrNote').val() }, $('#mktTrSend'));
 	}
 
+	// ── MKT-5a: consignment agreements ─────────────────────────────────────────────────────────────────
+
+	var CA_ST = { OFFERED: ['ui.js.mktCaOffered', 'Waiting for your answer'], ACTIVE: ['ui.js.mktCaActive', 'Active'],
+		DECLINED: ['ui.js.mktCaDeclined', 'Declined'], WITHDRAWN: ['ui.js.mktCaWithdrawn', 'Withdrawn by MaxTheService'],
+		ENDED: ['ui.js.mktCaEnded', 'Ended'], REPLACED: ['ui.js.mktCaReplaced', 'Replaced by {0}'] };
+
+	function mktConsignLoad() {
+		return $.ajax({ url: ctx() + 'mkt/consignments', dataType: 'json' }).done(function (res) {
+			var $list = $('#mktConsignList').empty();
+			if (!ok(res)) { $('#mktConsignBox').hide(); return; }
+			var v = data(res) || {}, rows = v.agreements || [];
+			$('#mktConsignBox').toggle(rows.length > 0);
+			if (v.warehouse) $('#mktConsignHint').text(tr('ui.js.mktCaHintWarehouse', 'The terms on which sellers\' stock is held and sold here. The stock stays theirs until it sells.'));
+			rows.forEach(function (a) { $list.append(consignCard(a, v.warehouse)); });
+		});
+	}
+
+	/** One agreement: its number, status and every term in plain words; the consignor's buttons while it can answer. */
+	function consignCard(a, warehouse) {
+		var $c = $('<div class="mkt-consign" style="border:1px solid #dde3ea;border-radius:6px;padding:10px 12px;margin-bottom:8px"></div>')
+			.attr('data-agreement-no', a.agreementNo).attr('data-status', a.status);
+		var st = CA_ST[a.status] || [null, a.status];
+		var label = (st[0] ? tr(st[0], st[1]) : st[1]).replace('{0}', a.replacedByNo || '');
+		if (warehouse && a.status === 'OFFERED') label = tr('ui.js.mktCaOfferedTo', 'Offered, waiting for the seller');
+		$('<div style="font-weight:700"></div>').text(a.agreementNo + ' · ' + (warehouse ? a.consignorName : tr('ui.js.mktCaWith', 'with MaxTheService')))
+			.append($('<span class="mkt-consign-status" style="font-weight:600;margin-left:8px"></span>')
+				.css('color', a.status === 'ACTIVE' ? '#1b5e20' : a.status === 'OFFERED' ? '#8a5a00' : '#555').text(label))
+			.appendTo($c);
+		var $terms = $('<ul class="mkt-consign-terms" style="font-size:13px;margin:6px 0 4px 18px;padding:0"></ul>').appendTo($c);
+		consignTerms(a.terms).forEach(function (t) { $('<li></li>').text(t).appendTo($terms); });
+		if (a.note) $('<div class="text-muted" style="font-size:12px"></div>').text(a.note).appendTo($c);
+		if (a.answerReason) $('<div class="mkt-consign-reason text-muted" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktCaReason', 'Reason: {0}').replace('{0}', a.answerReason)).appendTo($c);
+		if (warehouse || (a.status !== 'OFFERED' && a.status !== 'ACTIVE')) return $c;
+		var $act = $('<div style="margin-top:6px"></div>').appendTo($c);
+		var $why = $('<input type="text" maxlength="500" class="form-control input-sm mkt-consign-why" style="max-width:360px;margin-bottom:4px">')
+			.attr('placeholder', tr('ui.js.mktCaWhy', 'Reason (needed to decline or end)')).attr('aria-label', tr('ui.js.mktCaWhy', 'Reason (needed to decline or end)'));
+		var post = function (action, $b) {
+			consignPost({ id: a.id, action: action, version: a.version, reason: $why.val() }, $b);
+		};
+		if (a.status === 'OFFERED') {
+			$('<button type="button" class="btn btn-xs btn-success mkt-consign-accept" style="margin-right:4px"></button>')
+				.text(tr('ui.js.mktCaAccept', 'Accept these terms')).on('click', function () { post('ACCEPT', $(this)); }).appendTo($act);
+			$act.append($why);
+			$('<button type="button" class="btn btn-xs btn-default mkt-consign-decline"></button>')
+				.text(tr('ui.js.mktCaDecline', 'Decline')).on('click', function () { post('DECLINE', $(this)); }).appendTo($act);
+		} else {
+			$act.append($why);
+			$('<button type="button" class="btn btn-xs btn-default mkt-consign-end"></button>')
+				.text(tr('ui.js.mktCaEnd', 'End the agreement')).on('click', function () { post('END', $(this)); }).appendTo($act);
+		}
+		return $c;
+	}
+
+	function consignPost(body, $b) {
+		var label = $b.text();
+		$b.prop('disabled', true);
+		var $msg = $('#mktConsignMsg').text('').css('color', '');
+		$.ajax({ url: ctx() + 'mkt/consignmentDecision', type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var said = message(res, '');
+				mktConsignLoad().done(function () { $('#mktConsignMsg').css('color', '#1b5e20').text(said); });
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
+	}
+
+	/** The terms in plain words, the same lines the operator reads (platform/marketplace-sellers.js). */
+	function consignTerms(t) {
+		if (!t) return [];
+		var who = function (p) { return p === 'CONSIGNEE' ? tr('ui.js.mktCaMts', 'MaxTheService') : p === 'NONE' ? tr('ui.js.mktCaNobody', 'nobody') : tr('ui.js.mktCaOwner', 'the owner'); };
+		var f = function (k, fb) { var s = tr(k, fb); for (var i = 2; i < arguments.length; i++) s = s.replace('{' + (i - 2) + '}', arguments[i]); return s; };
+		return [
+			t.ownershipTransfer === 'ON_DELIVERY' ? tr('ui.js.mktCaOwnDelivery', 'Ownership passes to the customer on delivery') : tr('ui.js.mktCaOwnSale', 'Ownership passes to the customer when it is sold'),
+			f('ui.js.mktCaPrice', 'Selling price set by {0}', who(t.priceSetBy)),
+			f('ui.js.mktCaCommission', 'MaxTheService keeps {0}% of each sale', Number(t.commissionPct)),
+			f('ui.js.mktCaSettle', 'Settled every {0} days, after the return period; reconciled every {1} days', t.settleEveryDays, t.reconcileEveryDays),
+			f('ui.js.mktCaCount', 'Stock counted every {0} days; up to {1}% shrinkage tolerated', t.countEveryDays, Number(t.shrinkageTolerancePct)),
+			f('ui.js.mktCaBearers', 'Damage borne by {0}; expiry borne by {1}; insured by {2}', who(t.damageBearer), who(t.expiryBearer), who(t.insuredBy)),
+			f(t.proofRequired ? 'ui.js.mktCaClaimProof' : 'ui.js.mktCaClaim', t.proofRequired ? 'Shrinkage claims within {0} days, with proof' : 'Shrinkage claims within {0} days', t.claimWindowDays),
+			f('ui.js.mktCaUnsold', 'Unsold stock goes back after {0} days, at the cost of {1}', t.unsoldReturnDays, who(t.unsoldReturnBearer))
+		];
+	}
+
 	function tick() {
 		clearInterval(tickTimer);
 		tickTimer = setInterval(function () {
@@ -861,6 +948,7 @@
 	global.mktTasksLoad = mktTasksLoad;
 	global.mktTransfersLoad = mktTransfersLoad;
 	global.mktTransferSend = mktTransferSend;
+	global.mktConsignLoad = mktConsignLoad;
 	global.mktStatementLoad = mktStatementLoad;
 	global.mktPerfLoad = mktPerfLoad;
 	global.mktMyReportLoad = mktMyReportLoad;

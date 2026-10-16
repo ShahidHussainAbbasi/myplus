@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 71,
- "cypress": 68,
- "automated": 72,
+ "unit": 75,
+ "cypress": 72,
+ "automated": 76,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -53,18 +53,29 @@
    "req": "MKT-R2.1",
    "phase": "5",
    "text": "Consignment: consignor = legal owner, consignee = holder/seller; ownership/payment changes on sale per agreement",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ConsignmentAgreementServiceTest.acceptAndReplace"
+   ],
+   "cypress": [
+    "MKT-5a-03"
+   ],
    "manual": [
-    "M-5-01"
+    "M-5-01",
+    "M-5-03"
    ]
   },
   {
    "req": "MKT-R2.2",
    "phase": "5",
    "text": "Consignee may be MaxTheService, merchant, platform warehouse or supplier",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ConsignmentAgreementServiceTest.offerHoldsEveryTerm",
+    "ConsignmentAgreementServiceTest.whoCanBeAConsignor"
+   ],
+   "cypress": [
+    "MKT-5a-01",
+    "MKT-5a-05"
+   ],
    "manual": [
     "M-5-01"
    ]
@@ -199,15 +210,27 @@
    "unit": [],
    "cypress": [],
    "manual": [
-    "M-5-01"
+    "M-5-03"
    ]
   },
   {
    "req": "MKT-R4.6",
    "phase": "5",
    "text": "Consignment agreement terms are configurable (ownership-transfer event, count frequency, shrinkage tolerance, damage, expiry, insurance, price, commission, settlement schedule, unsold return, reconciliation) **before** consignment is enabled",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ConsignmentAgreementServiceTest.offerHoldsEveryTerm",
+    "ConsignmentAgreementServiceTest.termsRefusedByName",
+    "ConsignmentAgreementServiceTest.acceptAndReplace",
+    "ConsignmentAgreementServiceTest.whoAnswersWhat",
+    "ConsignmentAgreementServiceTest.guards"
+   ],
+   "cypress": [
+    "MKT-5a-01",
+    "MKT-5a-02",
+    "MKT-5a-03",
+    "MKT-5a-04",
+    "MKT-5a-06"
+   ],
    "manual": [
     "M-5-01"
    ]
@@ -830,9 +853,14 @@
    "req": "MKT-R12.2",
    "phase": "5",
    "text": "Agreement defines responsible party, tolerance %, count frequency, proof, claim window, approval, settlement effect",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "ConsignmentAgreementServiceTest.offerHoldsEveryTerm"
+   ],
+   "cypress": [
+    "MKT-5a-01"
+   ],
    "manual": [
+    "M-5-01",
     "M-5-02"
    ]
   },
@@ -1051,7 +1079,7 @@
    "unit": [],
    "cypress": [],
    "manual": [
-    "M-5-01"
+    "M-5-03"
    ]
   },
   {
@@ -1581,7 +1609,7 @@
     "M-4-03",
     "M-4-04",
     "M-4-05",
-    "M-5-01"
+    "M-5-03"
    ]
   },
   {

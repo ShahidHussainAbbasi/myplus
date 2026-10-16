@@ -1643,19 +1643,21 @@
 
 ## MKT-5
 
-### M-5-01 Consignment: owner and holder are different
+### M-5-01 Consignment terms come first: MaxTheService offers them, the seller reads and accepts them
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 5. ABC Distributor places 10 phones with Shahzad Mobile Shop.  
-**Covers:** MKT-R2.1, MKT-R2.2, MKT-R4.5, MKT-R4.6, MKT-R15.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)  
+**Before:** The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.  
+**Covers:** MKT-R2.1, MKT-R2.2, MKT-R4.6, MKT-R12.2  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5a-01, MKT-5a-02, MKT-5a-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Create the consignment agreement, leaving one term blank → Activate. | Refused while any term is blank. |
-| 2 | Fill every term → Activate. | Active. |
-| 3 | Sell one phone. | Owner ABC, custodian Shahzad; ABC is owed the price less Shahzad's commission, after the sell-through report and the return period. |
-| C1 | Return the phone; end the agreement. | Ended. |
+| 1 | Operator: Platform → "Consignment agreements". Choose Shahzad Mobile Shop, set "MaxTheService keeps (% of each sale)" to 60, leave the other terms as filled in → "Offer these terms". | "Commission: enter a percentage from 0 to 50." Nothing is offered. |
+| 2 | Set it to 10 and press "Offer these terms" again. | "Offered to Shahzad Mobile Shop as CA-…. Nothing can be consigned until they accept." The agreement is listed as "Offered, waiting for the seller" with every term in words: ownership passes when it is sold, the owner sets the price, MaxTheService keeps 10%, settled every 7 days, counted every 30 days with 1% tolerated, who bears damage and expiry, claims within 14 days with proof, unsold stock back after 180 days. |
+| 3 | As owner.business@myplus.com: Sale → Marketplace → "Consignment agreements". | The agreement reads "Waiting for your answer" with the same eight terms, an "Accept these terms" button, a reason box and "Decline". |
+| 4 | Press "Accept these terms". | "CA-… is active. Stock can be consigned to MaxTheService on these terms." The agreement reads "Active", with "End the agreement". |
+| C1 | As the seller: type "walk cleanup" in the reason box → "End the agreement". | "CA-… has ended. No new stock can be consigned under it." |
 
 ### M-5-02 Shrinkage claims need evidence
 
@@ -1669,6 +1671,18 @@
 | 1 | Record the count difference; raise a claim against the custodian. | The claim needs proof and stays OPEN with a claim window. |
 | 2 | Look at the custodian's statement. | No debit until the claim is approved through the dispute step. |
 | C1 | Withdraw the test claim. | Withdrawn. |
+
+### M-5-03 A consigned phone sells: owner and holder are different
+
+**Who:** admin@myplus.com (operator)  
+**Before:** Phase 5. Shahzad Mobile Shop has an active consignment agreement (M-5-01) and has consigned 10 phones to the MaxTheService warehouse.  
+**Covers:** MKT-R2.1, MKT-R4.5, MKT-R15.4, MKT-R20.5  
+**Evidence:** written from the design — not built yet
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Sell one consigned phone. | Owner Shahzad, custodian the warehouse; Shahzad is owed the price less MaxTheService's commission, after the sell-through report and the return period. |
+| C1 | Return the unsold phones; end the agreement. | Ended. |
 
 
 ## MKT-6

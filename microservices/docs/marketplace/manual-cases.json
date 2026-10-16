@@ -7536,45 +7536,57 @@
   {
    "id": "M-5-01",
    "slice": "MKT-5",
-   "title": "Consignment: owner and holder are different",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Phase 5. ABC Distributor places 10 phones with Shahzad Mobile Shop.",
+   "title": "Consignment terms come first: MaxTheService offers them, the seller reads and accepts them",
+   "persona": "MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)",
+   "pre": "The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.",
+   "reqs": [
+    "MKT-R2.1",
+    "MKT-R2.2",
+    "MKT-R4.6",
+    "MKT-R12.2"
+   ],
+   "auto": [
+    "MKT-5a-01",
+    "MKT-5a-02",
+    "MKT-5a-03"
+   ],
+   "recordedAt": "2026-10-16T00:15:08.900Z",
+   "startedAt": "2026-10-16T00:14:39.499Z",
+   "result": "passed",
    "steps": [
     {
      "n": 1,
-     "do": "Create the consignment agreement, leaving one term blank → Activate.",
-     "expect": "Refused while any term is blank."
+     "do": "Operator: Platform → \"Consignment agreements\". Choose Shahzad Mobile Shop, set \"MaxTheService keeps (% of each sale)\" to 60, leave the other terms as filled in → \"Offer these terms\".",
+     "expect": "\"Commission: enter a percentage from 0 to 50.\" Nothing is offered.",
+     "shot": "shots/M-5-01/01.jpg"
     },
     {
      "n": 2,
-     "do": "Fill every term → Activate.",
-     "expect": "Active."
+     "do": "Set it to 10 and press \"Offer these terms\" again.",
+     "expect": "\"Offered to Shahzad Mobile Shop as CA-…. Nothing can be consigned until they accept.\" The agreement is listed as \"Offered, waiting for the seller\" with every term in words: ownership passes when it is sold, the owner sets the price, MaxTheService keeps 10%, settled every 7 days, counted every 30 days with 1% tolerated, who bears damage and expiry, claims within 14 days with proof, unsold stock back after 180 days.",
+     "shot": "shots/M-5-01/02.jpg"
     },
     {
      "n": 3,
-     "do": "Sell one phone.",
-     "expect": "Owner ABC, custodian Shahzad; ABC is owed the price less Shahzad's commission, after the sell-through report and the return period."
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Consignment agreements\".",
+     "expect": "The agreement reads \"Waiting for your answer\" with the same eight terms, an \"Accept these terms\" button, a reason box and \"Decline\".",
+     "shot": "shots/M-5-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Press \"Accept these terms\".",
+     "expect": "\"CA-… is active. Stock can be consigned to MaxTheService on these terms.\" The agreement reads \"Active\", with \"End the agreement\".",
+     "shot": "shots/M-5-01/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Return the phone; end the agreement.",
-     "expect": "Ended."
+     "do": "As the seller: type \"walk cleanup\" in the reason box → \"End the agreement\".",
+     "expect": "\"CA-… has ended. No new stock can be consigned under it.\"",
+     "shot": "shots/M-5-01/c01.jpg"
     }
-   ],
-   "reqs": [
-    "MKT-R2.1",
-    "MKT-R2.2",
-    "MKT-R4.5",
-    "MKT-R4.6",
-    "MKT-R15.4",
-    "MKT-R20.5"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-5.",
-   "warn": false,
-   "auto": []
+   ]
   },
   {
    "id": "M-5-02",
@@ -7608,6 +7620,37 @@
    ],
    "evidence": "design",
    "source": "Slice MKT-5.",
+   "warn": false,
+   "auto": []
+  },
+  {
+   "id": "M-5-03",
+   "slice": "MKT-5",
+   "title": "A consigned phone sells: owner and holder are different",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 5. Shahzad Mobile Shop has an active consignment agreement (M-5-01) and has consigned 10 phones to the MaxTheService warehouse.",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Sell one consigned phone.",
+     "expect": "Owner Shahzad, custodian the warehouse; Shahzad is owed the price less MaxTheService's commission, after the sell-through report and the return period."
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Return the unsold phones; end the agreement.",
+     "expect": "Ended."
+    }
+   ],
+   "reqs": [
+    "MKT-R2.1",
+    "MKT-R4.5",
+    "MKT-R15.4",
+    "MKT-R20.5"
+   ],
+   "evidence": "design",
+   "source": "Slice MKT-5 (split from M-5-01 when 5a was built).",
    "warn": false,
    "auto": []
   },
