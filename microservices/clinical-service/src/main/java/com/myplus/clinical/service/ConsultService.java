@@ -69,6 +69,7 @@ public class ConsultService {
     private final ClinicAuditService audit;
     private final EncounterRxItemRepo rxItems;
     private final PharmaRxClient pharma;
+    private final com.myplus.clinical.config.LinkRouteClient routes;   // HC-1d R1
 
     private Long guard() {
         access.assertModuleOn();
@@ -257,6 +258,10 @@ public class ConsultService {
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found."));
         QueueToken t = tokens.findByIdAndOrganizationId(e.getTokenId(), org).orElse(null);
 
+        Route route = route();
+        if (route.none()) throw noLink();
+        if (route.linked()) return submitLinked(e, p, t, lines, route);
+
         PharmaRxClient.Rx rx = PharmaRxClient.Rx.builder()
                 .patientName(p.getName()).patientPhone(p.getPhone()).partyId(p.getPartyId())
                 .doctorName(prescriber(t))
@@ -323,8 +328,13 @@ public class ConsultService {
         out.put("rxId", e.getRxId());
         if (e.getRxId() == null) { out.put("status", null); return out; }
         try {
-            PharmaRxClient.Envelope rx = pharma.get(e.getRxId());
-            PharmaRxClient.Amendments ch = pharma.amendments(e.getRxId());
+            // HC-1d R5: a separate clinic's prescriptions live in its linked pharmacy (route LINKED, or NONE once the
+            // link has ended - the prescription is still the clinic's to read). Only the combined org reads its own.
+            boolean own;
+            try { own = route().sameOrg(); }
+            catch (ValidationException unknown) { throw new RestClientException("route unknown", unknown); }
+            PharmaRxClient.Envelope rx = own ? pharma.get(e.getRxId()) : pharma.getLinked(e.getRxId());
+            PharmaRxClient.Amendments ch = own ? pharma.amendments(e.getRxId()) : pharma.linkedAmendments(e.getRxId());
             out.put("status", rx == null || rx.getData() == null ? null : rx.getData().getStatus());
             out.put("items", rx == null || rx.getData() == null ? List.of() : rx.getData().getItems());
             out.put("amendments", ch == null || ch.getData() == null ? List.of() : ch.getData());
@@ -332,6 +342,114 @@ public class ConsultService {
             out.put("unavailable", "The pharmacy's copy could not be read just now. Try again in a moment.");
         }
         return out;
+    }
+
+    // ── HC-1d — a SEPARATE clinic prescribing to the pharmacy it is linked to ─────────────────────────────────────
+
+    /** auth's answer for THIS clinic (R1). Unreachable → refused, never "same org": that fallback is the bug HC-1d fixes. */
+    record Route(String kind, String pharmacyName) {
+        boolean linked() { return "LINKED".equals(kind); }
+        boolean none() { return "NONE".equals(kind); }
+        boolean sameOrg() { return "SAME_ORG".equals(kind); }
+    }
+
+    Route route() {
+        Map<String, Object> body;
+        try {
+            body = routes.route();
+        } catch (RestClientException down) {
+            throw new ValidationException("Could not check which pharmacy your clinic sends to. Try again in a moment — nothing was sent.");
+        }
+        Object data = body == null ? null : body.get("data");
+        Map<?, ?> r = data instanceof Map<?, ?> m ? m : Map.of();
+        Object kind = r.get("route");
+        if (kind == null) throw new ValidationException("Could not check which pharmacy your clinic sends to. Try again in a moment — nothing was sent.");
+        Object name = r.get("pharmacyName");
+        return new Route(String.valueOf(kind), name == null ? null : String.valueOf(name));
+    }
+
+    private static RxRefusedException noLink() {
+        return new RxRefusedException(RxRefusedException.NO_LINKED_PHARMACY,
+                "Your clinic is not linked to a pharmacy. Link one on Linked pharmacy, then send the prescription.");
+    }
+
+    /**
+     * HC-1d R2 — the medicine list the doctor picks from. LINKED: the linked pharmacy's (id, name, strength — pharma
+     * strips everything else). NONE: nothing — the screen says "Link your pharmacy first". SAME_ORG: the screen keeps
+     * reading this business's own catalogue, as before.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> medicines() {
+        guard();
+        Route route = route();
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("route", route.kind());
+        if (!route.linked()) return out;
+        Map<String, Object> answer;
+        try {
+            answer = pharma.linkedMedicines();
+        } catch (RestClientResponseException refused) {
+            if (refusedFor(refused, RxRefusedException.NO_LINKED_PHARMACY)) { out.put("route", "NONE"); return out; }
+            throw new ValidationException("The pharmacy's medicine list could not be read: " + pharmaReason(refused));
+        } catch (RestClientException down) {
+            throw new ValidationException("The pharmacy's medicine list could not be read just now. Try again in a moment.");
+        }
+        Object data = answer == null ? null : answer.get("data");
+        Map<?, ?> d = data instanceof Map<?, ?> m ? m : Map.of();
+        out.put("pharmacyName", d.get("pharmacyName") != null ? d.get("pharmacyName") : route.pharmacyName());
+        out.put("medicines", d.get("medicines") instanceof List<?> l ? l : List.of());
+        return out;
+    }
+
+    /**
+     * HC-1d R3 — what crosses to a SEPARATE pharmacy (D3): the patient's name, phone and MRN, the prescriber, the token,
+     * the medicines. NOT the complaint / diagnosis, the clinic's person id or its branch. pharma re-checks the link and
+     * builds its own idempotency key (clinic-<org>-enc-<id>), so a retry is still ONE prescription.
+     */
+    private EncounterView submitLinked(Encounter e, Patient p, QueueToken t, List<EncounterRxItem> lines, Route route) {
+        PharmaRxClient.Rx rx = PharmaRxClient.Rx.builder()
+                .patientName(p.getName()).patientPhone(p.getPhone())
+                .doctorName(prescriber(t))
+                .notes(p.getMrn())
+                .tokenLabel(t == null ? null : t.getTokenLabel())
+                .encounterId(e.getId())
+                .items(lines.stream().map(l -> PharmaRxClient.Item.builder().productId(l.getProductId())
+                        .medicineName(l.getMedicineName()).quantity(l.getQuantity()).dosage(l.getDosage())
+                        .frequency(l.getFrequency()).duration(l.getDuration()).build()).toList())
+                .build();
+        PharmaRxClient.Envelope answer;
+        try {
+            answer = pharma.sendLinked(rx);
+        } catch (RestClientResponseException refused) {
+            if (refusedFor(refused, RxRefusedException.NO_LINKED_PHARMACY)) throw noLink();   // the link ended meanwhile
+            throw new ValidationException("The pharmacy did not accept the prescription: " + pharmaReason(refused));
+        } catch (RestClientException down) {
+            throw new ValidationException("The pharmacy did not answer. Press Submit again — it will not be sent twice.");
+        }
+        if (answer == null || !answer.isSuccess() || answer.getData() == null || answer.getData().getId() == null) {
+            throw new ValidationException("The pharmacy did not accept the prescription"
+                    + (answer != null && answer.getMessage() != null ? ": " + answer.getMessage() : "."));
+        }
+        e.setRxId(answer.getData().getId());
+        LocalDateTime now = LocalDateTime.now();
+        e.setRxSubmittedAt(now);
+        e.setUpdatedAt(now);
+        encounters.saveAndFlush(e);
+        String where = answer.getData().getFromOrgName() != null ? answer.getData().getFromOrgName() : route.pharmacyName();
+        audit.patient("RX_SUBMIT", p.getMrn(), "prescription " + e.getRxId() + " sent to the linked pharmacy "
+                + (where == null ? "" : where) + ", " + lines.size() + " medicine(s)");
+        return open(e.getId());
+    }
+
+    /** True when the far side refused with this stable {@code data.code}. */
+    private static boolean refusedFor(RestClientResponseException ex, String code) {
+        try {
+            Map<?, ?> body = ex.getResponseBodyAs(Map.class);
+            Object data = body == null ? null : body.get("data");
+            return data instanceof Map<?, ?> d && code.equals(d.get("code"));
+        } catch (RuntimeException notJson) {
+            return false;
+        }
     }
 
     /** The far side's own sentence when it has one ("Prescriptions are not switched on…"), never a stack trace. */

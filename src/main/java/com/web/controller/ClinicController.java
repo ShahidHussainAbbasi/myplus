@@ -200,6 +200,13 @@ public class ClinicController {
         return call(() -> clinic.send(HttpMethod.POST, "/consult/encounters/" + id + "/complete", null));
     }
 
+    /** HC-1d — where this clinic's prescriptions go, and the linked pharmacy's medicine list (names + strengths only). */
+    @GetMapping(value = "/clinic/consult/medicines", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultMedicines() {
+        return call(() -> clinic.get("/consult/medicines"));
+    }
+
     /** H3c — the pharmacy's copy of the visit's prescription and every change it made. */
     @GetMapping(value = "/clinic/consult/encounters/{id}/rx/pharmacy", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody

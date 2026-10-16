@@ -142,10 +142,10 @@ APP_SEED_DEMO=true                                   # seeds the demo/test login
 > | `admin.store@`, `cashier.a@`, `cashier.b@` | Multi-location test team (store admin + two cashiers) |
 > | `teacher.a@`, `teacher.b@` | Multi-branch test team |
 > | `demo.*@myplus.com` (×10) | Per-module demo logins (50-entry write cap) |
-> | `admin@myplus.com` | Seeded by `APP_SEED_ADMIN` |
+> | `admin@myplus.com` | The platform operator — seeded by `APP_SEED_ADMIN=true` + `APP_ADMIN_PASSWORD` (the ONE seeding flag that belongs on the VPS, owner's decision 2026-10-15) |
 >
 > The compose file now defaults **both flags to `false`**, so a deploy is safe unless you opt in. Do
-> **not** put `APP_SEED_DEMO` / `APP_SEED_ADMIN` in the VPS `.env` (§4.3). Real customers are only ever
+> **not** put `APP_SEED_DEMO` in the VPS `.env` (§4.3). `APP_SEED_ADMIN=true` + `APP_ADMIN_PASSWORD` IS set there — see §4.3. Real customers are only ever
 > created through signup (`/api/auth/register`) — never seeded.
 
 > `DB_PASSWORD` is used for **both** the MySQL `root` account and the app user `shahid` (which the
@@ -366,7 +366,13 @@ GRAFANA_PASSWORD=<strong-random-password>       # REQUIRED for observability; UN
 > `APP_BASE_URL` is what makes the verification link clickable from a customer's phone/PC. If it is
 > left at the localhost default, the link is dead — this is the #1 cause of "I can't sign up / verify".
 >
-> **Do NOT add `APP_SEED_DEMO` or `APP_SEED_ADMIN` to the VPS `.env`.** Compose defaults both to
+> **The operator (2026-10-15):** set `APP_SEED_ADMIN=true` and `APP_ADMIN_PASSWORD=<value>` in the VPS `.env`.
+> auth-service creates `admin@myplus.com` if missing and **resets its password to this value on every start**
+> (unlocking it), so the `.env` value is always the live password. ⚠ This repo is PUBLIC — a value written in
+> it (e.g. the dev default) is a published password for the account that sees every tenant. Without
+> `APP_ADMIN_PASSWORD`, `APP_SEED_ADMIN=true` falls back to the dev default (auth runs the `default` profile).
+>
+> **Do NOT add `APP_SEED_DEMO` to the VPS `.env`.** Compose defaults both to
 > `false`; setting either to `true` seeds accounts with a password that is public in this repo —
 > including `owner.business@myplus.com`, which holds **ROLE_OWNER + SUPER_PRIVILEGE with no write
 > cap**. See the warning in §3.1, and prove it after the first boot with the check at the end of §4.6.
@@ -506,7 +512,7 @@ Once stable, build once and pull on the VPS instead of compiling there:
 
 ## 5. Security hardening checklist (before real traffic)
 
-- [ ] **No seeded accounts.** `APP_SEED_DEMO` / `APP_SEED_ADMIN` absent (or `false`) in the VPS `.env`
+- [ ] **No seeded accounts except the operator.** `APP_SEED_DEMO` absent (or `false`) in the VPS `.env`; `APP_SEED_ADMIN=true` only WITH `APP_ADMIN_PASSWORD`
       — compose defaults them off. Then *prove* it with the two checks at the end of §4.6: seeding on
       creates `owner.business@myplus.com` with **ROLE_OWNER + SUPER_PRIVILEGE, no write cap**, and a
       password that is committed to this repo. Turning the flag off later does **not** delete rows that

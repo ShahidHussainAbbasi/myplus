@@ -295,6 +295,22 @@ public class SetupDataLoader {
                     .build();
             userRepository.save(admin);
             log.info("Default admin user created: admin@myplus.com");
+        } else if (seedAdmin && adminPassword != null && !adminPassword.isBlank()) {
+            // 2026-10-15 (owner's decision): an EXPLICIT APP_ADMIN_PASSWORD is the operator's password on every
+            // start, dev and prod alike — not only at first creation. Without this, an account created earlier
+            // (with the dev default, or a since-forgotten value) silently ignored the .env value, and the
+            // operator could not reset it by e-mail because myplus.com is not a mailbox anyone reads.
+            // Only the explicit value is applied; the dev fallback never overwrites an existing password.
+            userRepository.findByEmail("admin@myplus.com").ifPresent(a -> {
+                if (!passwordEncoder.matches(adminPassword, a.getPassword())) {
+                    a.setPassword(passwordEncoder.encode(adminPassword));
+                    a.setAccountNonLocked(true);
+                    a.setFailedLoginAttempts(0);
+                    a.setLockTime(null);
+                    userRepository.save(a);
+                    log.info("admin@myplus.com password set from APP_ADMIN_PASSWORD");
+                }
+            });
         }
 
         // Resolve the seeding password ONCE. Null means "no safe password available" (prod with no explicit

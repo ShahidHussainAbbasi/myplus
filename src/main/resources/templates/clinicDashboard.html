@@ -225,6 +225,12 @@
                 <h4 th:text="#{ui.clinicPrescription}">Prescription</h4>
                 <span id="clinRxSent" class="clin-rx-sent" style="display:none"></span>
               </div>
+              <!-- HC-1d: a separate clinic sends to its LINKED pharmacy — none linked: say so, offer no list and no Submit -->
+              <p id="clinRxNoLink" class="clin-help clin-rx-nolink" style="display:none">
+                <span th:text="#{ui.clinicRxNoLink}">Link your pharmacy first — prescriptions go to the pharmacy your clinic is linked to.</span>
+                <a th:href="@{/clinicDashboard(open='PharmacyLinkDiv')}" th:text="#{ui.clinicRxNoLinkGo}">Linked pharmacy</a>
+              </p>
+              <p id="clinRxTo" class="clin-help clin-rx-to" style="display:none"></p>
               <!-- S3b-2: templates — Use fills the lines below (editable); Save as template keeps the lines on screen -->
               <div class="clin-rx-templates" id="clinRxTemplates">
                 <div class="clin-rx-tpl-use">

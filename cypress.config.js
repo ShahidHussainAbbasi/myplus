@@ -130,6 +130,19 @@ module.exports = defineConfig({
       on('task', {
         a11yLog(message) { console.log(message); return null },
         a11yTable(rows) { console.table(rows); return null },
+        /*
+         * RESET-1 P3 — stands in for the hour passing: makes ONE set-password link expired, on the LOCAL stack's
+         * database only (the myplus-mysql container). No shell on the host (execFileSync), and the token must be a
+         * UUID, so nothing else can be put into the statement. Returns the number of rows changed (1 = done).
+         */
+        expireResetToken({ token }) {
+          if (!/^[0-9a-f-]{36}$/.test(String(token || ''))) throw new Error(`expireResetToken: not a token: ${token}`)
+          const { execFileSync } = require('child_process')
+          const out = execFileSync('docker', ['exec', 'myplus-mysql', 'sh', '-c',
+            `mysql -N -uroot -p"$MYSQL_ROOT_PASSWORD" myplusdb_auth -e "UPDATE password_reset_tokens SET expiry_date='2000-01-01' WHERE token='${token}'; SELECT ROW_COUNT();"`],
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+          return Number(String(out).trim().split(/\s+/).pop())
+        },
       })
     },
   },

@@ -51,6 +51,18 @@ public class PharmaClientsConfig {
                 .createClient(com.myplus.commerce.contracts.client.PartyClient.class);   // P3: shared party/contact master
     }
 
+    /** HC-1d R1 — auth's "where do this org's prescriptions go" (the org is the forwarded X-Org-Id, never a parameter). */
+    @Bean
+    public LinkedRxClients.Route linkRouteClient(@LoadBalanced RestClient.Builder builder) {
+        return proxy(builder, "http://auth-service/api/auth/internal/links", LinkedRxClients.Route.class);
+    }
+
+    /** HC-1d R2 — the catalogue's lean picker rows, read AS the pharmacy (runAs) for a linked clinic's doctor. */
+    @Bean
+    public LinkedRxClients.Medicines linkedMedicinesClient(@LoadBalanced RestClient.Builder builder) {
+        return proxy(builder, "http://catalog-service/api/catalog", LinkedRxClients.Medicines.class);
+    }
+
     private <T> T proxy(RestClient.Builder builder, String baseUrl, Class<T> type) {
         RestClient restClient = builder.clone()
                 .baseUrl(baseUrl)

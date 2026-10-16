@@ -38,24 +38,7 @@ public class PrescriptionService {
 
     @Transactional
     public PrescriptionDTO create(PrescriptionDTO dto, Long orgId, Long userId) {
-        if (dto.getPatientName() == null || dto.getPatientName().isBlank())
-            throw new ValidationException("Patient name is required");
-        if (dto.getItems() == null || dto.getItems().isEmpty())
-            throw new ValidationException("A prescription needs at least one item");
-
-        // Per-line validation. A zero/negative quantity is not merely odd: recomputeStatus would read the line as
-        // already satisfied (dispensed 0 >= prescribed 0) and mark the whole prescription FULLY_DISPENSED on the
-        // first dispense, so it must never reach the table.
-        for (PrescriptionItemDTO it : dto.getItems()) {
-            // Single quotes on purpose: this text travels as JSON through the gateway and the monolith proxy,
-            // so it should not depend on every hop handling escaped double quotes correctly.
-            String which = (it.getMedicineName() == null || it.getMedicineName().isBlank())
-                    ? "A prescribed item" : "'" + it.getMedicineName().trim() + "'";
-            if (it.getProductId() == null)
-                throw new ValidationException(which + " has no medicine selected");
-            if (it.getQuantity() <= 0)
-                throw new ValidationException(which + " needs a quantity greater than zero");
-        }
+        validate(dto);
 
         // HMS S3b-1: a doctor's Submit carries "enc-<id>". The same key again (a retry, a double click, a lost reply)
         // is the SAME prescription — returned, never a second one for the pharmacy to dispense twice.
@@ -93,7 +76,91 @@ public class PrescriptionService {
                 .userId(userId)
                 .build();
         prescriptionRepo.save(p);
+        saveItems(p, dto);
+        partyBridgeService.bridgePrescription(p);   // P3: link the patient to the shared party master (best-effort, once)
+        return toDTO(p);
+    }
 
+    /**
+     * HC-1d R3 — a prescription SENT by a linked Hospital / Clinic, written in THIS pharmacy's organisation.
+     *
+     * <p>The caller ({@code LinkedRxService}) has already asked auth that {@code clinicOrgId} is linked to
+     * {@code pharmacyOrgId}; every value that decides where the row lives or what it claims is set HERE, never taken
+     * from the clinic's body: the organisation, the source, the key ({@code clinic-<org>-enc-<id>}, so two clinics'
+     * visit 5 never collide in one pharmacy), and the sender. What does not cross (D3): the diagnosis, the clinic's
+     * person id (the pharmacy's own bridge matches by name and phone), the clinic's branch, the doctor's user id.
+     */
+    @Transactional
+    public PrescriptionDTO createFromLinkedClinic(PrescriptionDTO dto, Long pharmacyOrgId, Long clinicOrgId, String clinicName) {
+        validate(dto);
+        if (dto.getEncounterId() == null) throw new ValidationException("The visit is missing");
+        String externalRef = "clinic-" + clinicOrgId + "-enc-" + dto.getEncounterId();
+        java.util.Optional<Prescription> already = prescriptionRepo.findByOrganizationIdAndExternalRef(pharmacyOrgId, externalRef);
+        if (already.isPresent()) return toDTO(already.get());
+
+        Prescription p = Prescription.builder()
+                .patientName(dto.getPatientName().trim())
+                .patientPhone(dto.getPatientPhone())
+                .doctorName(dto.getDoctorName())
+                .prescribedDate(TenantClock.today())
+                .notes(dto.getNotes())                       // the clinic's MRN, so the pharmacist can quote it back
+                .status(Prescription.Status.PENDING)
+                .source(Prescription.SOURCE_DOCTOR)
+                .externalRef(externalRef)
+                .tokenLabel(trimTo(dto.getTokenLabel(), 16))
+                .encounterId(dto.getEncounterId())
+                .organizationId(pharmacyOrgId)
+                .fromOrgId(clinicOrgId)
+                .fromOrgName(trimTo(clinicName, 200))
+                .build();
+        prescriptionRepo.save(p);
+        saveItems(p, dto);
+        partyBridgeService.bridgePrescription(p);
+        return toDTO(p);
+    }
+
+    /**
+     * HC-1d R5 — the clinic reads back ITS prescription: found only when it carries the reading clinic's id, so a clinic
+     * can never read another clinic's script or the pharmacy's own. "Not found" for anything else (anti-IDOR).
+     */
+    @Transactional(readOnly = true)
+    public PrescriptionDTO getForLinkedClinic(Long id, Long clinicOrgId) {
+        Prescription p = prescriptionRepo.findById(id).filter(x -> clinicOrgId != null && clinicOrgId.equals(x.getFromOrgId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
+        return toDTO(p);
+    }
+
+    /** The pharmacy organisation that holds a linked clinic's prescription (for its change history). */
+    @Transactional(readOnly = true)
+    public Long pharmacyOfLinked(Long id, Long clinicOrgId) {
+        return prescriptionRepo.findById(id).filter(x -> clinicOrgId != null && clinicOrgId.equals(x.getFromOrgId()))
+                .map(Prescription::getOrganizationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
+    }
+
+    /**
+     * The rules every new prescription meets, whoever writes it. A zero/negative quantity is not merely odd:
+     * recomputeStatus would read the line as already satisfied (dispensed 0 >= prescribed 0) and mark the whole
+     * prescription FULLY_DISPENSED on the first dispense, so it must never reach the table.
+     */
+    private static void validate(PrescriptionDTO dto) {
+        if (dto.getPatientName() == null || dto.getPatientName().isBlank())
+            throw new ValidationException("Patient name is required");
+        if (dto.getItems() == null || dto.getItems().isEmpty())
+            throw new ValidationException("A prescription needs at least one item");
+        for (PrescriptionItemDTO it : dto.getItems()) {
+            // Single quotes on purpose: this text travels as JSON through the gateway and the monolith proxy,
+            // so it should not depend on every hop handling escaped double quotes correctly.
+            String which = (it.getMedicineName() == null || it.getMedicineName().isBlank())
+                    ? "A prescribed item" : "'" + it.getMedicineName().trim() + "'";
+            if (it.getProductId() == null)
+                throw new ValidationException(which + " has no medicine selected");
+            if (it.getQuantity() <= 0)
+                throw new ValidationException(which + " needs a quantity greater than zero");
+        }
+    }
+
+    private void saveItems(Prescription p, PrescriptionDTO dto) {
         for (PrescriptionItemDTO it : dto.getItems()) {
             itemRepo.save(PrescriptionItem.builder()
                     .prescription(p)
@@ -106,8 +173,6 @@ public class PrescriptionService {
                     .dispensedQuantity(0)
                     .build());
         }
-        partyBridgeService.bridgePrescription(p);   // P3: link the patient to the shared party master (best-effort, once)
-        return toDTO(p);
     }
 
     /** HMS S3b-1 — the permission that lets a caller submit a doctor's prescription (clinical-service's CONSULT). */
@@ -265,6 +330,7 @@ public class PrescriptionService {
         d.setEncounterId(p.getEncounterId());
         d.setExternalRef(p.getExternalRef());
         d.setStoreId(p.getStoreId());
+        d.setFromOrgName(p.getFromOrgName());
         d.setCreatedAt(p.getCreatedAt());
         d.setItems(items.stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();

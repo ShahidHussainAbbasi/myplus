@@ -848,20 +848,43 @@
     function backToQueue() { consultState.encounter = null; $('#clinConsult').hide(); $('#clinMyQueueCard').show(); loadMyQueue(); }
 
     // ── S3b-1: the prescription (the doctor's working list; nothing reaches the pharmacy until Submit) ─────────
-    var rx = { lines: [], medicines: null, byName: {} };
+    // HC-1d: route = where this clinic's prescriptions go (SAME_ORG | LINKED | NONE), asked of the server once per page
+    var rx = { lines: [], medicines: null, byName: {}, route: null, pharmacyName: null };
+
+    function fillMedicines(list) {
+        rx.medicines = list || [];
+        rx.byName = {};
+        var html = rx.medicines.map(function (p) {
+            var name = String(p.name || L('productN', 'Product #{0}', p.id));
+            if (!rx.byName[name.toLowerCase()]) rx.byName[name.toLowerCase()] = p;
+            return '<option value="' + escHtml(name) + '">' + (p.formula ? escHtml(p.formula) : '') + '</option>';
+        }).join('');
+        $('#clinRxMedicines').html(html);
+    }
 
     function loadMedicines() {
-        if (rx.medicines || typeof ProductPicker === 'undefined') return;
-        ProductPicker.load(function (list) {
-            rx.medicines = list || [];
-            rx.byName = {};
-            var html = rx.medicines.map(function (p) {
-                var name = String(p.name || L('productN', 'Product #{0}', p.id));
-                if (!rx.byName[name.toLowerCase()]) rx.byName[name.toLowerCase()] = p;
-                return '<option value="' + escHtml(name) + '">' + (p.formula ? escHtml(p.formula) : '') + '</option>';
-            }).join('');
-            $('#clinRxMedicines').html(html);
-        });
+        if (rx.medicines) { applyRoute(); return; }
+        // A combined business (clinic + pharmacy in one) reads its own catalogue as before; a SEPARATE clinic reads
+        // its LINKED pharmacy's list (names and strengths only), or is told to link one.
+        $.getJSON(url('clinic/consult/medicines')).done(function (r) {
+            var d = (r && r.success && r.data) || {};
+            rx.route = d.route || null;
+            rx.pharmacyName = d.pharmacyName || null;
+            if (rx.route === 'LINKED') fillMedicines(d.medicines);
+            else if (rx.route === 'NONE') fillMedicines([]);
+            else if (typeof ProductPicker !== 'undefined') ProductPicker.load(fillMedicines);
+            applyRoute();
+        }).fail(function (xhr) { msg(reason(xhr, L('listUnavailable', "The pharmacy's medicine list could not be read just now. Try again in a moment.")), false); });
+    }
+
+    /** HC-1d — show where prescriptions go; with no linked pharmacy, no list and no Submit (the server refuses too). */
+    function applyRoute() {
+        var locked = rxLocked();
+        var noLink = rx.route === 'NONE' && !locked;
+        $('#clinRxNoLink').toggle(noLink);
+        if (noLink) { $('#clinRxAdd').hide(); $('#clinRxTemplates').hide(); $('#clinRxActions').hide(); }
+        var to = rx.route === 'LINKED' && !locked && rx.pharmacyName;
+        $('#clinRxTo').text(to ? L('rxTo', 'Prescriptions go to {0}', rx.pharmacyName) : '').toggle(!!to);
     }
 
     function rxLocked() { var e = consultState.encounter; return !!(e && e.rxId); }
@@ -889,12 +912,15 @@
         var e = consultState.encounter;
         if (locked) {
             var at = fmtDateTime(e.rxSubmittedAt);
-            $('#clinRxSent').text(L('sentToPharmacy', 'Sent to the pharmacy · {0} · {1}', e.tokenLabel || '', at)).show();
+            $('#clinRxSent').text(rx.route === 'LINKED' && rx.pharmacyName
+                ? L('sentToNamed', 'Sent to {2} · {0} · {1}', e.tokenLabel || '', at, rx.pharmacyName)
+                : L('sentToPharmacy', 'Sent to the pharmacy · {0} · {1}', e.tokenLabel || '', at)).show();
             loadPharmacyCopy(e.id);
         } else {
             $('#clinRxSent').hide();
             $('#clinRxPharmacy').hide().empty();
         }
+        applyRoute();
     }
 
     // ── H3c: what the pharmacy did with the prescription (read when a sent prescription is shown) ──────────

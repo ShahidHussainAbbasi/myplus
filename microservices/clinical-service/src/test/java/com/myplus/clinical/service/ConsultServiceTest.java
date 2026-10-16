@@ -42,7 +42,7 @@ class ConsultServiceTest {
 
     EncounterRepo encounters; ClinicalNoteRepo notes; QueueTokenRepo tokens; PatientRepo patients;
     QueueService queue; ClinicAccess access; ClinicAuditService audit;
-    EncounterRxItemRepo rxItems; PharmaRxClient pharma;
+    EncounterRxItemRepo rxItems; PharmaRxClient pharma; com.myplus.clinical.config.LinkRouteClient routes;
     ConsultService service;
     Encounter enc;
 
@@ -52,7 +52,10 @@ class ConsultServiceTest {
         patients = mock(PatientRepo.class); queue = mock(QueueService.class); access = mock(ClinicAccess.class);
         audit = mock(ClinicAuditService.class);
         rxItems = mock(EncounterRxItemRepo.class); pharma = mock(PharmaRxClient.class);
-        service = new ConsultService(encounters, notes, tokens, patients, queue, access, audit, rxItems, pharma);
+        routes = mock(com.myplus.clinical.config.LinkRouteClient.class);
+        // HC-1d: the existing cases are the combined tenant (clinic + pharmacy in one org) — route SAME_ORG
+        when(routes.route()).thenReturn(java.util.Map.of("success", true, "data", java.util.Map.of("route", "SAME_ORG")));
+        service = new ConsultService(encounters, notes, tokens, patients, queue, access, audit, rxItems, pharma, routes);
         when(access.org()).thenReturn(7L);
         when(access.userId()).thenReturn(70L);
         Patient p = new Patient(); p.setId(1L); p.setOrganizationId(7L); p.setName("Ali Khan"); p.setMrn("MRN-7-26-000001");
@@ -257,5 +260,87 @@ class ConsultServiceTest {
         var v = service.complete(5L);
         verify(queue).move(100L, "complete", null);
         assertThat(v.getStatus()).isEqualTo(Encounter.COMPLETED);
+    }
+
+    // ── HC-1d: a SEPARATE clinic sends to its linked pharmacy ────────────────────────────────────────────────
+
+    void routeIs(String kind) {
+        java.util.Map<String, Object> d = new java.util.HashMap<>();
+        d.put("route", kind);
+        if ("LINKED".equals(kind)) d.put("pharmacyName", "Tahseen Pharmacy");
+        when(routes.route()).thenReturn(java.util.Map.of("success", true, "data", d));
+    }
+
+    @Test
+    void a_clinic_with_no_linked_pharmacy_is_refused_by_code_and_nothing_is_sent() {
+        routeIs("NONE");
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10)));
+        assertThatThrownBy(() -> service.submitRx(5L))
+                .isInstanceOfSatisfying(RxRefusedException.class, e -> assertThat(e.getCode()).isEqualTo(RxRefusedException.NO_LINKED_PHARMACY));
+        verify(pharma, never()).create(any());
+        verify(pharma, never()).sendLinked(any());
+        assertThat(enc.getRxId()).isNull();
+    }
+
+    @Test
+    void a_linked_clinic_sends_to_the_pharmacy_without_the_diagnosis_person_or_branch() {
+        routeIs("LINKED");
+        enc.setChiefComplaint("Sore throat");
+        QueueToken t = new QueueToken(); t.setId(100L); t.setOrganizationId(7L); t.setTokenLabel("A-040"); t.setProviderName("Dr Ahmed");
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(t));
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10)));
+        when(pharma.sendLinked(any())).thenReturn(new PharmaRxClient.Envelope(true, "Prescription sent",
+                PharmaRxClient.Rx.builder().id(901L).fromOrgName("Tahseen Pharmacy").build()));
+
+        var v = service.submitRx(5L);
+
+        org.mockito.ArgumentCaptor<PharmaRxClient.Rx> sent = org.mockito.ArgumentCaptor.forClass(PharmaRxClient.Rx.class);
+        verify(pharma).sendLinked(sent.capture());
+        verify(pharma, never()).create(any());
+        assertThat(sent.getValue().getDiagnosis()).as("no diagnosis crosses (D3)").isNull();
+        assertThat(sent.getValue().getPartyId()).as("no clinic person id").isNull();
+        assertThat(sent.getValue().getStoreId()).as("no clinic branch").isNull();
+        assertThat(sent.getValue().getExternalRef()).as("pharma builds its own key").isNull();
+        assertThat(sent.getValue().getNotes()).isEqualTo("MRN-7-26-000001");
+        assertThat(sent.getValue().getEncounterId()).isEqualTo(5L);
+        assertThat(v.getRxId()).isEqualTo(901L);
+
+        service.submitRx(5L);
+        verify(pharma, times(1)).sendLinked(any());   // a second Submit sends nothing
+    }
+
+    @Test
+    void if_auth_cannot_be_asked_nothing_is_sent_anywhere() {
+        when(routes.route()).thenThrow(new org.springframework.web.client.ResourceAccessException("down"));
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10)));
+        assertThatThrownBy(() -> service.submitRx(5L)).hasMessageContaining("nothing was sent");
+        verify(pharma, never()).create(any());
+        verify(pharma, never()).sendLinked(any());
+    }
+
+    @Test
+    void the_doctors_list_follows_the_route() {
+        routeIs("NONE");
+        assertThat(service.medicines()).containsEntry("route", "NONE").doesNotContainKey("medicines");
+        routeIs("SAME_ORG");
+        assertThat(service.medicines()).containsEntry("route", "SAME_ORG");
+        verify(pharma, never()).linkedMedicines();
+        routeIs("LINKED");
+        when(pharma.linkedMedicines()).thenReturn(java.util.Map.of("success", true, "data", java.util.Map.of(
+                "pharmacyName", "Tahseen Pharmacy", "medicines", List.of(java.util.Map.of("id", 7, "name", "Amoxil", "formula", "Amoxicillin 500mg")))));
+        var out = service.medicines();
+        assertThat(out).containsEntry("route", "LINKED").containsEntry("pharmacyName", "Tahseen Pharmacy");
+        assertThat((List<?>) out.get("medicines")).hasSize(1);
+    }
+
+    @Test
+    void a_separate_clinic_reads_its_prescription_back_from_the_linked_pharmacy() {
+        routeIs("NONE");   // even after the link has ended
+        enc.setRxId(901L);
+        when(pharma.getLinked(901L)).thenReturn(new PharmaRxClient.Envelope(true, "ok", PharmaRxClient.Rx.builder().id(901L).status("FULLY_DISPENSED").build()));
+        when(pharma.linkedAmendments(901L)).thenReturn(new PharmaRxClient.Amendments(true, "ok", List.of()));
+        var copy = service.pharmacyCopy(5L);
+        assertThat(copy.get("status")).isEqualTo("FULLY_DISPENSED");
+        verify(pharma, never()).get(any());
     }
 }

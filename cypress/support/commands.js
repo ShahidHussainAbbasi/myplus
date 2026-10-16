@@ -503,6 +503,7 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
   if (overrides.description) body.description = overrides.description
   if (overrides.taxCodeId != null) body.taxCodeId = overrides.taxCodeId   // multi-rate tax: assign a tax code
   if (overrides.barcode) body.barcode = overrides.barcode                 // barcode-first sell: scannable code
+  if (overrides.formula) body.formula = overrides.formula                 // PH-FORMULA: the medicine's strength (HC-1d)
 
   return cy.request({
     method: 'POST', url: '/addProduct', body,

@@ -25,4 +25,11 @@ public class ClinicalAccessAdvice {
                 ? "You are not allowed to do this." : e.getMessage();
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(msg, 403));
     }
+
+    /** HC-1d — a refusal with a stable {@code data.code} the screen branches on (the E5b shape), e.g. no linked pharmacy. */
+    @ExceptionHandler(com.myplus.clinical.service.RxRefusedException.class)
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> rxRefused(com.myplus.clinical.service.RxRefusedException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse<>(false, e.getMessage(), java.util.Map.of("code", e.getCode()), 400));
+    }
 }

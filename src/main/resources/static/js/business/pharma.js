@@ -99,6 +99,11 @@
             doc.append(' ').append($('<span class="label label-info rx-from-doctor">')
                 .text(tOr('ui.js.rx.fromDoctor', 'From the doctor') + (p.tokenLabel ? ' · ' + p.tokenLabel : '')));
         }
+        // HC-1d: sent by a LINKED clinic (a separate business) — its name, stamped when it was sent
+        if (p.fromOrgName) {
+            doc.append(' ').append($('<span class="label label-primary rx-from-clinic">')
+                .text(tOr('ui.js.rx.fromClinic', 'From clinic {0}', p.fromOrgName)));
+        }
         tr.append(doc);
         tr.append($('<td>').text((p.items || []).length));
         tr.append($('<td>').text(p.status || ''));

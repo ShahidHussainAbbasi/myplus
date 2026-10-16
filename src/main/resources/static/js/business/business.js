@@ -2255,9 +2255,19 @@ function buildCustomerRow(obj){
 	];
 }
 
-/** DR-2 — translate with an English fallback (a missing key must never show as "ui.js.…" on a grid row). */
+/**
+ * DR-2 — translate with an English fallback (a missing key must never show as "ui.js.…" on a grid row).
+ * ⚠ This is a GLOBAL function and loads after i18n.js, so on this page it IS window.tOr for every script. It must fill
+ * {0}, {1}, … from the extra arguments exactly as i18n.js's does — it used to drop them, and every pharmacy text with a
+ * value showed a raw "{0}" ("Change the prescription of {0}", "From clinic {0}"; found by the HC-1d gate, 2026-10-16).
+ */
 function tOr(key, fallback){
-	return (typeof tHas === 'function' && tHas(key)) ? t(key) : fallback;
+	var s = (typeof tHas === 'function' && tHas(key)) ? t(key) : fallback;
+	var args = Array.prototype.slice.call(arguments, 2);
+	return String(s).replace(/\{(\d+)\}/g, function (match, i) {
+		var v = args[Number(i)];
+		return (v === undefined || v === null) ? match : String(v);
+	});
 }
 
 /** Which entities can patch a single row, and how they build it. Anything absent falls back to a reload. */

@@ -39,8 +39,12 @@ public class PartyBridgeService {
     private final java.util.concurrent.atomic.AtomicInteger cbFailures = new java.util.concurrent.atomic.AtomicInteger();
     private volatile long cbOpenUntil = 0L;
 
-    /** Identity captured at publish time so the after-commit handler needs no entity reload. */
-    public record PartyBridgeRequest(Long id, String name, String contact) {}
+    /**
+     * Identity captured at publish time so the after-commit handler needs no entity reload. {@code asOrg} is set ONLY
+     * for a prescription sent by a linked clinic (HC-1d): that request's inbound identity is the CLINIC, so without it
+     * the patient would be created in the clinic's party book and that id attached to the pharmacy's row.
+     */
+    public record PartyBridgeRequest(Long id, String name, String contact, Long asOrg) {}
 
     @Autowired
     private ApplicationEventPublisher events;
@@ -54,7 +58,8 @@ public class PartyBridgeService {
     /** Queue a prescription's patient for bridging (best-effort, once). Runs after the caller's tx commits. */
     public void bridgePrescription(Prescription p) {
         if (p == null || p.getId() == null || p.getPartyId() != null) return;
-        events.publishEvent(new PartyBridgeRequest(p.getId(), p.getPatientName(), p.getPatientPhone()));
+        Long asOrg = p.getFromOrgId() != null ? p.getOrganizationId() : null;   // HC-1d: the pharmacy, not the sender
+        events.publishEvent(new PartyBridgeRequest(p.getId(), p.getPatientName(), p.getPatientPhone(), asOrg));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -62,11 +67,19 @@ public class PartyBridgeService {
     public void onBridge(PartyBridgeRequest req) {
         if (partyClient == null || System.currentTimeMillis() < cbOpenUntil) return;   // unwired or circuit open
         try {
-            PartyRef ref = partyClient.upsert(PartyRef.builder()
+            PartyRef body = PartyRef.builder()
                     .partyType("PATIENT").name(req.name()).contact(req.contact())
                     .role(PartyRoleRef.builder()   // P4: identity AND role link in one call
                             .module("pharma").role("PATIENT").localId(req.id()).label(req.name()).build())
-                    .build());
+                    .build();
+            PartyRef ref;
+            if (req.asOrg() == null) {
+                ref = partyClient.upsert(body);
+            } else {
+                PartyRef[] out = new PartyRef[1];
+                com.myplus.common.security.GatewayIdentityForwarding.runAs(LinkedRxService.SERVICE_USER, req.asOrg(), () -> out[0] = partyClient.upsert(body));
+                ref = out[0];
+            }
             cbFailures.set(0);   // a successful call closes the breaker
             if (ref != null && ref.getId() != null) prescriptionRepo.updatePartyId(req.id(), ref.getId());
         } catch (Exception e) {

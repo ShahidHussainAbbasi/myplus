@@ -35,7 +35,7 @@ management:
 jwt:
   secret: ${JWT_SECRET}            # no default in prod
 
-# F15: in prod don't seed the known-password admin; set ADMIN_PASSWORD if you intentionally seed one.
+# F15: the operator admin@myplus.com is seeded only with APP_SEED_ADMIN=true + an explicit APP_ADMIN_PASSWORD.
 #
 # Every seeding flag is listed here EXPLICITLY. seed-demo used to be omitted, so it inherited the dev default of
 # TRUE and only docker-compose's override stopped a non-compose prod deploy from creating known-password accounts.
@@ -45,8 +45,8 @@ jwt:
 # refuses to seed any account whose password was not explicitly supplied. These settings are the first gate,
 # not the only one.
 app:
-  seed-admin: ${SEED_ADMIN:true}
-  admin-password: ${ADMIN_PASSWORD:}
+  seed-admin: ${APP_SEED_ADMIN:false}   # same names as docker-compose passes (APP_*); was SEED_ADMIN, which nothing set
+  admin-password: ${APP_ADMIN_PASSWORD:}
   # Public demo tenants are a PRODUCT feature (50-entry cap + upsell), so this may be turned on deliberately —
   # but only together with an explicit strong DEMO_PASSWORD. Off unless asked for.
   seed-demo: ${SEED_DEMO:false}

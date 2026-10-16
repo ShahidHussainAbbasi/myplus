@@ -104,9 +104,10 @@ RESET_PASSWORD_URL=https://your-domain/user/changePassword
 # ── seeding: LOCAL ONLY. Never set any of these on a public host. ─────────
 # Compose defaults all three to false, so a deploy is safe unless you opt in.
 APP_SEED_DEMO=true
-# APP_SEED_ADMIN=true
+APP_SEED_ADMIN=true                     # the operator admin@myplus.com — dev AND prod (2026-10-15)
+APP_ADMIN_PASSWORD=                     # its password; re-applied on EVERY auth-service start
 # APP_SEED_TEST_FIXTURES=true            # the Cypress multi-location/multi-branch fixtures
-# APP_DEMO_PASSWORD= / APP_ADMIN_PASSWORD=   — unset means seeding is SKIPPED rather than
+# APP_DEMO_PASSWORD=   — unset means seeding is SKIPPED under the prod profile only rather than
 #   falling back to the credential committed to this repo. That fallback was the real exposure.
 ```
 

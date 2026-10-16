@@ -32,6 +32,22 @@ public interface PharmaRxClient {
     @org.springframework.web.service.annotation.GetExchange("/prescriptions/{id}/amendments")
     Amendments amendments(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
 
+    // ── HC-1d: a SEPARATE clinic prescribing to the pharmacy it is linked to (pharma's LinkedRxController) ────────
+
+    /** The linked pharmacy's medicines: {pharmacyName, medicines:[{id, name, formula}]} — never price or stock. */
+    @org.springframework.web.service.annotation.GetExchange("/internal/linked-rx/medicines")
+    java.util.Map<String, Object> linkedMedicines();
+
+    /** Send to the linked pharmacy; pharma re-checks the link and writes in the PHARMACY's organisation. */
+    @PostExchange("/internal/linked-rx")
+    Envelope sendLinked(@RequestBody Rx rx);
+
+    @org.springframework.web.service.annotation.GetExchange("/internal/linked-rx/{id}")
+    Envelope getLinked(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @org.springframework.web.service.annotation.GetExchange("/internal/linked-rx/{id}/amendments")
+    Amendments linkedAmendments(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
     @Data @NoArgsConstructor @AllArgsConstructor
     class Amendments {
         private boolean success;
@@ -63,6 +79,7 @@ public interface PharmaRxClient {
         private String source;
         private String status;        // H3c: read back for the doctor (PENDING, PARTIALLY_DISPENSED, …)
         private Long storeId;         // H4: the pharmacy branch it is routed to
+        private String fromOrgName;   // HC-1d: on a linked send's answer, the pharmacy it went to
         @Builder.Default
         private List<Item> items = new ArrayList<>();
     }

@@ -210,4 +210,66 @@ class PrescriptionServiceTest {
         assertThatThrownBy(() -> service.cancel(id, 999L, 999L))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    // ── HC-1d: a prescription sent by a LINKED clinic ───────────────────────────────────────────────
+    static final Long PHARMACY = 1L, CLINIC_A = 50L, CLINIC_B = 51L;
+
+    private PrescriptionDTO fromClinic(String patient, long encounter) {
+        PrescriptionDTO d = sample(patient);
+        d.setEncounterId(encounter);
+        d.setTokenLabel("A-001");
+        d.setPartyId(4242L);        // the clinic's person id — must NOT cross
+        d.setStoreId(3L);           // the clinic's branch — must NOT cross
+        d.setExternalRef("enc-1");  // whatever the body says, the server builds its own key
+        d.setNotes("MRN-000123");
+        return d;
+    }
+
+    @Test
+    void a_linked_clinics_prescription_lives_in_the_pharmacy_and_says_who_sent_it() {
+        PrescriptionDTO out = service.createFromLinkedClinic(fromClinic("Hina", 5), PHARMACY, CLINIC_A, "Tahseen Clinic");
+        var row = prescriptionRepo.findById(out.getId()).orElseThrow();
+        assertThat(row.getOrganizationId()).isEqualTo(PHARMACY);
+        assertThat(row.getFromOrgId()).isEqualTo(CLINIC_A);
+        assertThat(row.getFromOrgName()).isEqualTo("Tahseen Clinic");
+        assertThat(row.getSource()).isEqualTo("DOCTOR");
+        assertThat(row.getExternalRef()).isEqualTo("clinic-50-enc-5");
+        assertThat(row.getDiagnosis()).as("no diagnosis crosses (D3)").isNull();
+        assertThat(row.getPartyId()).as("no clinic person id").isNull();
+        assertThat(row.getStoreId()).as("no clinic branch").isNull();
+        assertThat(row.getUserId()).as("no clinic user id").isNull();
+        assertThat(row.getNotes()).isEqualTo("MRN-000123");
+        // the pharmacy's ordinary, org-scoped reads see it
+        assertThat(service.get(out.getId(), PHARMACY, null).getFromOrgName()).isEqualTo("Tahseen Clinic");
+    }
+
+    @Test
+    void a_retry_is_the_same_prescription_and_two_clinics_never_collide() {
+        Long a1 = service.createFromLinkedClinic(fromClinic("Hina", 5), PHARMACY, CLINIC_A, "A").getId();
+        Long a2 = service.createFromLinkedClinic(fromClinic("Hina", 5), PHARMACY, CLINIC_A, "A").getId();
+        Long b = service.createFromLinkedClinic(fromClinic("Sara", 5), PHARMACY, CLINIC_B, "B").getId();
+        assertThat(a2).isEqualTo(a1);
+        assertThat(b).isNotEqualTo(a1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void the_pharmacist_finds_a_linked_clinics_prescription_by_its_token_or_mrn() {
+        Long a = service.createFromLinkedClinic(fromClinic("Hina", 5), PHARMACY, CLINIC_A, "A").getId();   // token A-001, MRN-000123
+        java.util.function.Function<String, List<Long>> ids = q -> ((List<PrescriptionDTO>) service.search(PHARMACY, null, q, null, 0, 25)
+                .get("items")).stream().map(PrescriptionDTO::getId).toList();
+        assertThat(ids.apply("a-001")).containsExactly(a);
+        assertThat(ids.apply("MRN-000123")).containsExactly(a);
+        assertThat(ids.apply("A-00")).as("a token matches exactly, not as a fragment").isEmpty();
+        assertThat(((List<?>) service.search(999L, null, "A-001", null, 0, 25).get("items"))).as("another pharmacy").isEmpty();
+    }
+
+    @Test
+    void a_clinic_reads_back_only_what_it_sent() {
+        Long a = service.createFromLinkedClinic(fromClinic("Hina", 5), PHARMACY, CLINIC_A, "A").getId();
+        Long counter = service.create(sample("Walk-in"), PHARMACY, USER).getId();
+        assertThat(service.getForLinkedClinic(a, CLINIC_A).getId()).isEqualTo(a);
+        assertThatThrownBy(() -> service.getForLinkedClinic(a, CLINIC_B)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.getForLinkedClinic(counter, CLINIC_A)).isInstanceOf(ResourceNotFoundException.class);
+    }
 }

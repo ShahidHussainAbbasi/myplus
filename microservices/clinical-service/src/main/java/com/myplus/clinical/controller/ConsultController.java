@@ -97,6 +97,15 @@ public class ConsultController {
         return ApiResponse.success(null, "Template removed.");
     }
 
+    /**
+     * HC-1d R2 — where this clinic's prescriptions go and what the doctor may pick: {route, pharmacyName, medicines}.
+     * route SAME_ORG → the screen reads this business's own catalogue as before; NONE → "Link your pharmacy first".
+     */
+    @GetMapping("/medicines")
+    public ApiResponse<java.util.Map<String, Object>> medicines() {
+        return ApiResponse.success(consult.medicines());
+    }
+
     /** H3c — the pharmacy's copy of this visit's prescription and every change it made (read when the doctor looks). */
     @GetMapping("/encounters/{id}/rx/pharmacy")
     public ApiResponse<java.util.Map<String, Object>> pharmacyCopy(@PathVariable Long id) {

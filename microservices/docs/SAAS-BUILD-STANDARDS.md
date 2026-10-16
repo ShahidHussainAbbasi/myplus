@@ -562,6 +562,14 @@ state must be the safe one, and an absent key or failed config read must resolve
 schema included. _Incident: `welfare.donation.requireDonor` OFF still failed, because `donation.donator_id` was
 `NOT NULL`._
 
+**C5. One name per environment variable, end to end — and know which file and profile actually reach the JVM.**
+Trace the value: env file → `docker-compose.yml` `environment:` → the profile the service really runs → the
+`${...}` that reads it. _Incident 2026-10-15: `application-prod.yml` read `ADMIN_PASSWORD`/`SEED_ADMIN` while
+compose passed `APP_ADMIN_PASSWORD`/`APP_SEED_ADMIN` (dormant only because the services run the `default` profile,
+DEPLOY-POS-RETAIL §4.6); compose reads `microservices/.env` and IGNORES `.env.local`; and a password read "only at
+first creation" silently ignored every later `.env` change. Now: `APP_*` everywhere, and the operator password is
+re-applied on every start._
+
 ## 1d. Caching standard (the user, 2026-09-15)
 
 Design and the first implementation: `slices/cache-1-tenant-cache-aside.md`.

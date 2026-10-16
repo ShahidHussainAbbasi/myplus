@@ -137,6 +137,45 @@ class OrgLinkServiceTest {
         verify(audit, times(2)).linkAction(eq("LINK_END"), eq(77L), anyLong(), eq(OrgLink.ACTIVE), eq(OrgLink.ENDED), eq("guide cleanup"), eq(8L), anyString());
     }
 
+    // ── HC-1d R1 — where prescriptions go ──────────────────────────────────────────────────────────────────
+
+    static OrgLink active(long clinic, long pharmacy) {
+        OrgLink l = new OrgLink();
+        l.setId(88L); l.setClinicOrgId(clinic); l.setPharmacyOrgId(pharmacy); l.setStatus(OrgLink.ACTIVE);
+        return l;
+    }
+
+    @Test
+    void a_linked_clinic_routes_to_its_pharmacy_by_id_and_name() {
+        when(links.findByClinicOrgIdAndStatusIn(eq(CLINIC), any())).thenReturn(List.of(active(CLINIC, OPEN)));
+        Map<String, Object> r = svc.route(CLINIC);
+        assertThat(r.get("route")).isEqualTo(OrgLinkService.ROUTE_LINKED);
+        assertThat(r.get("pharmacyOrgId")).isEqualTo(OPEN);
+        assertThat(r.get("pharmacyName")).isEqualTo("Tahseen Pharmacy");
+        assertThat(r.get("clinicName")).isEqualTo("Tahseen Clinic");
+    }
+
+    @Test
+    void a_clinic_without_an_active_link_has_no_route() {
+        assertThat(svc.route(CLINIC).get("route")).isEqualTo(OrgLinkService.ROUTE_NONE);
+        assertThat(svc.route(CLINIC)).doesNotContainKey("pharmacyOrgId");
+    }
+
+    @Test
+    void a_link_to_a_suspended_pharmacy_is_no_route() {
+        when(orgs.findById(OPEN)).thenReturn(Optional.of(Organization.builder().id(OPEN).type("PHARMA").name("Tahseen Pharmacy").status("SUSPENDED").build()));
+        when(links.findByClinicOrgIdAndStatusIn(eq(CLINIC), any())).thenReturn(List.of(active(CLINIC, OPEN)));
+        assertThat(svc.route(CLINIC).get("route")).isEqualTo(OrgLinkService.ROUTE_NONE);
+    }
+
+    @Test
+    void any_other_business_keeps_its_own_route() {
+        assertThat(svc.route(OPEN).get("route")).isEqualTo(OrgLinkService.ROUTE_SAME_ORG);
+        assertThat(svc.route(SHOP).get("route")).isEqualTo(OrgLinkService.ROUTE_SAME_ORG);
+        assertThat(svc.route(null).get("route")).isEqualTo(OrgLinkService.ROUTE_SAME_ORG);
+        assertThat(svc.route(OPEN)).containsOnlyKeys("route");
+    }
+
     @Test
     void only_a_pharmacy_has_the_accept_clinics_switch() {
         assertThat(code(() -> svc.setAcceptsClinics(CLINIC, 9L, true))).isEqualTo("LINK_NOT_PHARMACY");

@@ -78,3 +78,86 @@ another pharmacy cannot accept; a second request is refused; a clinic member who
 | monolith | `OrgLinkController` `/links/**` pass-through (form → JSON; HTTP refusal → success:false); `fragments/org-links.html` (pharmacy + clinic panels); `js/common/org-links.js`; Pharmacy menu **Linked clinics**; clinic menu **Linked pharmacy**; clinic home step **Link your pharmacy**; keys `ui.lc.*`, `ui.pl.*`, `ui.js.link.*` (each refusal code has its own key) |
 | specs | `docs/hc-1c-link-guide-screens.cy.js` (L1–L6), `healthcare/hc-1c-link-api.cy.js` (A1–A6) — not yet run |
 Known: the other business's audit row carries actor type MEMBER (no "linked business" actor type exists) — its details name who acted.
+
+## HC-1d design — prescriptions across the link (traced 2026-10-16; awaiting "go")
+### Review — what breaks for a SEPARATED clinic today (counted)
+| # | Step | Today | Evidence |
+|---|---|---|---|
+| T1 | The doctor's list | the CLINIC's own catalogue (`/catalogProductPicker`, scoped to the caller) — empty for a clinic | `clinic.js loadMedicines` → `product-picker.js:36` |
+| T2 | A line not in the list | refused on screen ("not in the pharmacy's list") AND by pharma (`productId == null` → refused) AND by the schema (`encounter_rx_item.product_id NOT NULL`) | `clinic.js:944`, `PrescriptionService:54`, clinical V5 |
+| T3 | Submit | pharma `POST /prescriptions` with the DOCTOR's token → written in the **clinic's** org; `diagnosis` = the chief complaint | `ConsultService.submitRx` 260–275 |
+| T4 | Product check | `PrescribedProductCheck` reads the catalogue of the CALLER (the clinic) → every pharmacy product is "not in this pharmacy's list" | `PrescribedProductCheck` |
+| T5 | Branch routing (H4) | `storeId` = the doctor's pharmacy branch — a CLINIC store id, meaningless in the pharmacy | `routeOf` |
+| T6 | Person | `partyId` = the clinic's party id — another tenant's id if sent across | `submitRx` 261 |
+| T7 | Status back | `pharma.get(rxId)` scoped to the caller → not found once the prescription lives in the pharmacy | `pharmacyCopy` 326 |
+| T8 | Idempotency | `externalRef = enc-<id>` UNIQUE per org — two clinics' `enc-5` would collide in one pharmacy | pharma V9 |
+Unaffected: the combined tenant (org 15, clinic + pharmacy in one org) — every step above is correct there and stays.
+
+### Design
+**R1 · Who decides the route: auth, asked by both sides.** New internal `GET /api/auth/internal/links/route` (X-Internal-Secret
++ forwarded org; not routed by the gateway) → `{ route: SAME_ORG | LINKED | NONE, pharmacyOrgId, pharmacyName }` for the
+CALLER's org: a CLINIC-type org with an ACTIVE link → LINKED; a CLINIC-type org without → NONE; any other org → SAME_ORG.
+The clinic never names the pharmacy, so it cannot address one it is not linked to.
+
+**R2 · The medicine list (T1).** clinical `GET /api/clinic/consult/medicines` → LINKED: pharma internal
+`GET /internal/linked-rx/medicines` (pharma asks auth R1 itself, then reads the PHARMACY's catalogue as that org) →
+`[{id, name, formula}]` only; SAME_ORG: the screen keeps `ProductPicker` as today; NONE: `#clinRxNoLink`.
+
+**R3 · Submit (T3–T6, T8).** LINKED → pharma internal `POST /internal/linked-rx` — pharma re-checks R1 (never trusts
+clinical), writes in the **pharmacy's** org: source DOCTOR, `from_org_id` + `from_org_name` **stamped at write**,
+`externalRef = clinic-<org>-enc-<id>`, **no diagnosis** (D3), MRN in notes, **no partyId** (the pharmacy's own bridge
+matches by name + phone), **no storeId** (every branch of the pharmacy). Product check against the PHARMACY's catalogue.
+NONE → refused `RX_NO_LINKED_PHARMACY` (code + key). SAME_ORG → unchanged.
+
+**R4 · Hand-written lines (T2, D2).** `product_id` nullable in clinical (V9) and allowed by pharma for a LINKED
+prescription only; the screen offers **Add as written** (`#clinRxAddFree`) and marks the line. The pharmacist chooses
+the product with the existing **Change** (amend already accepts a new product id, `PrescriptionAmendService:91`);
+Dispense already skips a line without a product (`DispenseService:70`).
+
+**R5 · Status back (T7, D5).** pharma internal `GET /internal/linked-rx/{id}` (+ amendments) — only when
+`from_org_id` = the caller's org; lines and status, never price or stock. Readable after the link ends (it is the
+clinic's own prescription); new Submits are not.
+
+**R6 · The pharmacy screen.** `.rx-from-clinic` "From clinic <name>" on the row (from the stamped name); the
+hand-written line shows "choose the product".
+
+**Data:** pharma **V10** `prescriptions.from_org_id BIGINT NULL, from_org_name VARCHAR(200) NULL`, index
+`(from_org_id, id)` — InnoDB check first (MyISAM trap). clinical **V9** `encounter_rx_item.product_id` NULL.
+Recheck both numbers before deploy (parallel sessions).
+
+**Readers of `prescriptions` (to classify in the build trace):** list / search / count / get / dispense / amend /
+cancel — all org-scoped → see the new row as the pharmacy's (WANT). Party bridge → by name/phone (WANT). The H4 store
+filter → `store_id NULL` = every branch (WANT).
+
+**Order — two vertical slices on ONE gate** (`docs/hc-1d-rx-guide-screens.cy.js`, X1–X6):
+- **HC-1d-1** R1–R3, R6 for listed medicines → X1, X2, X3 (listed line), X4, X6 green.
+- **HC-1d-2** R4 + R5 → X3 (hand-written), X5 green.
+Plus `healthcare/hc-1d-rx-api.cy.js` (refusals: an unlinked clinic; a clinic reading another clinic's prescription; a
+shop calling the route; the counter path claiming "from clinic").
+
+**Deploy:** auth-service, clinical-service, pharma-service, monolith.
+
+## HC-1d-1 BUILT (2026-10-16, user "go ahead") — not compiled / deployed
+| Layer | Change |
+|---|---|
+| auth | `OrgLinkService.route(org)` (SAME_ORG / LINKED / NONE; a suspended pharmacy = NONE); `InternalLinkController` `GET /api/auth/internal/links/route` — secret + org from `X-Org-Id` ONLY, fails closed (404); SecurityConfig permits `/api/auth/internal/**`; `OrgLinkServiceTest` +4 |
+| pharma **V12** | `prescriptions.from_org_id`, `from_org_name` (stamped), index `(from_org_id, id)` — InnoDB, live at V11 on 10-16 |
+| pharma | `PrescriptionService.createFromLinkedClinic` (pharmacy org, key `clinic-<org>-enc-<id>`, no diagnosis / party / branch / user) + `getForLinkedClinic` / `pharmacyOfLinked` (only rows carrying the reader's clinic id); `validate` + `saveItems` shared with `create`; `LinkedRxService` (asks auth itself on every call; reads + checks the catalogue `runAs` the pharmacy; list rows stripped to id/name/formula; change history without `amendedBy`); `LinkedRxController` `/internal/linked-rx` (`clinic.consult`, refusal = 400 + `data.code`); `PartyBridgeService` bridges a linked row AS the pharmacy (found in the trace: it ran on the clinic's forwarded identity); `fromOrgName` on the DTO; `LinkedRxServiceTest` 6 + `PrescriptionServiceTest` +3 (Testcontainers — skip on Windows) |
+| clinical | `LinkRouteClient`; `ConsultService.route()` (auth unreachable → refused, never "same org"), `medicines()`, `submitLinked`, `pharmacyCopy` reads the linked copy for a separate clinic; `RxRefusedException` `RX_NO_LINKED_PHARMACY` (400 + `data.code`, `ClinicalAccessAdvice`); `GET /api/clinic/consult/medicines`; `ConsultServiceTest` +5 |
+| monolith | `GET /clinic/consult/medicines` proxy; `clinicDashboard.html` `#clinRxNoLink`, `#clinRxTo`; `clinic.js` route-aware list (`applyRoute`, "Sent to <pharmacy>"); `pharma.js` `.rx-from-clinic`; 6 keys × 6 bundles |
+| specs | `docs/hc-1d-rx-guide-screens.cy.js` X1–X6 (X3 hand-written step + X5 stay red until HC-1d-2); `seedProduct` passes `formula` |
+
+**Found in the trace, NOT fixed here (needs its own decision):** the gateway stamps the internal secret on EVERY
+authenticated request and routes `/api/auth/**` and `/api/<svc>/internal/**` (StripPrefix) — so "has the secret" does
+not mean "is a service". HC-1d's endpoints are built to be safe under that (org from the stamped header only, permission
+checked). Existing ones to review: `PortalAccountController` (`/api/auth/portal/account` takes `organizationId` in the
+BODY), business `/internal/sales` (checks body org = authenticated org), others under `/internal/**`.
+
+## Decisions 2026-10-16 (the user) — HC-1d-3 / HC-1d-4
+| # | Decision |
+|---|---|
+| (1) | Every prescription carries the **doctor's id** (the clinic's doctor record, `clinic_provider`, never a login id) and the **clinic's id** (`from_org_id`, built in HC-1d-1), with names stamped at write, so the pharmacy can report by doctor and by hospital/clinic. A doctor in reports = (clinic id, doctor id). The combined org stamps the doctor id too. |
+| (c) | The doctor's **licence number** (e.g. PMDC) is **optional**: a field on the doctor form, stamped on each prescription when present. |
+| (a) | Auto-display: **smart polling every 60 s** (the user: "increase to 1 minute if it is best to improve performance"), only while the tab is visible, plus an immediate check when the tab becomes visible again. One indexed "anything new after #id?" query; nothing returned when nothing is new. |
+| (b) | **Sound, with a setting to switch it on/off (off by default)**: (i) at the pharmacy when a new prescription appears; (ii) in the clinic when the doctor presses **Call** / **Next** (the waiting room hears the token called). Each business's own setting. |
+| (d) | Order confirmed: HC-1d-1 gate → **HC-1d-2** (hand-written lines; status back built in 1d-1) → **HC-1d-3** (doctor id + licence, reports by doctor / clinic) → **HC-1d-4** (auto-display + sounds). Each: Test Book cases first. |

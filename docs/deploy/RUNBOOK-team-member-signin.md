@@ -12,7 +12,7 @@ and how `admin@myplus.com` differs. No step here needs SQL or server access exce
 |---|---|---|
 | What it is | A person who works in ONE business | The platform account (its own "Default Admin's organization") |
 | Who creates it | That business's owner (or one of its admins) on **Team** | auth-service, by itself, at start-up — only if it does not exist yet |
-| Password | Nobody sets it for them. They get an e-mail and choose their own | `APP_ADMIN_PASSWORD` in the server's `.env`, read at the FIRST start only |
+| Password | Nobody sets it for them. They get an e-mail and choose their own | `APP_ADMIN_PASSWORD` in the server's `.env` (with `APP_SEED_ADMIN=true`) — re-applied on EVERY auth-service start |
 | Where it lives | Production's database. Accounts made on a laptop do **not** travel to production — a deploy never copies accounts | Same |
 
 ⚠ The three accounts made on 2026-10-12 (uncer_sh@yahoo.com, email2uncer@gmail.com, pharmacist@gmail.com) were made
@@ -88,9 +88,10 @@ the NEWEST e-mail.
 
 - **Use addresses the person owns.** `pharmacist@gmail.com` almost certainly belongs to a stranger: whoever reads that
   inbox can set the password and enter the business. Use the pharmacist's real address.
-- **admin@myplus.com:** `APP_ADMIN_PASSWORD` is read only when the account is first created; changing it later does
-  NOT change the password. Recovering it by "Forgot password?" sends the link to the **myplus.com** mailbox — make sure
-  that domain's mail is yours before relying on it (not verified). Keep the admin password in a password manager.
+- **admin@myplus.com (2026-10-15):** the `.env` is the password. auth-service sets the account's password to
+  `APP_ADMIN_PASSWORD` on every start (and clears a lockout), so to change it: edit `.env`, restart auth-service.
+  "Forgot password?" does NOT work for it — myplus.com is not a mailbox anyone reads — and a password changed in the
+  app is put back at the next restart. The repo is public: on the VPS use a value not written anywhere in it.
 - **Open (not done):**
   - reCAPTCHA is off on Forgot password, so anyone can make the server send reset e-mails to any address; turn it on for production (`app.captcha.enabled` + keys).
   - Each Forgot password? adds a new token while the older ones stay valid until they expire; one local test account had 56. The new one should cancel the old.

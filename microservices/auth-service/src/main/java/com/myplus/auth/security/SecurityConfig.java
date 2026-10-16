@@ -74,6 +74,9 @@ public class SecurityConfig {
                                 // enforces X-Internal-Secret itself and FAILS CLOSED when none is
                                 // configured, so this is not an unauthenticated surface.
                                 "/api/auth/portal/**",
+                                // HC-1d — service-to-service route question; InternalLinkController checks the
+                                // secret itself (fails closed) and reads the org ONLY from X-Org-Id.
+                                "/api/auth/internal/**",
                                 // RW-0c — the list of permission CODES (the product's vocabulary, nobody's data): a
                                 // service checks at start-up, before anyone signs in, that the codes it names exist
                                 "/api/auth/catalog/permission-codes",

@@ -26,6 +26,7 @@ public class PrescriptionDTO {
     private Long encounterId;
     private String externalRef;   // "enc-<id>": the idempotency key of a doctor's Submit
     private Long storeId;         // H4: the branch a doctor's prescription is routed to (null = every branch)
+    private String fromOrgName;   // HC-1d: the linked clinic that sent it (set by the server, never read from a form)
     private LocalDateTime createdAt;
     private List<PrescriptionItemDTO> items = new ArrayList<>();
 

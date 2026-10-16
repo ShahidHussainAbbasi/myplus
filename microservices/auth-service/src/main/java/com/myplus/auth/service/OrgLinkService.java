@@ -179,6 +179,44 @@ public class OrgLinkService {
         return view(l, callerOrg);
     }
 
+    /** HC-1d R1 — where an organisation's prescriptions go. */
+    public static final String ROUTE_SAME_ORG = "SAME_ORG";
+    public static final String ROUTE_LINKED = "LINKED";
+    public static final String ROUTE_NONE = "NONE";
+
+    /**
+     * HC-1d R1 — the ONE answer both clinical-service and pharma-service ask for, so they cannot disagree:
+     * <ul>
+     *   <li>a Hospital / Clinic with an ACTIVE link to an ACTIVE pharmacy → {@code LINKED} + that pharmacy's id and name;</li>
+     *   <li>a Hospital / Clinic without one → {@code NONE} (its doctors cannot send prescriptions);</li>
+     *   <li>any other organisation (a pharmacy, the combined org that runs its own clinic) → {@code SAME_ORG}, as before HC-1d.</li>
+     * </ul>
+     * {@code orgId} is always the CALLER's (the controller reads it from the gateway-stamped header): a caller learns its
+     * own route and nothing about anyone else's.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> route(Long orgId) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        Organization o = orgId == null ? null : organizations.findById(orgId).orElse(null);
+        if (o == null || !CLINIC.equalsIgnoreCase(o.getType())) {
+            out.put("route", ROUTE_SAME_ORG);
+            return out;
+        }
+        out.put("clinicName", o.getName());
+        for (OrgLink l : links.findByClinicOrgIdAndStatusIn(orgId, List.of(OrgLink.ACTIVE))) {
+            Organization p = organizations.findById(l.getPharmacyOrgId()).orElse(null);
+            // a suspended pharmacy cannot receive: the link stands, the route does not
+            if (p != null && PHARMA.equalsIgnoreCase(p.getType()) && "ACTIVE".equalsIgnoreCase(p.getStatus())) {
+                out.put("route", ROUTE_LINKED);
+                out.put("pharmacyOrgId", p.getId());
+                out.put("pharmacyName", p.getName());
+                return out;
+            }
+        }
+        out.put("route", ROUTE_NONE);
+        return out;
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────────────────────────────────────
 
     private void requireType(Long callerOrg, String type) {

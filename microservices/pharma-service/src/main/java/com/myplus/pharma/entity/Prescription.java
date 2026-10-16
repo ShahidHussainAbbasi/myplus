@@ -65,6 +65,14 @@ public class Prescription {
     @Column(name = "external_ref", length = 64)
     private String externalRef;
 
+    /** HC-1d (V12) — the linked clinic that SENT this prescription (null = not from a linked clinic). */
+    @Column(name = "from_org_id")
+    private Long fromOrgId;
+
+    /** HC-1d (V12) — that clinic's name, stamped at write. */
+    @Column(name = "from_org_name", length = 200)
+    private String fromOrgName;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 

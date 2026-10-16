@@ -35,11 +35,18 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
                                   @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
                                   Pageable pageable);
 
-    /** HMS S4-lite — the pharmacist's search box, by text: patient name, phone or doctor. Newest first, paged. */
+    /**
+     * HMS S4-lite — the pharmacist's search box, by text: patient name, phone or doctor. Newest first, paged.
+     * HC-1d — also the clinic TOKEN and the MRN (kept in {@code notes}), both EXACT: a prescription from a LINKED clinic
+     * cannot be resolved through the clinic (another business), so these stamped values are how the pharmacist finds
+     * what the patient hands over. A token repeats daily (A-002 every day) — newest first puts today's on top.
+     */
     @Query("SELECT p FROM Prescription p WHERE " + SCOPE + BRANCH + " AND ("
             + " LOWER(p.patientName) LIKE LOWER(CONCAT('%', :q, '%'))"
             + " OR p.patientPhone LIKE CONCAT('%', :q, '%')"
-            + " OR LOWER(p.doctorName) LIKE LOWER(CONCAT('%', :q, '%'))) ORDER BY p.createdAt DESC")
+            + " OR LOWER(p.doctorName) LIKE LOWER(CONCAT('%', :q, '%'))"
+            + " OR LOWER(p.tokenLabel) = LOWER(:q)"
+            + " OR LOWER(p.notes) = LOWER(:q)) ORDER BY p.createdAt DESC")
     List<Prescription> searchScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
                                     @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
                                     @Param("q") String q,

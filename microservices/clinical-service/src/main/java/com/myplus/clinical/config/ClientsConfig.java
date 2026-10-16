@@ -75,6 +75,12 @@ public class ClientsConfig {
         return client(builder, "http://pharma-service", 6000, PharmaRxClient.class);
     }
 
+    /** HC-1d R1 — where this clinic's prescriptions go (auth's org_link). Read per screen open and per Submit. */
+    @Bean
+    public LinkRouteClient linkRouteClient(@LoadBalanced RestClient.Builder builder) {
+        return client(builder, "http://auth-service/api/auth/internal/links", 4000, LinkRouteClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         return client(builder, "http://audit-service/api/audit", 5000, AuditClient.class);
