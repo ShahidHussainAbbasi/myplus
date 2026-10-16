@@ -6719,7 +6719,7 @@
     {
      "n": 4,
      "do": "Press \"Download CSV\".",
-     "expect": "A file \"settlement-report-<from>-to-<to>.csv\": a header line with the same columns, one line per shop, and \"All sellers\". It opens in Excel.",
+     "expect": "A file \"settlement-report-all-sellers-<from>-to-<to>.csv\": a header line with the same columns, one line per shop, and \"All sellers\". It opens in Excel.",
      "shot": "shots/M-2f-01/04.jpg"
     }
    ],
@@ -7931,37 +7931,56 @@
   {
    "id": "M-X-02",
    "slice": "Programme",
-   "title": "Tenant scope on every artefact",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Two sellers active.",
-   "steps": [
-    {
-     "n": 1,
-     "do": "Export Seller A's statement; check the file name, the report header and the notification it sent.",
-     "expect": "Each carries Seller A's organisation."
-    },
-    {
-     "n": 2,
-     "do": "Export Seller B's.",
-     "expect": "It never contains Seller A's rows."
-    }
-   ],
-   "cleanup": [
-    {
-     "n": 1,
-     "do": "Delete the exported files.",
-     "expect": "—"
-    }
-   ],
+   "title": "Tenant scope on every file and report",
+   "persona": "owner.business@myplus.com (Shahzad Mobile Shop), owner.mobile@myplus.com (Mobile Distributor), then admin@myplus.com (operator)",
    "reqs": [
     "MKT-R21.2",
     "MKT-R21.3",
     "MKT-R22.1"
    ],
-   "evidence": "design",
-   "source": "Programme rule.",
-   "warn": false,
-   "auto": []
+   "pre": "Two sellers active on the marketplace: Shahzad Mobile Shop and Mobile Distributor.",
+   "auto": [
+    "MKT-Xb-01",
+    "MKT-Xb-02",
+    "MKT-Xb-03",
+    "TenantScopeTest.everyEntityIsScoped"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → Statement. Under \"Period summary\" read the line under the dates, then press \"Download CSV\".",
+     "expect": "The line reads \"For Shahzad Mobile Shop, organisation <its id>\". The file is named \"marketplace-statement-org<its id>-<from>-to-<to>.csv\" and opens with \"Seller,Shahzad Mobile Shop\", \"Organisation ID,<its id>\", \"Period,<from> to <to>\", then \"Line,Amount\" and the lines on screen.",
+     "shot": "shots/M-X-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.mobile@myplus.com: the same.",
+     "expect": "The line reads \"For Mobile Distributor, organisation <its id>\"; the file is named for that id and holds nothing of Shahzad Mobile Shop: not its name, not its id.",
+     "shot": "shots/M-X-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Still as owner.mobile@myplus.com, developer tools: GET /mkt/settlementReport?organizationId=<Shahzad Mobile Shop's id>.",
+     "expect": "The answer is Mobile Distributor's own report (organizationId = its own id, one row, its own): the organisation comes from the login, never from the request."
+    },
+    {
+     "n": 4,
+     "do": "As admin@myplus.com: Platform → \"Settlement and payouts\", then \"Download CSV\" under the settlement report.",
+     "expect": "The file is named \"settlement-report-all-sellers-<from>-to-<to>.csv\": it says it is every seller's, and each line after the header starts with its seller's organisation id; the last is \"All sellers\".",
+     "shot": "shots/M-X-02/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Delete the three downloaded files.",
+     "expect": "Nothing was changed on the server: reading and downloading change nothing."
+    }
+   ],
+   "recordedAt": "2026-10-16T13:34:38.289Z",
+   "startedAt": "2026-10-16T13:33:56.520Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-X-03",

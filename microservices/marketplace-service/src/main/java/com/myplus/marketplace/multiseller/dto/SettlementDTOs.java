@@ -109,7 +109,12 @@ public final class SettlementDTOs {
             BigDecimal collectedBySeller, BigDecimal remitted, BigDecimal paidOut, BigDecimal closing, int lines) {
     }
 
-    /** MKT-2f — the settlement report for {@code from}..{@code to} (both days included): one row per seller, and the totals. */
-    public record SettlementReport(LocalDate from, LocalDate to, List<ReportRow> rows, ReportRow totals) {
+    /**
+     * MKT-2f — the settlement report for {@code from}..{@code to} (both days included): one row per seller, and the totals.
+     * MKT-Xb (R21.3) — and whose it is: {@code organizationId} is the seller's for its own report, null for the operator's
+     * report of every seller; {@code scope} names it ("All sellers", or the seller), so a file made from it says so.
+     */
+    public record SettlementReport(LocalDate from, LocalDate to, List<ReportRow> rows, ReportRow totals, Long organizationId,
+            String scope) {
     }
 }

@@ -178,4 +178,27 @@ class SettlementReportServiceTest {
         assertThat(none.rows()).as("a seller with no ledger gets a zero row").hasSize(1);
         assertThat(none.rows().get(0).closing()).isZero();
     }
+
+    @Test
+    @DisplayName("[MKT-R21.3] [MKT-R22.1] a report says whose it is: the seller's own org and name from its login, or 'All sellers' for the operator")
+    void scope() {
+        when(entries.balancesBefore(any())).thenReturn(List.of());
+        when(entries.periodTotals(any(), any())).thenReturn(period());
+        SettlementDTOs.SettlementReport all = service.operator(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+        assertThat(all.organizationId()).isNull();
+        assertThat(all.scope()).isEqualTo("All sellers");
+        assertThat(all.rows()).extracting(SettlementDTOs.ReportRow::organizationId).containsExactly(8L, 7L);
+
+        when(access.org()).thenReturn(7L);
+        SettlementDTOs.SettlementReport mine = service.mine(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+        assertThat(mine.organizationId()).isEqualTo(7L);
+        assertThat(mine.scope()).isEqualTo("Shahzad Mobile Shop");
+        assertThat(mine.rows()).extracting(SettlementDTOs.ReportRow::organizationId).containsOnly(7L);
+
+        when(accounts.findByOrganizationId(99L)).thenReturn(Optional.empty());
+        when(access.org()).thenReturn(99L);
+        SettlementDTOs.SettlementReport noAccount = service.mine(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+        assertThat(noAccount.organizationId()).isEqualTo(99L);
+        assertThat(noAccount.scope()).isEqualTo("Organisation 99");
+    }
 }

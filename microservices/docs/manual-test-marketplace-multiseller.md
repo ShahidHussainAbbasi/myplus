@@ -1422,7 +1422,7 @@
 | 1 | Operator: Platform dashboard → "Settlement and payouts". Scroll to "Settlement report". | From the 1st of this month to today. One row per shop: Closing (what the shop is owed at the end), then Opening, Sales, Commission, Fees and tax, Reserve, Refunds, Corrections, Cash kept by seller, Paid in by seller, Paid out, Lines; what the shop lost is in red; "All sellers" adds them up. For every shop, Opening plus the columns is its Closing. |
 | 2 | Set "From" to today and "To" to yesterday. Press "Show". | "The start of the period is after its end." The table is empty and "Download CSV" cannot be pressed. |
 | 3 | Set "From" to 10 days ago and "To" to today. Press "Show". | The shops with money in those days. Each shop's "Opening" is what it was owed at the start of the 10 days: the closing of the days before. |
-| 4 | Press "Download CSV". | A file "settlement-report-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel. |
+| 4 | Press "Download CSV". | A file "settlement-report-all-sellers-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel. |
 | C1 | None: reading changes nothing. | — |
 
 ### M-2f-02 A bank holiday added ahead of time moves a line due that day to the next business day
@@ -1762,18 +1762,21 @@
 | 4 | As owner.business@ (a shop): GET /platform/mkt/orderParties?orderNo=<Hina's order>. As the operator: the same with "MKT-999999". | The shop is refused and sees no party. The operator gets "No such order.". |
 | C1 | As owner.business@: Reject Hina's order with "walk cleanup". | Released; the order no longer waits. |
 
-### M-X-02 Tenant scope on every artefact
+### M-X-02 Tenant scope on every file and report
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Two sellers active.  
+**Who:** owner.business@myplus.com (Shahzad Mobile Shop), owner.mobile@myplus.com (Mobile Distributor), then admin@myplus.com (operator)  
+**Before:** Two sellers active on the marketplace: Shahzad Mobile Shop and Mobile Distributor.  
 **Covers:** MKT-R21.2, MKT-R21.3, MKT-R22.1  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-16 13:34 UTC  
+**Automated by:** MKT-Xb-01, MKT-Xb-02, MKT-Xb-03, TenantScopeTest.everyEntityIsScoped
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Export Seller A's statement; check the file name, the report header and the notification it sent. | Each carries Seller A's organisation. |
-| 2 | Export Seller B's. | It never contains Seller A's rows. |
-| C1 | Delete the exported files. | — |
+| 1 | As owner.business@myplus.com: Sale → Marketplace → Statement. Under "Period summary" read the line under the dates, then press "Download CSV". | The line reads "For Shahzad Mobile Shop, organisation <its id>". The file is named "marketplace-statement-org<its id>-<from>-to-<to>.csv" and opens with "Seller,Shahzad Mobile Shop", "Organisation ID,<its id>", "Period,<from> to <to>", then "Line,Amount" and the lines on screen. |
+| 2 | As owner.mobile@myplus.com: the same. | The line reads "For Mobile Distributor, organisation <its id>"; the file is named for that id and holds nothing of Shahzad Mobile Shop: not its name, not its id. |
+| 3 | Still as owner.mobile@myplus.com, developer tools: GET /mkt/settlementReport?organizationId=<Shahzad Mobile Shop's id>. | The answer is Mobile Distributor's own report (organizationId = its own id, one row, its own): the organisation comes from the login, never from the request. |
+| 4 | As admin@myplus.com: Platform → "Settlement and payouts", then "Download CSV" under the settlement report. | The file is named "settlement-report-all-sellers-<from>-to-<to>.csv": it says it is every seller's, and each line after the header starts with its seller's organisation id; the last is "All sellers". |
+| C1 | Delete the three downloaded files. | Nothing was changed on the server: reading and downloading change nothing. |
 
 ### M-X-03 The data model has every entity the source lists
 

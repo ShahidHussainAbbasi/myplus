@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 81,
- "cypress": 79,
- "automated": 82,
+ "unit": 83,
+ "cypress": 80,
+ "automated": 84,
  "manual": 86,
  "gaps": [],
  "unknown": [],
@@ -1756,7 +1756,10 @@
    "req": "MKT-R21.2",
    "phase": "1",
    "text": "`organization_id` on every tenant-owned entity, plus owner/custodian/seller/fulfiller org, branch, warehouse where applicable",
-   "unit": [],
+   "unit": [
+    "TenantScopeTest.everyEntityIsScoped",
+    "TenantScopeTest.partiesOnTheRow"
+   ],
    "cypress": [],
    "manual": [
     "M-X-02"
@@ -1766,8 +1769,15 @@
    "req": "MKT-R21.3",
    "phase": "1",
    "text": "Every cache key, event, file, report and job carries the org scope",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "OfferProjectionServiceTest.onlyLiveSyncs",
+    "SettlementReportServiceTest.scope"
+   ],
+   "cypress": [
+    "MKT-Xb-01",
+    "MKT-Xb-02",
+    "MKT-Xb-03"
+   ],
    "manual": [
     "M-X-02"
    ]
@@ -1802,7 +1812,8 @@
     "SellerAccessTest.orgFromToken",
     "SellerPerformanceServiceTest.access",
     "SettlementCalendarServiceTest.operatorOnly",
-    "SettlementReportServiceTest.access"
+    "SettlementReportServiceTest.access",
+    "SettlementReportServiceTest.scope"
    ],
    "cypress": [
     "MKT-0a-04",
@@ -1825,7 +1836,9 @@
     "MKT-2f-05",
     "MKT-2f-07",
     "MKT-3a-03",
-    "MKT-3d-04"
+    "MKT-3d-04",
+    "MKT-Xb-01",
+    "MKT-Xb-02"
    ],
    "manual": [
     "M-0a-02",

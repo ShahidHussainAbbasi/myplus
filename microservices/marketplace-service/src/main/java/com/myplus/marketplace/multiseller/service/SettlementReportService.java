@@ -84,10 +84,12 @@ public class SettlementReportService {
         LocalDate t = to != null ? to : today;
         if (t.isBefore(f)) throw new ValidationException("The start of the period is after its end.");
         if (ChronoUnit.DAYS.between(f, t) + 1 > MAX_DAYS) throw new ValidationException("Choose a period of at most 366 days.");
+        java.util.function.Function<Long, String> name = org -> sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).orElse(null);
         List<SettlementDTOs.ReportRow> rows = rows(entries.balancesBefore(startOf(f)),
-                entries.periodTotals(startOf(f), startOf(t.plusDays(1))), only,
-                org -> sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).orElse(null));
-        return new SettlementDTOs.SettlementReport(f, t, rows, total(rows));
+                entries.periodTotals(startOf(f), startOf(t.plusDays(1))), only, name);
+        String scope = only == null ? "All sellers" : java.util.Optional.ofNullable(name.apply(only)).filter(n -> !n.isBlank())
+                .orElse("Organisation " + only);
+        return new SettlementDTOs.SettlementReport(f, t, rows, total(rows), only, scope);
     }
 
     /**

@@ -1152,16 +1152,23 @@
 		['paidOut', 'ui.js.mktMyRepPaidOut', 'Paid out to you'],
 		['closing', 'ui.js.mktMyRepClosing', 'Owed to you at the end']
 	];
+	var myReport = null;
 	function mktMyReportLoad() {
 		var q = [];
 		if ($('#mktMyRepFrom').val()) q.push('from=' + encodeURIComponent($('#mktMyRepFrom').val()));
 		if ($('#mktMyRepTo').val()) q.push('to=' + encodeURIComponent($('#mktMyRepTo').val()));
 		var $tb = $('#mktMyReport tbody').empty(), $m = $('#mktMyRepMsg').text('');
+		myReport = null;
+		$('#mktMyRepCsv').prop('disabled', true);
+		$('#mktMyRepScope').text('');
 		return $.ajax({ url: ctx() + 'mkt/settlementReport' + (q.length ? '?' + q.join('&') : ''), dataType: 'json' }).done(function (res) {
 			if (!ok(res)) { $m.css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
 			var v = data(res) || {}, r = (v.rows || [])[0] || {};
 			$('#mktMyRepFrom').val(v.from);
 			$('#mktMyRepTo').val(v.to);
+			// MKT-Xb (R21.3): whose figures these are, from the login, never from the page
+			$('#mktMyRepScope').text(tr('ui.js.mktMyRepScope', 'For {0}, organisation {1}').replace('{0}', v.scope || '').replace('{1}', v.organizationId));
+			if (v.organizationId) { myReport = v; $('#mktMyRepCsv').prop('disabled', false); }
 			MY_REPORT.forEach(function (c) {
 				var n = Number(r[c[0]] || 0), edge = c[0] === 'opening' || c[0] === 'closing';
 				// a negative start or end is money the shop owes: said that way, never "owed to you: -4,160"
@@ -1220,6 +1227,30 @@
 
 	$(document).on('click', '#mktStatementTab', function () { mktStatementLoad(); });
 	$(document).on('click', '#mktMyRepShow', function () { mktMyReportLoad(); });
+
+	/**
+	 * MKT-Xb (R21.3) — the period summary as a file that says whose it is: its name and its first lines carry the
+	 * organisation, from the report the server scoped to the login. Built from the figures on screen.
+	 */
+	function myReportCsv(v) {
+		function cell(x) { x = x == null ? '' : String(x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }
+		var r = (v.rows || [])[0] || {};
+		var out = [[tr('ui.js.mktCsvSeller', 'Seller'), v.scope], [tr('ui.js.mktCsvOrg', 'Organisation ID'), v.organizationId],
+			[tr('ui.js.mktCsvPeriod', 'Period'), v.from + ' to ' + v.to], [tr('ui.js.mktCsvLine', 'Line'), tr('ui.js.mktCsvAmount', 'Amount')]];
+		MY_REPORT.forEach(function (c) { out.push([tr(c[1], c[2]), Number(r[c[0]] || 0).toFixed(2)]); });
+		out.push([tr('ui.js.mktCsvLines', 'Sale lines settled'), r.lines || 0]);
+		return out.map(function (row) { return row.map(cell).join(','); }).join('\r\n') + '\r\n';
+	}
+	$(document).on('click', '#mktMyRepCsv', function () {
+		if (!myReport) return;
+		var blob = new Blob(['\ufeff' + myReportCsv(myReport)], { type: 'text/csv;charset=utf-8' });
+		var a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = 'marketplace-statement-org' + myReport.organizationId + '-' + myReport.from + '-to-' + myReport.to + '.csv';
+		document.body.appendChild(a);
+		a.click();
+		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+	});
 	$(document).on('change', '#mktIncomingStatus', mktIncomingLoad);
 	// Bound here, NOT as inline onclick: inside a <form>, an inline handler resolves names through the form's named
 	// elements first, so onclick="mktOfferSave(...)" on <button id="mktOfferSave"> called the BUTTON, not this

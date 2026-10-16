@@ -599,3 +599,22 @@ a shop is refused and an unknown number is "No such order.".
   passed it (6.6 s and 6.9 s). Not a product change.
 - Ten recorded cases (M-4-02 to M-5-05) were merged into the manual cases without `evidence: recorded`, so the test page
   listed them as not recorded. Marked, and the walk now writes the field itself.
+
+## 30. MKT-Xb — tenant scope on every file and report (run 2026-10-16)
+
+**Gate `mkt-Xb-tenant-scope.cy.js`: 3 / 3**, with MKT-2f 8 / 8 in the same run (its CSV renamed), after marketplace-service
+and the monolith were rebuilt and restarted. Unit: marketplace-service 516/516, including `TenantScopeTest` (27 entities:
+18 carry their organisation, 8 are MaxTheService's own with a reason, 1 child of a scoped row).
+
+**Walk M-X-02: recorded**, 4 steps and a cleanup, screens looked at: Shahzad Mobile Shop's summary reads "For Shahzad
+Mobile Shop, organisation 6" and its file `marketplace-statement-org6-…csv` opens with its name and id; Mobile
+Distributor's (organisation 16) holds nothing of Shahzad's; adding `organizationId=6` to Mobile Distributor's request
+still returns its own report; the operator's file is `settlement-report-all-sellers-…csv`, every line starting with its
+seller's organisation id.
+
+**Found while running:**
+- The base branch's shared `money()` now always shows two decimals ("108,160.00"); gates 2f and 2d and the walk still
+  expected "108,160". Their expectations were updated; no product change.
+- On the stack's clock (+1 day from Friday = Saturday) gate 2d cannot settle (not a business day). It was re-run on a
+  stack restarted at +0 days (Friday): 7 / 7, its 3 later-phase cases pending as designed. The walk was then re-recorded
+  on that stack, because a Cypress run empties the screenshots folder.

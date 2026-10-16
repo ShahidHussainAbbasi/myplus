@@ -29,12 +29,12 @@ public class NotificationService {
         try {
             if (email) {
                 // TODO real delivery: reuse education-service EmailService (SMTP) — config follow-on.
-                LOG.info("Order #{} -> {}: would email {} ({})", order.getId(), status, contact, note);
+                LOG.info("Order #{} (org {}) -> {}: would email {} ({})", order.getId(), order.getOrganizationId(), status, contact, note);
             } else {
-                LOG.info("Order #{} -> {}: {} ({})", order.getId(), status, contact, note);
+                LOG.info("Order #{} (org {}) -> {}: {} ({})", order.getId(), order.getOrganizationId(), status, contact, note);
             }
         } catch (RuntimeException ignore) {
-            LOG.warn("Notification send failed for order {} ({}) — event still recorded", order.getId(), status);
+            LOG.warn("Notification send failed for order {} (org {}, {}) — event still recorded", order.getId(), order.getOrganizationId(), status);
         }
         return eventRepo.save(OrderEvent.builder()
                 .orderId(order.getId()).status(status).channel(channel).recipient(contact).note(note)

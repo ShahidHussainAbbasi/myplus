@@ -174,8 +174,8 @@ public class MarketplaceSettlementService {
             CommissionPolicy.Basis basis = CommissionPolicy.Basis.valueOf(l.getCommissionBasis());
             return new CommissionPolicy(basis, l.getCommissionRate(), l.getCommissionFixed());
         } catch (RuntimeException e) {
-            LOG.warn("MKT-1g: line {} has an unreadable commission snapshot ({}); settled with no commission",
-                    l.getId(), l.getCommissionBasis());
+            LOG.warn("MKT-1g: line {} of org {} has an unreadable commission snapshot ({}); settled with no commission",
+                    l.getId(), l.getSellerOrganizationId(), l.getCommissionBasis());
             return null;
         }
     }
@@ -222,7 +222,7 @@ public class MarketplaceSettlementService {
                 else if ("NO_BOOKS".equals(outcome)) noBooks++;
                 else waiting++;
             } catch (RuntimeException e) {
-                LOG.warn("MKT-1g: line {} not settled this run: {}", candidate.getId(), e.getMessage());
+                LOG.warn("MKT-1g: line {} of org {} not settled this run: {}", candidate.getId(), candidate.getSellerOrganizationId(), e.getMessage());
             }
         }
         return new SettlementDTOs.RunResult(checked, settled, waiting, onHold, noBooks);

@@ -109,7 +109,7 @@ public class OfferProjectionService {
         p.setStatus(live ? MarketplaceOfferProjection.LIVE : MarketplaceOfferProjection.HIDDEN);
         p.setUpdatedAt(LocalDateTime.now());
         MarketplaceOfferProjection saved = projections.save(p);
-        if (live) events.publishEvent(new OfferChanged(offer.getId()));
+        if (live) events.publishEvent(new OfferChanged(offer.getId(), offer.getSellerOrganizationId()));
         return saved;
     }
 
@@ -125,8 +125,8 @@ public class OfferProjectionService {
             syncStock(e.offerId());
         } catch (RuntimeException ex) {
             // best effort by design: the row stays without a fresh timestamp and is treated as stale
-            LOG.warn("MKT stock sync for offer {} failed ({}: {}); it stays unconfirmed until the next sweep",
-                    e.offerId(), ex.getClass().getSimpleName(), ex.getMessage());
+            LOG.warn("MKT stock sync for offer {} of org {} failed ({}: {}); it stays unconfirmed until the next sweep",
+                    e.offerId(), e.organizationId(), ex.getClass().getSimpleName(), ex.getMessage());
         }
     }
 
@@ -187,6 +187,6 @@ public class OfferProjectionService {
     public void sweep() {
         List<MarketplaceOfferProjection> due = projections.findByStatusOrderByLastSyncAtAsc(
                 MarketplaceOfferProjection.LIVE, PageRequest.of(0, SYNC_BATCH));
-        for (MarketplaceOfferProjection p : due) onOfferChanged(new OfferChanged(p.getOfferId()));
+        for (MarketplaceOfferProjection p : due) onOfferChanged(new OfferChanged(p.getOfferId(), p.getSellerOrganizationId()));
     }
 }

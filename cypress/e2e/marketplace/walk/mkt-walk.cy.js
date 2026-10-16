@@ -3075,7 +3075,7 @@ on('MKT manual walk — recorded', () => {
   }
   const dRow = () => cy.then(() => cy.get(`#mktCodList tr.mkt-cod-row[data-org="${CD.org}"]`, { timeout: 15000 }))
   const amountOf = ($el) => Number(($el.text() || '0').replace(/[^0-9.]/g, ''))
-  const rs = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })
+  const rs = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const rs2 = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   /** Seller B: Sale → Marketplace → "Show statement". */
   const dStatement = () => {
@@ -3448,7 +3448,7 @@ on('MKT manual walk — recorded', () => {
   const plusDays = (s, n) => { const d = new Date(`${s}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return iso(d) }
   const isWeekend = (s) => [0, 6].includes(new Date(`${s}T00:00:00Z`).getUTCDay())
   const nextBusinessDay = (s) => { let d = plusDays(s, 1); while (isWeekend(d)) d = plusDays(d, 1); return d }
-  const rRs = (v) => (Number(v || 0) ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—')
+  const rRs = (v) => (Number(v || 0) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—')
   /** Behind the scenes: the operator's report for a period ('' = this month). */
   const rReport = (q = '') => {
     asOperator()
@@ -3530,10 +3530,10 @@ on('MKT manual walk — recorded', () => {
         cy.get('#mktReportBox').scrollIntoView({ offset: { top: -40, left: 0 } })
       })
     step('Press "Download CSV".',
-      'A file "settlement-report-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel.', (snap) => {
+      'A file "settlement-report-all-sellers-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel.', (snap) => {
         cy.get('#mktRepCsv').should('not.be.disabled').click()
         snap()
-        cy.then(() => cy.readFile(`cypress/downloads/settlement-report-${RP.from}-to-${RP.month.to}.csv`, 'utf8')).then((t) => {
+        cy.then(() => cy.readFile(`cypress/downloads/settlement-report-all-sellers-${RP.from}-to-${RP.month.to}.csv`, 'utf8')).then((t) => {
           const lines = t.replace(/^﻿/, '').trim().split(/\r\n/)
           expect(lines[0]).to.eq('Seller ID,Seller,Closing,Opening,Sales,Commission,Fees and tax,Reserve,Refunds,Corrections,Cash kept by seller,Paid in by seller,Paid out,Lines')
           expect(lines.length).to.eq(RP.ten.rows.length + 2)
@@ -3632,7 +3632,7 @@ on('MKT manual walk — recorded', () => {
         cy.get('#mktStatementTab').click()
         cy.wait('@mine')
         cy.get('#mktMyReport tbody tr').should('have.length', 11)
-        const abs = (v) => Math.abs(Number(v)).toLocaleString('en-US', { maximumFractionDigits: 2 })
+        const abs = (v) => Math.abs(Number(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         cy.get('#mktMyReport .mkt-myrep-opening td').eq(1).should('have.text', abs(RP.mine.opening))
         cy.get('#mktMyReport .mkt-myrep-sales td').eq(1).should('have.text', rRs(RP.mine.sales))
         cy.get('#mktMyReport .mkt-myrep-commission td').eq(1).should('have.text', rRs(RP.mine.commission))
@@ -5031,5 +5031,72 @@ on('MKT manual walk — recorded', () => {
       cy.then(() => call('POST /mkt/rejectOrder', post(API.rejectOrder, { id: PX.o.sellerOrderId, version: PX.o.sellerOrderVersion, reason: 'walk cleanup' })))
         .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
     })
+  })
+
+  const TS = {}
+  walk({ id: 'M-X-02', slice: 'Programme', title: 'Tenant scope on every file and report',
+    persona: 'owner.business@myplus.com (Shahzad Mobile Shop), owner.mobile@myplus.com (Mobile Distributor), then admin@myplus.com (operator)',
+    reqs: ['MKT-R21.2', 'MKT-R21.3', 'MKT-R22.1'],
+    pre: 'Two sellers active on the marketplace: Shahzad Mobile Shop and Mobile Distributor.',
+    auto: ['MKT-Xb-01', 'MKT-Xb-02', 'MKT-Xb-03', 'TenantScopeTest.everyEntityIsScoped'] }, (step, call, cleanup) => {
+    cy.then(() => {
+      makeSeller(SELLER_A)
+      makeSeller(SELLER_B)
+      asOperator()
+      cy.orgOf(SELLER_A).then((o) => { TS.a = o.id })
+      cy.orgOf(SELLER_B).then((o) => { TS.b = o.id })
+    })
+    const lines = (t) => t.replace(/^﻿/, '').trim().split(/\r\n/)
+    const statement = (email) => {
+      as(email)
+      get('/mkt/settlementReport').then((r) => { TS.v = data(r.body) })
+      openMarketplace()
+      cy.get('#mktStatementTab').click()
+      cy.get('#mktMyRepCsv').scrollIntoView({ offset: { top: -200, left: 0 } }).should('not.be.disabled')
+    }
+    step('As owner.business@myplus.com: Sale → Marketplace → Statement. Under "Period summary" read the line under the dates, then press "Download CSV".',
+      'The line reads "For Shahzad Mobile Shop, organisation <its id>". The file is named "marketplace-statement-org<its id>-<from>-to-<to>.csv" and opens with "Seller,Shahzad Mobile Shop", "Organisation ID,<its id>", "Period,<from> to <to>", then "Line,Amount" and the lines on screen.', (snap) => {
+        statement(SELLER_A)
+        cy.then(() => cy.get('#mktMyRepScope').should('have.text', `For Shahzad Mobile Shop, organisation ${TS.a}`))
+        cy.get('#mktMyRepCsv').click()
+        snap()
+        cy.then(() => cy.readFile(`cypress/downloads/marketplace-statement-org${TS.a}-${TS.v.from}-to-${TS.v.to}.csv`, 'utf8')).then((t) => {
+          expect(lines(t).slice(0, 4)).to.deep.eq(['Seller,Shahzad Mobile Shop', `Organisation ID,${TS.a}`, `Period,${TS.v.from} to ${TS.v.to}`, 'Line,Amount'])
+        })
+      })
+    step('As owner.mobile@myplus.com: the same.',
+      'The line reads "For Mobile Distributor, organisation <its id>"; the file is named for that id and holds nothing of Shahzad Mobile Shop: not its name, not its id.', (snap) => {
+        statement(SELLER_B)
+        cy.then(() => cy.get('#mktMyRepScope').should('have.text', `For Mobile Distributor, organisation ${TS.b}`))
+        cy.get('#mktMyRepCsv').click()
+        snap()
+        cy.then(() => cy.readFile(`cypress/downloads/marketplace-statement-org${TS.b}-${TS.v.from}-to-${TS.v.to}.csv`, 'utf8')).then((t) => {
+          expect(lines(t)[1]).to.eq(`Organisation ID,${TS.b}`)
+          expect(t).to.not.contain('Shahzad Mobile Shop')
+          expect(lines(t).filter((x) => x.startsWith('Organisation ID,'))).to.have.length(1)
+        })
+      })
+    step('Still as owner.mobile@myplus.com, developer tools: GET /mkt/settlementReport?organizationId=<Shahzad Mobile Shop\'s id>.',
+      'The answer is Mobile Distributor\'s own report (organizationId = its own id, one row, its own): the organisation comes from the login, never from the request.', () => {
+        cy.then(() => call(`GET /mkt/settlementReport?organizationId=${TS.a}`, get(`/mkt/settlementReport?organizationId=${TS.a}`))).then((r) => {
+          expect(data(r.body).organizationId).to.eq(TS.b)
+          expect(data(r.body).rows.map((x) => x.organizationId)).to.deep.eq([TS.b])
+        })
+      })
+    step('As admin@myplus.com: Platform → "Settlement and payouts", then "Download CSV" under the settlement report.',
+      'The file is named "settlement-report-all-sellers-<from>-to-<to>.csv": it says it is every seller\'s, and each line after the header starts with its seller\'s organisation id; the last is "All sellers".', (snap) => {
+        asOperator()
+        get('/platform/mkt/settlementReport').then((r) => { TS.all = data(r.body) })
+        cy.visit(UI.operatorPage)
+        cy.get('#platMktPayoutsBtn').click()
+        cy.get('#mktRepCsv').should('not.be.disabled').scrollIntoView({ offset: { top: -200, left: 0 } }).click()
+        snap()
+        cy.then(() => cy.readFile(`cypress/downloads/settlement-report-all-sellers-${TS.all.from}-to-${TS.all.to}.csv`, 'utf8')).then((t) => {
+          const l = lines(t)
+          l.slice(1, -1).forEach((x, i) => expect(x.startsWith(`${TS.all.rows[i].organizationId},`), x).to.eq(true))
+          expect(l[l.length - 1].startsWith(',All sellers,')).to.eq(true)
+        })
+      })
+    cleanup('Delete the three downloaded files.', 'Nothing was changed on the server: reading and downloading change nothing.', () => {}, { screen: false })
   })
 })

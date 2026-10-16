@@ -168,12 +168,12 @@ class OfferProjectionServiceTest {
         assertThat(rows.get(5L).getLastSyncAt()).isNull();
         assertThat(rows.get(5L).getAvailableQty()).isNull();
         when(inventory.getSellableDetail(7100L)).thenThrow(new RuntimeException("inventory down"));
-        service.onOfferChanged(new OfferChanged(5L));   // best effort: logged, not thrown
+        service.onOfferChanged(new OfferChanged(5L, 7L));   // best effort: logged, not thrown
         assertThat(rows.get(5L).getLastSyncAt()).isNull();
     }
 
     @Test
-    @DisplayName("[MKT-R18.1] a HIDDEN offer is never sent to inventory; a LIVE one asks for a sync after commit")
+    @DisplayName("[MKT-R18.1] [MKT-R21.3] a HIDDEN offer is never sent to inventory; a LIVE one asks for a sync after commit, naming the seller's org")
     void onlyLiveSyncs() {
         offer.setPaused(true);
         service.publish(offer);
@@ -182,6 +182,6 @@ class OfferProjectionServiceTest {
         verify(events, never()).publishEvent(any(OfferChanged.class));
         offer.setPaused(false);
         service.publish(offer);
-        verify(events).publishEvent(new OfferChanged(5L));
+        verify(events).publishEvent(new OfferChanged(5L, 7L));     // MKT-Xb: the event names the seller's org
     }
 }

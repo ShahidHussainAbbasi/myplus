@@ -5,5 +5,5 @@ package com.myplus.marketplace.multiseller.service;
  * AFTER COMMIT (caching standard K2): the remote stock read never runs inside a database transaction, and never for
  * a write that rolled back.
  */
-public record OfferChanged(Long offerId) {
+public record OfferChanged(Long offerId, Long organizationId) {     // MKT-Xb (R21.3): an event names its tenant
 }

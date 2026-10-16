@@ -1123,7 +1123,8 @@
 		var blob = new Blob(['﻿' + reportCsv(lastReport)], { type: 'text/csv;charset=utf-8' });
 		var a = document.createElement('a');
 		a.href = URL.createObjectURL(blob);
-		a.download = 'settlement-report-' + lastReport.from + '-to-' + lastReport.to + '.csv';
+		// MKT-Xb (R21.3): the file names its scope; every row carries its seller's organisation id
+		a.download = 'settlement-report-all-sellers-' + lastReport.from + '-to-' + lastReport.to + '.csv';
 		document.body.appendChild(a);
 		a.click();
 		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);

@@ -172,7 +172,7 @@ gate('2d')('MKT-2d — cash orders: what sellers owe, and the money they pay', (
     cy.loginAsOperator()
     row().then((r) => {
       statementBanner().should('be.visible').and('have.class', 'alert-warning')
-        .and('contain', `Please pay MaxTheService Rs ${Number(r.standing.owed).toLocaleString('en-US', { maximumFractionDigits: 2 })} for your cash orders by ${r.standing.payBy}.`)
+        .and('contain', `Please pay MaxTheService Rs ${Number(r.standing.owed).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for your cash orders by ${r.standing.payBy}.`)
     })
   })
 

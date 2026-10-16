@@ -79,7 +79,7 @@ gate('2f')('MKT-2f — settlement reports and bank holidays', () => {
       api.rows.forEach((r) => {
         expect(sum(r), `seller ${r.organizationId}: opening + the columns = closing`).to.eq(cents(r.closing))
         cy.get(`#mktReportList .mkt-rep-row[data-org="${r.organizationId}"]`).within(() => {
-          const shown = (v) => (cents(v) ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—')
+          const shown = (v) => (cents(v) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—')
           cy.get('.mkt-rep-closing').should('have.text', shown(r.closing))
           cy.get('.mkt-rep-sales').should('have.text', shown(r.sales))
           cy.get('.mkt-rep-commission').should('have.text', shown(r.commission))
@@ -174,7 +174,7 @@ gate('2f')('MKT-2f — settlement reports and bank holidays', () => {
     cy.then(() => {
       // the end is said as who owes whom, with the amount unsigned
       cy.get('#mktMyReport .mkt-myrep-closing td').eq(0).should('have.text', Number(op.closing) < 0 ? 'You owe MaxTheService at the end' : 'Owed to you at the end')
-      cy.get('#mktMyReport .mkt-myrep-closing td').eq(1).should('have.text', Math.abs(Number(op.closing)).toLocaleString('en-US', { maximumFractionDigits: 2 }))
+      cy.get('#mktMyReport .mkt-myrep-closing td').eq(1).should('have.text', Math.abs(Number(op.closing)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
       cy.get('#mktMyReport .mkt-myrep-opening td').eq(0).should('have.text', Number(op.opening) < 0 ? 'You owed MaxTheService at the start' : 'Owed to you at the start')
       cy.get('#mktMyRepMsg').should('have.text', `${op.lines} sale line(s) settled in this period.`)
     })
@@ -186,7 +186,7 @@ gate('2f')('MKT-2f — settlement reports and bank holidays', () => {
     cy.visit(UI.operatorPage)
     cy.get('#platMktPayoutsBtn').click()
     cy.get('#mktRepCsv').should('not.be.disabled').click()
-    cy.then(() => cy.readFile(`cypress/downloads/settlement-report-${api.from}-to-${api.to}.csv`, 'utf8')).then((text) => {
+    cy.then(() => cy.readFile(`cypress/downloads/settlement-report-all-sellers-${api.from}-to-${api.to}.csv`, 'utf8')).then((text) => {
       const lines = text.replace(/^﻿/, '').trim().split(/\r\n/)
       expect(lines[0]).to.eq('Seller ID,Seller,Closing,Opening,Sales,Commission,Fees and tax,Reserve,Refunds,Corrections,'
         + 'Cash kept by seller,Paid in by seller,Paid out,Lines')
