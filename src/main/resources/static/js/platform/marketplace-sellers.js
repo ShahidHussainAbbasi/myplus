@@ -58,8 +58,11 @@
 		var $r = $('<div class="plat-row"></div>').attr('data-org', a.organizationId);
 		$r.append($('<div class="plat-row__main"></div>')
 			.append($('<strong></strong>').text(a.displayName || ''))
+			.append(a.supplier ? $('<span class="label label-info mkt-supplier-tag" style="margin-left:6px"></span>')
+				.text(tr('ui.js.mktSupplierTag', 'Supplier')) : null)
 			.append($('<span class="plat__hint"></span>').text(' · #' + a.organizationId + ' · ' + fmt(a.appliedAt)))
-			.append(a.statusReason ? $('<div class="plat__hint"></div>').text(a.statusReason) : null));
+			.append(a.statusReason ? $('<div class="plat__hint"></div>').text(a.statusReason) : null)
+			.append(a.status === 'APPROVED' ? supplierBox(a) : null));
 		var $act = $('<div class="plat-row__actions"></div>');
 		var $reason = $('<input type="text" class="form-control input-sm" maxlength="500">')
 			.attr('placeholder', tr('ui.js.mktReasonPh', 'Reason the seller will see'))
@@ -77,6 +80,41 @@
 		var $msg = $('<span class="plat__hint" role="status"></span>');
 		$act.append($msg);
 		return $r.append($act);
+	}
+
+	/**
+	 * MKT-4a — the operator marks an approved seller as a supplier (its offers become supplier stock) and says whether
+	 * its stock counts are reliable; until then customers are told the supplier confirms stock when it accepts.
+	 */
+	function supplierBox(a) {
+		var $box = $('<div class="mkt-supplier" style="margin-top:6px"></div>');
+		var $sup = $('<input type="checkbox" class="mkt-supplier-on">').prop('checked', !!a.supplier);
+		var $rel = $('<input type="checkbox" class="mkt-supplier-reliable">').prop('checked', !!a.supplierStockReliable)
+			.prop('disabled', !a.supplier);
+		$sup.on('change', function () { $rel.prop('disabled', !this.checked); if (!this.checked) $rel.prop('checked', false); });
+		var $msg = $('<span class="plat__hint mkt-supplier-msg" role="status" style="margin-left:6px"></span>');
+		var $save = $('<button type="button" class="btn btn-xs btn-default mkt-supplier-save"></button>')
+			.text(tr('ui.js.mktSupplierSave', 'Save'));
+		$save.on('click', function () {
+			$save.prop('disabled', true);
+			$.ajax({ url: ctx() + 'platform/mkt/sellerSupplier', type: 'POST', contentType: 'application/json', dataType: 'json',
+				data: JSON.stringify({ organizationId: a.organizationId, supplier: $sup.prop('checked'),
+					stockReliable: $rel.prop('checked'), version: a.version }) })
+				.done(function (res) {
+					if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+					var d = data(res) || {};
+					a.version = d.version; a.supplier = d.supplier; a.supplierStockReliable = d.supplierStockReliable;
+					$msg.css('color', '').text(message(res, ''));
+				})
+				.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+				.always(function () { $save.prop('disabled', false); });
+		});
+		return $box
+			.append($('<label style="font-weight:normal;margin-right:10px"></label>').append($sup)
+				.append(' ' + tr('ui.js.mktSupplierOn', 'Supplier: ships its own stock to customers')))
+			.append($('<label style="font-weight:normal;margin-right:10px"></label>').append($rel)
+				.append(' ' + tr('ui.js.mktSupplierReliable', 'Its stock counts are reliable')))
+			.append($save).append($msg);
 	}
 
 	function decide(a, decision, $reason, $btn, $msg) {
@@ -627,7 +665,8 @@
 	var PERF_FLAG = {
 		LOW_ACCEPTANCE: ['ui.js.mktPerfFlagAcceptance', 'Accepts fewer than 80% of its orders'],
 		LATE_DELIVERY: ['ui.js.mktPerfFlagLate', 'Delivers fewer than 90% on time'],
-		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders']
+		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders'],
+		LATE_DISPATCH: ['ui.js.mktPerfFlagDispatch', 'Sends fewer than 90% of its orders within 24 hours']
 	};
 	function perfRate(rate, part, whole) {
 		if (rate === null || rate === undefined) return tr('ui.js.mktPerfNotEnough', 'Not enough orders yet');
@@ -661,7 +700,11 @@
 		$tr.append($f);
 		$tr.append($('<td class="mkt-perf-accept"></td>').text(perfRate(r.acceptanceRate, r.accepted, r.accepted + r.missed)));
 		$tr.append($('<td class="mkt-perf-speed"></td>').text(perfSpeed(r.avgMinutesToAccept)));
-		$tr.append($('<td class="mkt-perf-ontime"></td>').text(perfRate(r.onTimeRate, r.onTime, r.due)));
+		var $on = $('<td class="mkt-perf-ontime"></td>').text(perfRate(r.onTimeRate, r.onTime, r.due));
+		if (r.shipDue) $('<div class="mkt-perf-ship text-muted" style="font-size:12px"></div>')        // MKT-4b: suppliers
+			.text(tr('ui.js.mktPerfShipped', 'Sent within 24 hours: {0}').replace('{0}', perfRate(r.shipOnTimeRate, r.shippedOnTime, r.shipDue)))
+			.appendTo($on);
+		$tr.append($on);
 		var $miss = $('<td class="mkt-perf-missed"></td>').text(String(r.missed));
 		if (r.disputed) $miss.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktPerfDisputed', '{0} under dispute').replace('{0}', r.disputed)));
 		if (r.excused) $miss.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktPerfExcused', "{0} not the seller's fault").replace('{0}', r.excused)));
@@ -1115,6 +1158,92 @@
 		});
 	});
 
+	// ── MKT-5a: consignment agreements ─────────────────────────────────────────────────────────────────
+
+	var CA_ST = { OFFERED: ['ui.js.mktCaOfferedTo', 'Offered, waiting for the seller'], ACTIVE: ['ui.js.mktCaActive', 'Active'],
+		DECLINED: ['ui.js.mktCaDeclined', 'Declined'], WITHDRAWN: ['ui.js.mktCaWithdrawnOp', 'Withdrawn'],
+		ENDED: ['ui.js.mktCaEnded', 'Ended'], REPLACED: ['ui.js.mktCaReplaced', 'Replaced by {0}'] };
+
+	function loadConsign() {
+		$.ajax({ url: ctx() + 'platform/mkt/sellers?status=APPROVED&size=100', dataType: 'json' }).done(function (res) {
+			var $s = $('#mktCaSeller'), keep = $s.val();
+			$s.empty();
+			((data(res) || {}).content || []).forEach(function (a) {
+				$s.append($('<option></option>').val(a.organizationId).text(a.displayName + ' (#' + a.organizationId + ')'));
+			});
+			if (keep) $s.val(keep);
+		});
+		$.ajax({ url: ctx() + 'platform/mkt/consignments', dataType: 'json' }).done(function (res) {
+			var $l = $('#mktCaList').empty();
+			if (!ok(res)) { $l.append($('<div class="plat__empty"></div>').text(message(res, tr('ui.js.loadFailed', 'Could not load.')))); return; }
+			var rows = data(res) || [];
+			if (!rows.length) $l.append($('<div class="plat__empty"></div>').text(tr('ui.js.mktCaNone', 'No consignment agreements yet.')));
+			rows.forEach(function (a) { $l.append(consignRow(a)); });
+		});
+	}
+
+	function consignRow(a) {
+		var $r = $('<div class="plat-row mkt-ca-row"></div>').attr('data-agreement-no', a.agreementNo).attr('data-status', a.status)
+			.attr('data-org', a.consignorOrganizationId);
+		var st = CA_ST[a.status] || [null, a.status];
+		var $m = $('<div class="plat-row__main"></div>').appendTo($r);
+		$m.append($('<strong></strong>').text(a.agreementNo + ' · ' + a.consignorName))
+			.append($('<span class="mkt-ca-status" style="margin-left:8px;font-weight:600"></span>')
+				.text((st[0] ? tr(st[0], st[1]) : st[1]).replace('{0}', a.replacedByNo || '')));
+		var $t = $('<ul class="mkt-ca-terms" style="font-size:13px;margin:4px 0 0 18px;padding:0"></ul>').appendTo($m);
+		caTerms(a.terms).forEach(function (x) { $('<li></li>').text(x).appendTo($t); });
+		if (a.answerReason) $m.append($('<div class="mkt-ca-reason text-muted" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktCaReason', 'Reason: {0}').replace('{0}', a.answerReason)));
+		if (a.status !== 'OFFERED' && a.status !== 'ACTIVE') return $r;
+		var $act = $('<div class="plat-row__actions"></div>').appendTo($r);
+		if (a.status === 'OFFERED') {
+			$('<button type="button" class="btn btn-xs btn-default mkt-ca-withdraw"></button>').text(tr('ui.js.mktCaWithdraw', 'Withdraw'))
+				.on('click', function () {
+					opsPost('platform/mkt/consignmentDecision', { id: a.id, action: 'WITHDRAW', version: a.version }, $(this), $('#mktCaMsg'), loadConsign);
+				}).appendTo($act);
+		} else {
+			var $why = $('<input type="text" maxlength="500" class="form-control input-sm mkt-ca-why" style="max-width:260px;display:inline-block">')
+				.attr('placeholder', tr('ui.js.mktCaWhyEnd', 'Why it ends')).attr('aria-label', tr('ui.js.mktCaWhyEnd', 'Why it ends')).appendTo($act);
+			$('<button type="button" class="btn btn-xs btn-default mkt-ca-end" style="margin-left:4px"></button>').text(tr('ui.js.mktCaEnd', 'End the agreement'))
+				.on('click', function () {
+					opsPost('platform/mkt/consignmentDecision', { id: a.id, action: 'END', version: a.version, reason: $why.val() }, $(this), $('#mktCaMsg'), loadConsign);
+				}).appendTo($act);
+		}
+		return $r;
+	}
+
+	/** The terms in plain words: the same lines the seller reads (common/marketplace-seller.js consignTerms). */
+	function caTerms(t) {
+		if (!t) return [];
+		var who = function (p) { return p === 'CONSIGNEE' ? tr('ui.js.mktCaMts', 'MaxTheService') : p === 'NONE' ? tr('ui.js.mktCaNobody', 'nobody') : tr('ui.js.mktCaOwner', 'the owner'); };
+		var f = function (k, fb) { var s = tr(k, fb); for (var i = 2; i < arguments.length; i++) s = s.replace('{' + (i - 2) + '}', arguments[i]); return s; };
+		return [
+			t.ownershipTransfer === 'ON_DELIVERY' ? tr('ui.js.mktCaOwnDelivery', 'Ownership passes to the customer on delivery') : tr('ui.js.mktCaOwnSale', 'Ownership passes to the customer when it is sold'),
+			f('ui.js.mktCaPrice', 'Selling price set by {0}', who(t.priceSetBy)),
+			f('ui.js.mktCaCommission', 'MaxTheService keeps {0}% of each sale', Number(t.commissionPct)),
+			f('ui.js.mktCaSettle', 'Settled every {0} days, after the return period; reconciled every {1} days', t.settleEveryDays, t.reconcileEveryDays),
+			f('ui.js.mktCaCount', 'Stock counted every {0} days; up to {1}% shrinkage tolerated', t.countEveryDays, Number(t.shrinkageTolerancePct)),
+			f('ui.js.mktCaBearers', 'Damage borne by {0}; expiry borne by {1}; insured by {2}', who(t.damageBearer), who(t.expiryBearer), who(t.insuredBy)),
+			f(t.proofRequired ? 'ui.js.mktCaClaimProof' : 'ui.js.mktCaClaim', t.proofRequired ? 'Shrinkage claims within {0} days, with proof' : 'Shrinkage claims within {0} days', t.claimWindowDays),
+			f('ui.js.mktCaUnsold', 'Unsold stock goes back after {0} days, at the cost of {1}', t.unsoldReturnDays, who(t.unsoldReturnBearer))
+		];
+	}
+
+	function offerConsign() {
+		var n = function (id) { var v = $(id).val(); return v === '' ? null : Number(v); };
+		opsPost('platform/mkt/consignmentOffer', {
+			consignorOrganizationId: n('#mktCaSeller'),
+			note: $('#mktCaNote').val(),
+			terms: {
+				ownershipTransfer: $('#mktCaOwnership').val(), priceSetBy: $('#mktCaPriceBy').val(), commissionPct: n('#mktCaCommission'),
+				settleEveryDays: n('#mktCaSettle'), reconcileEveryDays: n('#mktCaReconcile'), countEveryDays: n('#mktCaCount'),
+				shrinkageTolerancePct: n('#mktCaTolerance'), damageBearer: $('#mktCaDamage').val(), expiryBearer: $('#mktCaExpiry').val(),
+				insuredBy: $('#mktCaInsured').val(), claimWindowDays: n('#mktCaClaim'), proofRequired: $('#mktCaProof').val() === 'true',
+				unsoldReturnDays: n('#mktCaUnsold'), unsoldReturnBearer: $('#mktCaUnsoldBy').val()
+			}
+		}, $('#mktCaOffer'), $('#mktCaMsg'), loadConsign);
+	}
+
 	function openPanel(id, loader) {
 		$('.plat__panel').hide();
 		$(id).show();
@@ -1142,6 +1271,8 @@
 		shortageStatus = $(this).attr('data-status');
 		loadShortages();
 	});
+	$(document).on('click', '#platMktConsignBtn', function () { openPanel('#platMktConsign', loadConsign); });   // MKT-5a
+	$(document).on('click', '#mktCaOffer', offerConsign);
 	$(document).on('click', '#platMktPerformanceBtn', function () { openPanel('#platMktPerformance', loadPerformance); });   // MKT-2e
 	$(document).on('click', '#platMktPerfDays button', function () {
 		$('#platMktPerfDays button').removeClass('is-on');

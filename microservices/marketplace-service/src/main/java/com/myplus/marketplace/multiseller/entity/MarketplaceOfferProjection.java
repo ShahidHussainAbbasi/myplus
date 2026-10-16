@@ -44,6 +44,13 @@ public class MarketplaceOfferProjection {
     @Column(name = "stock_source_type", nullable = false, length = 16)
     private String stockSourceType;
 
+    /**
+     * MKT-4a (R4.4) — whether the shown stock is confirmed. False only for a supplier whose stock counts the operator has
+     * not marked reliable: the customer is then told the supplier confirms when it accepts the order.
+     */
+    @Column(name = "stock_confirmed", nullable = false)
+    private Boolean stockConfirmed = Boolean.TRUE;
+
     @Column(name = "regulated_status", nullable = false, length = 16)
     private String regulatedStatus;
 

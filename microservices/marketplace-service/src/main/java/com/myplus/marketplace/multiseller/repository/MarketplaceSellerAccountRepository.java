@@ -17,4 +17,7 @@ public interface MarketplaceSellerAccountRepository extends JpaRepository<Market
     Page<MarketplaceSellerAccount> findByStatusOrderByAppliedAtAsc(String status, Pageable page);
 
     Page<MarketplaceSellerAccount> findAllByOrderByAppliedAtDesc(Pageable page);
+
+    /** MKT-4a — is any seller a supplier? The switch that makes SUPPLIER stock sellable at all (as the warehouse is for PLATFORM). */
+    boolean existsBySupplierTrue();
 }

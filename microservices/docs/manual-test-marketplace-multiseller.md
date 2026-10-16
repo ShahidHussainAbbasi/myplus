@@ -1558,47 +1558,106 @@
 
 ## MKT-4
 
-### M-4-01 Supplier stock is never "in stock today" without a promise
+### M-4-01 MaxTheService marks a dropship supplier; shoppers are told who confirms the stock
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 4. A distributor offer with a 20-minute acceptance window.  
-**Covers:** MKT-R4.3, MKT-R4.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator → Customer  
+**Before:** Phone Supplier (owner.supplier@myplus.com) is an approved marketplace seller with a live offer for a phone that delivers to Karachi. It is not marked as a supplier yet.  
+**Covers:** MKT-R4.3, MKT-R4.4  
+**Evidence:** recorded 2026-10-15 19:24 UTC  
+**Automated by:** MKT-4a-01, MKT-4a-02, MKT-4a-04, MKT-4a-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Open the product. | The supplier offer shows "Ships from supplier · confirmation within 20 minutes", never "In stock, today". |
-| C1 | Nothing to undo. | — |
+| 1 | Operator: Platform → Marketplace sellers → Approved → Phone Supplier. Tick "Supplier: ships its own stock to customers" (leave "Its stock counts are reliable" unticked) and press Save. | "Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order." After a refresh the row carries a "Supplier" tag. |
+| 2 | Customer: open the phone on the marketplace, city Karachi. | The offer reads "Phone Supplier", "Shipped by the supplier" and "The supplier confirms the stock within 20 minutes of your order". It does not say "Stock checked". |
+| 3 | Operator: back on Phone Supplier, tick "Its stock counts are reliable" and press Save. | "Phone Supplier is a supplier. Customers see its stock as checked." |
+| 4 | Customer: open the phone again. | Still "Shipped by the supplier", and now "Stock checked …" instead of the supplier-confirms sentence. |
+| C1 | Operator: on Phone Supplier, untick "Supplier: ships its own stock to customers" and press Save. | "Phone Supplier sells its own stock as a seller." The reliable box is cleared and greyed out. |
 
-### M-4-02 A slow supplier API does not hang checkout
+### M-4-02 A slow supplier does not hang checkout; after three misses it is not asked until the operator asks it again
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 4. The supplier endpoint is delayed 5 s.  
+**Who:** MaxTheService operator, then a customer (incognito window)  
+**Before:** A test system (marketplace-service started with MKT_ROUTING_TEST_SWITCH=true). Phone Supplier is marked as a supplier and lists one phone at Rs 46,000 in Karachi. Every seller is being asked.  
 **Covers:** MKT-R22.5  
-**Evidence:** written from the design — not built yet
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4c-01, MKT-4c-02
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Check out the supplier offer. | An answer within the routing deadline; the supplier call is cut at its timeout. |
-| 2 | Repeat 5 times. | The circuit breaker opens; the operator sees it on the integration panel. A retried webhook is processed once. |
-| C1 | Remove the delay. | The breaker closes. |
+| 1 | Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout". Choose "Phone Supplier", delay 3000 → Save. | "Test slowness is on." (Phone Supplier now answers after 3 seconds; each seller is given 800 ms.) |
+| 2 | Customer: open the phone (Karachi) → choose Phone Supplier → "Buy now". Name "Ali", phone 030048528792, address "1 Clifton" → "Place order". | Within about 2 seconds, under the button: "This seller did not answer in time. Please choose another offer." No order number; the button works again. |
+| 3 | Press "Place order" three more times, waiting for each answer. | The same sentence each time; the fourth comes at once, because Phone Supplier is no longer being asked. |
+| 4 | Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout". | "Phone Supplier is not answering: not asked until hh:mm:ss." with a button "Ask it again now". |
+| 5 | The supplier says it is fixed: delay 0 → Save, then "Ask it again now" on Phone Supplier's line. | "Test slowness is off.", then "The seller will be asked again on its next order." and "Every seller is being asked." |
+| 6 | Customer: choose Phone Supplier again → "Buy now" → the same details → "Place order". | "Waiting for Phone Supplier to confirm" with an order number MKT-…: the only phone was given back after the slow calls. |
+| C1 | Phone Supplier rejects the order with the reason "walk cleanup". Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save. | The order reads Cancelled; "Phone Supplier sells its own stock as a seller." |
+
+### M-4-03 A supplier accepts an order and has a day to send it; the shopper is told when
+
+**Who:** a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)  
+**Before:** Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 47,000, delivering to Karachi.  
+**Covers:** MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4b-01, MKT-4b-02
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "Ali W07157d", phone 030050715791, address "1 Clifton". Press "Place order". | "Waiting for Phone Supplier to confirm", with the minutes it has left (20 for a supplier). |
+| 2 | As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order. Then show "Accepted". | The row reads "Accepted" with an invoice number, and "Send within 23:59" (hours and minutes left to send it). |
+| 3 | Customer: open the order page again. | "Phone Supplier sends it within 24 hours" and "Pay Rs. 47,000 in cash when it arrives." |
+| C1 | None: the order is left unsent on purpose; M-4-04 continues it two days later. | — |
+
+### M-4-04 Two days later the supplier has not sent it: both sides are told, the scorecard counts it, then it is sent
+
+**Who:** owner.supplier@myplus.com (Phone Supplier), a customer (incognito), MaxTheService operator  
+**Before:** Two days after M-4-03 (the whole system restarted on a clock two days later). Phone Supplier accepted the order and has not sent it.  
+**Covers:** MKT-R20.5, MKT-R8.2, MKT-R12.4  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4b-04, MKT-4b-05, MKT-4b-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.supplier@: Sale → Marketplace → "Incoming marketplace orders", show "Accepted". | The order's row reads "Late: it was due to leave within 24 hours of accepting. Send it now." in red. |
+| 2 | Customer: open the order page. | "Phone Supplier is late sending this. MaxTheService is chasing it." and "Pay Rs. 47,000 in cash when it arrives." |
+| 3 | Operator: Platform → "Seller performance" (30 days). Find Phone Supplier. | Under "Delivered on time" the row reads "Sent within 24 hours: …" (a rate once five orders are settled, "Not enough orders yet" before). |
+| 4 | As owner.supplier@: Sale → Orders. Search "Ali W65801d", open it, "Ship". Carrier "Leopards", tracking number "LP-W65801". Press "Record shipment". | "Shipment recorded: SHP-…"; the order lists the parcel with Leopards. |
+| 5 | Customer: open the order page again. | "On its way from Phone Supplier" and "Leopards · tracking LP-W65801. Pay Rs. 47,000 in cash when it arrives." The late sentence is gone. |
+| C1 | As owner.supplier@: Sale → Orders, press "Mark DELIVERED" on the order. Operator: Marketplace sellers → Approved → Phone Supplier, untick "Supplier" and Save. | The order reads DELIVERED; "Phone Supplier sells its own stock as a seller." |
+
+### M-4-05 A supplier that cannot fulfil an order names its own shop as the cause; "My supplier" is not offered
+
+**Who:** a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)  
+**Before:** Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.  
+**Covers:** MKT-R11.4, MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-4d-01
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "Ali W51167r", phone 030065116793, address "1 Clifton". Press "Place order". | "Waiting for Phone Supplier to confirm", with an order number MKT-…. |
+| 2 | As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". On the order, open the "Cause" list under "Reject". | Two causes only: "Out of stock in my shop" and "MaxTheService showed the wrong stock". "My supplier could not deliver" is not offered: Phone Supplier is the supplier. |
+| 3 | Type "none left on the shelf" as the reason, keep "Out of stock in my shop", press "Reject". Then show "Rejected". | The row leaves the waiting list. Under Rejected it reads "Cause: Out of stock in my shop" and "Recorded", with a "Dispute" button. |
+| 4 | Customer: open the order page again. | "Cancelled" and "The seller could not fulfil this order." |
+| C1 | Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save. | "Phone Supplier sells its own stock as a seller." |
 
 
 ## MKT-5
 
-### M-5-01 Consignment: owner and holder are different
+### M-5-01 Consignment terms come first: MaxTheService offers them, the seller reads and accepts them
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 5. ABC Distributor places 10 phones with Shahzad Mobile Shop.  
-**Covers:** MKT-R2.1, MKT-R2.2, MKT-R4.5, MKT-R4.6, MKT-R15.4, MKT-R20.5  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)  
+**Before:** The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.  
+**Covers:** MKT-R2.1, MKT-R2.2, MKT-R4.6, MKT-R12.2  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5a-01, MKT-5a-02, MKT-5a-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Create the consignment agreement, leaving one term blank → Activate. | Refused while any term is blank. |
-| 2 | Fill every term → Activate. | Active. |
-| 3 | Sell one phone. | Owner ABC, custodian Shahzad; ABC is owed the price less Shahzad's commission, after the sell-through report and the return period. |
-| C1 | Return the phone; end the agreement. | Ended. |
+| 1 | Operator: Platform → "Consignment agreements". Choose Shahzad Mobile Shop, set "MaxTheService keeps (% of each sale)" to 60, leave the other terms as filled in → "Offer these terms". | "Commission: enter a percentage from 0 to 50." Nothing is offered. |
+| 2 | Set it to 10 and press "Offer these terms" again. | "Offered to Shahzad Mobile Shop as CA-…. Nothing can be consigned until they accept." The agreement is listed as "Offered, waiting for the seller" with every term in words: ownership passes when it is sold, the owner sets the price, MaxTheService keeps 10%, settled every 7 days, counted every 30 days with 1% tolerated, who bears damage and expiry, claims within 14 days with proof, unsold stock back after 180 days. |
+| 3 | As owner.business@myplus.com: Sale → Marketplace → "Consignment agreements". | The agreement reads "Waiting for your answer" with the same eight terms, an "Accept these terms" button, a reason box and "Decline". |
+| 4 | Press "Accept these terms". | "CA-… is active. Stock can be consigned to MaxTheService on these terms." The agreement reads "Active", with "End the agreement". |
+| C1 | As the seller: type "walk cleanup" in the reason box → "End the agreement". | "CA-… has ended. No new stock can be consigned under it." |
 
 ### M-5-02 Shrinkage claims need evidence
 
@@ -1612,6 +1671,35 @@
 | 1 | Record the count difference; raise a claim against the custodian. | The claim needs proof and stays OPEN with a claim window. |
 | 2 | Look at the custodian's statement. | No debit until the claim is approved through the dispute step. |
 | C1 | Withdraw the test claim. | Withdrawn. |
+
+### M-5-03 A consigned phone sells: owner and holder are different
+
+**Who:** admin@myplus.com (operator)  
+**Before:** Phase 5. A seller has an active consignment agreement (M-5-01) and has consigned phones to the MaxTheService warehouse (M-5-04).  
+**Covers:** MKT-R2.1, MKT-R4.5, MKT-R15.4, MKT-R20.5  
+**Evidence:** written from the design — not built yet
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Sell one consigned phone. | Owner Shahzad, custodian the warehouse; Shahzad is owed the price less MaxTheService's commission, after the sell-through report and the return period. |
+| C1 | Return the unsold phones; end the agreement. | Ended. |
+
+### M-5-04 A seller consigns phones to the MaxTheService warehouse: they stay its own
+
+**Who:** owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)  
+**Before:** The MaxTheService warehouse is named (M-3-01). Mobile Distributor has an active consignment agreement (accepted as in M-5-01) and 5 of a phone that MaxTheService also carries.  
+**Covers:** MKT-R2.1, MKT-R4.5, MKT-R20.5  
+**Evidence:** written from the design — not built yet  
+**Automated by:** MKT-5b-02, MKT-5b-03, MKT-5b-04, MKT-5b-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". Choose "On consignment: it stays mine". | The price box now reads "Value a unit", the button "Consign to MaxTheService", and the sentence above it: "On consignment under CA-…: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells." |
+| 2 | Choose the phone, Quantity 2, Value a unit 40000 → "Consign to MaxTheService". | "Sent to MaxTheService on consignment as ST-…, under CA-…. It stays yours, on the warehouse's shelf once received." The row reads "Sent, waiting for the warehouse" and "On consignment, CA-…", total Rs 80,000. |
+| 3 | As owner.warehouse@myplus.com: Sale → Marketplace → "Stock sent to MaxTheService". Find the row from Mobile Distributor → "Receive". | "Received on consignment under CA-…. It is Mobile Distributor's stock on your shelf: nothing is owed until it sells." The row reads "Received" with no invoice. "Consigned stock at MaxTheService" lists Mobile Distributor, the phone, 2 units, Rs 80,000. |
+| 4 | As owner.mobile@myplus.com: Sale → Marketplace, then look at the phone's stock. | "Consigned stock at MaxTheService" lists the phone, 2 units, Rs 80,000. The phone still counts 5 in your stock, of which 3 are free to sell: the 2 at the warehouse are set aside. |
+| 5 | "Consignment agreements" → type "walk" in the reason box → "End the agreement". | "The warehouse still holds … units consigned under this agreement. They must be sold or returned before it can end." The agreement stays "Active". |
+| C1 | Nothing to undo through the screens yet: the 2 phones stay consigned until the unsold-returns slice sends them back (M-5-03's cleanup). Check they are still listed under "Consigned stock at MaxTheService". | The phone is listed with 2 units; the agreement is still "Active". |
 
 
 ## MKT-6

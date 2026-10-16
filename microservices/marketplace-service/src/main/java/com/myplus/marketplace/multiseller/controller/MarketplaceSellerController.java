@@ -13,6 +13,7 @@ import com.myplus.common.web.PageResponse;
 import com.myplus.marketplace.multiseller.dto.SellerDTOs;
 import com.myplus.marketplace.multiseller.service.MarketplaceSellerService;
 import com.myplus.marketplace.multiseller.service.PlatformWarehouseService;
+import com.myplus.marketplace.multiseller.service.SupplierService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +37,7 @@ public class MarketplaceSellerController {
 
     private final MarketplaceSellerService service;
     private final PlatformWarehouseService warehouse;
+    private final SupplierService suppliers;
 
     @GetMapping("/seller")
     public ApiResponse<SellerDTOs.SellerView> mySeller() {
@@ -58,6 +60,17 @@ public class MarketplaceSellerController {
             @RequestBody SellerDTOs.DecisionRequest body) {
         SellerDTOs.Account a = service.decide(organizationId, body);
         return ApiResponse.success(a, "Seller account is now " + a.status().toLowerCase().replace('_', ' ') + ".");
+    }
+
+    /** MKT-4a — mark a seller as a supplier (its offers become supplier stock) and whether its stock counts are reliable. */
+    @PostMapping("/operator/sellers/{organizationId}/supplier")
+    public ApiResponse<SellerDTOs.Account> supplier(@PathVariable Long organizationId,
+            @RequestBody SellerDTOs.SupplierRequest body) {
+        SellerDTOs.Account a = suppliers.set(organizationId, body);
+        return ApiResponse.success(a, !a.supplier() ? a.displayName() + " sells its own stock as a seller."
+                : a.supplierStockReliable() ? a.displayName() + " is a supplier. Customers see its stock as checked."
+                : a.displayName() + " is a supplier. Customers are told it confirms the stock within "
+                        + com.myplus.marketplace.multiseller.service.MarketplaceSettingsService.supplierConfirmMinutes() + " minutes of an order.");
     }
 
     @GetMapping("/operator/warehouse")

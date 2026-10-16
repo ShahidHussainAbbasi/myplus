@@ -59,6 +59,17 @@ public class MarketplaceSellerAccount {
     @Column(name = "decided_at")
     private LocalDateTime decidedAt;
 
+    /** MKT-4a — the operator has marked this seller as a supplier: its offers are SUPPLIER stock (R4.3). */
+    @Column(name = "supplier", nullable = false)
+    private Boolean supplier = Boolean.FALSE;
+
+    /**
+     * MKT-4a — the operator trusts this supplier's stock counts (R4.4). Until then its offers never read as confirmed
+     * stock: the customer is told the supplier confirms when it accepts the order. Meaningless unless {@link #supplier}.
+     */
+    @Column(name = "supplier_stock_reliable", nullable = false)
+    private Boolean supplierStockReliable = Boolean.FALSE;
+
     /** Two operators deciding one seller at once: the second gets a 409, never a silent overwrite (common-web R2). */
     @Version
     @Column(name = "version", nullable = false)

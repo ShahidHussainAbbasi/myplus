@@ -625,6 +625,15 @@ public class SetupDataLoader {
                     //
                     // ⚠ Used by the MKT-3 gates and walk only. Expect it named as the warehouse.
                     {"owner.warehouse@myplus.com",    "MaxTheService Warehouse", "BUSINESS"},
+
+                    // ── MKT-4a: a dropship supplier. ──────────────────────────────────────────────────────────────
+                    //
+                    // The operator marks an approved seller as a supplier (ruling 2026-10-15: a MyPlus business, not
+                    // an API-only company); its offers then become supplier stock. Marking a shop the other gates use
+                    // as a seller would change what those gates see, so the supplier is its own seeded tenant.
+                    //
+                    // ⚠ Used by the MKT-4 gates and walk only. Expect it marked as a supplier.
+                    {"owner.supplier@myplus.com",     "Phone Supplier", "BUSINESS"},
             };
             for (String[] o : moduleOwners) {
                 ensureOwner(o[0], o[1], o[2], ownerRole);
@@ -654,6 +663,7 @@ public class SetupDataLoader {
             // MKT-3a: the warehouse stocks phones too; the IMEI of each unit is scanned when it is picked
             ensureShape("owner.warehouse@myplus.com", "retail");
             ensureCapability("owner.warehouse@myplus.com", "org.cap.serialTracking");
+            ensureShape("owner.supplier@myplus.com", "retail");   // MKT-4a: sells phones, like the shops it supplies
             log.info("Module OWNER test users ensured ({}, ROLE_OWNER, demo=false, own org): {}",
                     moduleOwners.length,
                     Arrays.stream(moduleOwners).map(o -> o[0]).collect(java.util.stream.Collectors.joining(", ")));

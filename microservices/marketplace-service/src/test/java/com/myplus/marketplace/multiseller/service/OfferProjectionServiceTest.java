@@ -130,6 +130,17 @@ class OfferProjectionServiceTest {
     }
 
     @Test
+    @DisplayName("[MKT-R4.4] supplier stock is published as unconfirmed until the operator marks the supplier's counts reliable")
+    void supplierStockConfirmed() {
+        assertThat(service.publish(offer).getStockConfirmed()).as("merchant stock: the inventory sync confirms it").isTrue();
+        offer.setStockSourceType("SUPPLIER");
+        seller.setSupplier(true);
+        assertThat(service.publish(offer).getStockConfirmed()).as("a supplier not yet trusted").isFalse();
+        seller.setSupplierStockReliable(true);
+        assertThat(service.publish(offer).getStockConfirmed()).as("a supplier with reliable counts").isTrue();
+    }
+
+    @Test
     @DisplayName("[MKT-R9.2] [MKT-R9.3] the projection has NO column a cost, margin, purchase rate or stock history could leak from")
     void noForbiddenFields() {
         String fields = Arrays.stream(MarketplaceOfferProjection.class.getDeclaredFields()).map(Field::getName)

@@ -97,7 +97,8 @@ class MarketplaceOrderFlowTest {
     @Mock MarketplaceAuditService audit;                             // G-16: actions are audited
     @Mock com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;   // MKT-2b
     @Mock com.myplus.marketplace.repository.OrderRepository storeOrderRows;                         // MKT-3b
-    @Mock com.myplus.marketplace.repository.ShipmentRepository shipmentRows;                        // MKT-3b
+    @Mock com.myplus.marketplace.repository.ShipmentRepository shipmentRows;
+    SupplierDispatchService dispatch;                                                              // MKT-4b                        // MKT-3b
 
     MarketplaceCheckoutService checkout;
     SellerOrderService sellerSide;
@@ -118,17 +119,18 @@ class MarketplaceOrderFlowTest {
     @BeforeEach
     void wire() {
         settings = new MarketplaceSettingsService(settingRows, access, audit);
+        dispatch = new SupplierDispatchService(sellerOrders, storeOrderRows, shipmentRows, audit, txManager);
         PublicOfferService publicOffers = new PublicOfferService(projections, products, settings, org.mockito.Mockito.mock(SellerPerformanceService.class));
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
                 lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider,
                 routing = new LiveRouting(trade, java.time.Duration.ofMillis(1000), java.time.Duration.ofMillis(2000), 3,
-                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding, storeOrderRows, shipmentRows);
+                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding, storeOrderRows, shipmentRows, dispatch);
         shortages = new MarketplaceShortageService(shortageRows, sellerOrders, orders, lines, offers, projections, products,
                 publicOffers, settings, checkout, payments, trade, access, audit, txManager, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
-                access, txManager, audit, shortages, shortageRows);
+                access, txManager, audit, shortages, dispatch, shortageRows);
         lenient().when(sellerSideProvider.getObject()).thenReturn(sellerSide);
-        sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager, shortages);
+        sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager, shortages, dispatch);
 
         product = new MarketplaceProduct();
         product.setId(PRODUCT);
@@ -1037,6 +1039,21 @@ class MarketplaceOrderFlowTest {
         assertThat(soTable).hasSize(1);
         assertThatThrownBy(() -> MarketplaceShortageService.sellerCause("NO_RESPONSE"))
                 .as("the clock's cause is never the seller's to pick").isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.4] [MKT-R20.5] MKT-4d: a supplier cannot blame its supplier for its own supplier stock; its own cause is recorded against it")
+    void supplierOwnsItsShortage() {
+        checkout.checkout(req("s4d"));
+        lineTable.forEach(l -> l.setStockSourceType("SUPPLIER"));                 // the order was of supplier stock
+        MarketplaceSellerOrder a = part(SELLER);
+        assertThatThrownBy(() -> sellerSide.reject(a.getId(), new MarketplaceOrderDTOs.RejectRequest(a.getVersion(), "none left", "SUPPLIER_STALE_STOCK")))
+                .hasMessage("You are the supplier of these items, so the stock is yours: choose \"Out of stock in my shop\".");
+        assertThat(a.getAcceptanceStatus()).isEqualTo("OFFERED");
+        sellerSide.reject(a.getId(), new MarketplaceOrderDTOs.RejectRequest(a.getVersion(), "none left", "MERCHANT_STALE_STOCK"));
+        var sh = shortageOf(a);
+        assertThat(sh.getResponsibleRole()).isEqualTo("MERCHANT");
+        assertThat(sh.getResponsibleOrgId()).isEqualTo(SELLER);
     }
 
     @Test

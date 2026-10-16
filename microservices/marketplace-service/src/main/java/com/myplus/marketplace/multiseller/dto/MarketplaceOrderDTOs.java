@@ -48,7 +48,8 @@ public final class MarketplaceOrderDTOs {
      */
     public record PartView(Long id, Integer version, Long sellerOrganizationId, String sellerName, String status,
             Long secondsToAccept, BigDecimal subtotal, BigDecimal deliveryFee, BigDecimal total, LocalDateTime promisedBy,
-            LocalDateTime deliveredAt, List<LineView> lines, ShortageView shortage, String fulfilment, List<ParcelView> parcels) {
+            LocalDateTime deliveredAt, List<LineView> lines, ShortageView shortage, String fulfilment, List<ParcelView> parcels,
+            Long secondsToShip, boolean dispatchLate) {
     }
 
     /**
@@ -128,7 +129,7 @@ public final class MarketplaceOrderDTOs {
             LocalDateTime acceptBy, Long secondsLeft, String customerName, String customerPhone, String address,
             String city, BigDecimal total, String invoiceNo, String storeOrderNo, String rejectReason,
             LocalDateTime createdAt, List<SellerLineView> lines, Long storeOrderId, String paymentMode, LocalDateTime deliveredAt,
-            SellerShortageView shortage) {
+            SellerShortageView shortage, Long secondsToShip, boolean dispatchLate) {
     }
 
     /** POST /mkt/seller-orders/{id}/accept. {@code serials}: order line id → the serial numbers / IMEIs sent. */

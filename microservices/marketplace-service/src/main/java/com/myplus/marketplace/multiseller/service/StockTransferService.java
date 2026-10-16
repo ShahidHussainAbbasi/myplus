@@ -24,12 +24,19 @@ import com.myplus.commerce.contracts.dto.PurchaseRecordRequest;
 import com.myplus.commerce.contracts.dto.PurchaseRecordResult;
 import com.myplus.commerce.contracts.dto.SaleRecordRequest;
 import com.myplus.commerce.contracts.dto.SaleRecordResult;
+import com.myplus.commerce.contracts.dto.StockHoldRequest;
+import com.myplus.commerce.contracts.dto.StockHoldResponse;
+import com.myplus.commerce.contracts.dto.StockReservationLine;
+import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Match;
 import com.myplus.marketplace.multiseller.dto.TransferDTOs;
+import com.myplus.marketplace.multiseller.entity.MarketplaceConsignedStock;
+import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentAgreement;
 import com.myplus.marketplace.multiseller.entity.MarketplaceProduct;
 import com.myplus.marketplace.multiseller.entity.MarketplaceProductSource;
 import com.myplus.marketplace.multiseller.entity.MarketplaceStockTransfer;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceProductRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceProductSourceRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRepository;
@@ -56,6 +63,13 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>Not a marketplace sale: no commission, no settlement line, no payout. MaxTheService pays what it owes the seller
  * through the warehouse's payables, like any supplier.
+ *
+ * <p><b>MKT-5b — consigned instead of bought ({@code kind} CONSIGN).</b> Only under the pair's ACTIVE consignment
+ * agreement ({@link ConsignmentAgreementService#activeFor}), checked when the seller sends and again when the warehouse
+ * receives. The seller keeps owning the stock (R2.1, R4.5), so Receive writes no sale and no purchase: it sets the
+ * stock aside in the SELLER's books with a hold that never lapses ({@code HoldKind.CONSIGNMENT}), so the shop can no
+ * longer sell it while it sits at the warehouse, and records the units in the consigned stock ledger
+ * ({@code mkt_consigned_stock}). Selling it, counting it and returning it are later slices.
  */
 @Service
 @RequiredArgsConstructor
@@ -78,6 +92,8 @@ public class StockTransferService {
     private final TradeClient trade;
     private final CatalogClient catalog;
     private final MarketplaceAuditService audit;
+    private final ConsignmentAgreementService consignments;
+    private final MarketplaceConsignedStockRepository consigned;
 
     // ── both sides ────────────────────────────────────────────────────────────────────────────────────
 
@@ -93,11 +109,23 @@ public class StockTransferService {
             return new TransferDTOs.View(true, true, List.of(), in.stream()
                     .map(t -> toDto(t, names.computeIfAbsent(t.getSellerOrgId(), this::sellerName),
                             Boolean.TRUE.equals(serial.get(t.getId()))))
-                    .toList());
+                    .toList(), null, held(org, names));
         }
         List<MarketplaceStockTransfer> out = transfers.findBySellerOrgIdOrderByIdDesc(org, PageRequest.of(0, PAGE)).getContent();
+        String under = consignments.activeFor(org, warehouse).map(MarketplaceConsignmentAgreement::getAgreementNo).orElse(null);
         return new TransferDTOs.View(false, true, carried(org, warehouse), out.stream()
-                .map(t -> toDto(t, null, false)).toList());
+                .map(t -> toDto(t, null, false)).toList(), under, held(org, new HashMap<>()));
+    }
+
+    /** MKT-5b — the consigned stock ledger summed per owner and product, for either side of the pair. */
+    List<TransferDTOs.Held> held(Long org, Map<Long, String> names) {
+        List<TransferDTOs.Held> out = new ArrayList<>();
+        for (Object[] r : consigned.heldFor(org)) {
+            Long owner = (Long) r[0];
+            out.add(new TransferDTOs.Held(names.computeIfAbsent(owner, this::sellerName), (Long) r[1], (String) r[2],
+                    ((Number) r[3]).longValue(), r[4] == null ? BigDecimal.ZERO : new BigDecimal(r[4].toString()).setScale(2, RoundingMode.HALF_UP)));
+        }
+        return out;
     }
 
     // ── the seller ────────────────────────────────────────────────────────────────────────────────────
@@ -111,8 +139,14 @@ public class StockTransferService {
         if (req == null || req.mktProductId() == null) throw new ValidationException("Choose the product.");
         int qty = req.quantity() == null ? 0 : req.quantity();
         if (qty < 1 || qty > MAX_QUANTITY) throw new ValidationException("Enter how many you are sending (1 to " + MAX_QUANTITY + ").");
+        String kind = kindOf(req.kind());
+        boolean consign = MarketplaceStockTransfer.CONSIGN.equals(kind);
+        MarketplaceConsignmentAgreement agreement = !consign ? null : consignments.activeFor(org, warehouse)
+                .orElseThrow(() -> new ValidationException("You have no active consignment agreement with MaxTheService. "
+                        + "Accept its terms under Consignment agreements first, or sell the stock to MaxTheService instead."));
         BigDecimal price = req.unitPrice();
-        if (price == null || price.signum() <= 0) throw new ValidationException("Enter the price of one unit.");
+        if (price == null || price.signum() <= 0)
+            throw new ValidationException(consign ? "Enter the value of one unit." : "Enter the price of one unit.");
         if (price.scale() > 2) throw new ValidationException("A price has at most two decimal places.");
 
         MarketplaceProductSource mine = matched(org, req.mktProductId())
@@ -132,9 +166,11 @@ public class StockTransferService {
         t.setUnitPrice(price.setScale(2, RoundingMode.UNNECESSARY));
         t.setNote(clip(req.note(), 500));
         t.setStatus(MarketplaceStockTransfer.OFFERED);
+        t.setKind(kind);
+        t.setAgreementId(agreement == null ? null : agreement.getId());
         t.setOfferedByUserId(access.userId());
         t = transfers.save(t);
-        audit.event("MKT_TRANSFER_OFFERED", "MKT_STOCK_TRANSFER", t.getTransferNo(), org, MarketplaceAuditService.Actor.SELLER,
+        audit.event(consign ? "MKT_CONSIGN_OFFERED" : "MKT_TRANSFER_OFFERED", "MKT_STOCK_TRANSFER", t.getTransferNo(), org, MarketplaceAuditService.Actor.SELLER,
                 null, MarketplaceStockTransfer.OFFERED, total(t), t.getQuantity() + " × " + t.getProductName());
         return toDto(t, null, false);
     }
@@ -183,11 +219,17 @@ public class StockTransferService {
         String joined = serials.isEmpty() ? null : String.join(",", serials);
         if (joined != null && joined.length() > 2000) throw new ValidationException("Too many serial numbers for one transfer.");
 
+        boolean consign = MarketplaceStockTransfer.CONSIGN.equals(loaded.getKind());
+        MarketplaceConsignmentAgreement agreement = !consign ? null : consignments.activeFor(loaded.getSellerOrgId(), warehouse)
+                .orElseThrow(() -> new ValidationException("There is no active consignment agreement with this seller any "
+                        + "more, so this stock cannot be taken on consignment. Choose Not taken and say why."));
+
         // Claim it first: a cancel or reject racing this Receive now loses on the row's version instead of leaving both
         // books written under a cancelled transfer. A Receive interrupted after this point is retried from RECEIVING
         // with the same keys, so it replays rather than books twice.
         loaded.setStatus(MarketplaceStockTransfer.RECEIVING);
         MarketplaceStockTransfer t = transfers.saveAndFlush(loaded);
+        if (consign) return receiveConsigned(t, agreement, joined, needSerials);
         String key = "MKT-" + t.getTransferNo() + "-" + t.getAttempt();
         String sellerName = sellerName(t.getSellerOrgId());
         SaleRecordResult sale;
@@ -257,6 +299,66 @@ public class StockTransferService {
                 MarketplaceAuditService.Actor.SELLER, MarketplaceStockTransfer.OFFERED, MarketplaceStockTransfer.RECEIVED,
                 total(done), "seller invoice " + sale.getInvoiceNo() + ", warehouse purchase " + bought.getPurchaseId());
         return toDto(done, sellerName, needSerials);
+    }
+
+    /**
+     * MKT-5b — received on consignment: the stock is set aside in the seller's books (it stays theirs), then counted
+     * into the ledger, then the row. The hold is idempotent on its key and the ledger on (transfer, RECEIVED), so a
+     * Receive retried from RECEIVING replays both instead of setting aside or counting twice.
+     */
+    private TransferDTOs.Transfer receiveConsigned(MarketplaceStockTransfer t, MarketplaceConsignmentAgreement agreement,
+                                                   String joined, boolean needSerials) {
+        String holdKey = "MKT-" + t.getTransferNo() + "-" + t.getAttempt() + "-consign";
+        StockHoldRequest hold = StockHoldRequest.builder()
+                .organizationId(t.getSellerOrgId())
+                .holdKey(holdKey)
+                .lines(List.of(new StockReservationLine(t.getSellerProductId(), BigDecimal.valueOf(t.getQuantity()))))
+                .holdKind(StockReservationRequest.HoldKind.CONSIGNMENT)
+                .build();
+        StockHoldResponse r;
+        try {
+            r = AsOrg.call(t.getSellerOrgId(), () -> trade.holdStock(hold));
+        } catch (RuntimeException e) {
+            back(t, false);
+            throw new ValidationException("The seller's stock could not be set aside, so nothing was received. "
+                    + DownstreamMessage.orElse(e, "Please try again."));
+        }
+        if (r == null || !r.isHeld()) {
+            back(t, false);
+            throw new ValidationException("The seller's books do not show " + t.getQuantity() + " × " + t.getProductName()
+                    + " free to set aside, so nothing was received"
+                    + (r == null || r.getReason() == null ? "." : ": " + r.getReason()));
+        }
+
+        if (!consigned.existsByTransferIdAndMovement(t.getId(), MarketplaceConsignedStock.RECEIVED)) {
+            MarketplaceConsignedStock m = new MarketplaceConsignedStock();
+            m.setAgreementId(agreement.getId());
+            m.setConsignorOrgId(t.getSellerOrgId());
+            m.setConsigneeOrgId(t.getWarehouseOrgId());
+            m.setMktProductId(t.getMktProductId());
+            m.setConsignorProductId(t.getSellerProductId());
+            m.setProductName(t.getProductName());
+            m.setMovement(MarketplaceConsignedStock.RECEIVED);
+            m.setQuantity(t.getQuantity());
+            m.setUnitValue(t.getUnitPrice());
+            m.setSerials(joined);
+            m.setTransferId(t.getId());
+            m.setHoldKey(holdKey);
+            m.setCreatedByUserId(access.userId());
+            consigned.save(m);
+        }
+
+        t.setSerials(joined);
+        t.setHoldKey(holdKey);
+        t.setAgreementId(agreement.getId());
+        t.setStatus(MarketplaceStockTransfer.RECEIVED);
+        t.setDecidedByUserId(access.userId());
+        t.setDecidedAt(LocalDateTime.now());
+        MarketplaceStockTransfer done = transfers.save(t);
+        audit.event("MKT_CONSIGN_RECEIVED", "MKT_STOCK_TRANSFER", done.getTransferNo(), done.getSellerOrgId(),
+                MarketplaceAuditService.Actor.SELLER, MarketplaceStockTransfer.OFFERED, MarketplaceStockTransfer.RECEIVED,
+                total(done), "consigned under " + agreement.getAgreementNo() + ", hold " + holdKey);
+        return toDto(done, sellerName(done.getSellerOrgId()), needSerials);
     }
 
     /** Nothing was received: OFFERED again, on the next attempt when a sale was voided. */
@@ -331,6 +433,14 @@ public class StockTransferService {
             throw new ValidationException("This transfer is already " + t.getStatus().toLowerCase(Locale.ROOT) + ".");
     }
 
+    /** BUY when not given (every 3c caller), else BUY or CONSIGN. */
+    static String kindOf(String kind) {
+        String k = kind == null || kind.isBlank() ? MarketplaceStockTransfer.BUY : kind.trim().toUpperCase(Locale.ROOT);
+        if (!MarketplaceStockTransfer.BUY.equals(k) && !MarketplaceStockTransfer.CONSIGN.equals(k))
+            throw new ValidationException("Choose whether MaxTheService buys this stock or holds it on consignment.");
+        return k;
+    }
+
     private static ValidationException notFound() {
         return new ValidationException("Transfer not found.");
     }
@@ -360,6 +470,7 @@ public class StockTransferService {
     static TransferDTOs.Transfer toDto(MarketplaceStockTransfer t, String sellerName, boolean serialRequired) {
         return new TransferDTOs.Transfer(t.getTransferNo(), t.getProductName(), t.getQuantity(), t.getUnitPrice(), total(t),
                 t.getNote(), t.getStatus(), t.getRejectReason(), sellerName, serialRequired, t.getSaleInvoiceNo(),
-                t.getPurchaseId(), t.getCreatedAt(), t.getDecidedAt(), t.getVersion());
+                t.getPurchaseId(), t.getCreatedAt(), t.getDecidedAt(), t.getVersion(), t.getKind(),
+                t.getAgreementId() == null ? null : String.format("CA-%06d", t.getAgreementId()));
     }
 }

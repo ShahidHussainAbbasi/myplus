@@ -51,7 +51,7 @@ class LiveRoutingTest {
     }
 
     @Test
-    @DisplayName("[MKT-R18.3] the overall deadline caps a seller's own timeout")
+    @DisplayName("[MKT-R18.3] [MKT-R22.5] the overall deadline caps a seller's own timeout")
     void deadlineCapsTimeout() {
         LiveRouting r = routing(800, 800, 30_000, false);
         answerAfter(1000, true);
@@ -73,7 +73,7 @@ class LiveRoutingTest {
     }
 
     @Test
-    @DisplayName("[MKT-R18.3] open → one trial after the open period: an answer closes it, a failure opens it again")
+    @DisplayName("[MKT-R18.3] [MKT-R22.5] open → one trial after the open period: an answer closes it, a failure opens it again")
     void halfOpen() throws Exception {
         LiveRouting r = routing(150, 1000, 400, false);
         answerAfter(300, true);
@@ -102,7 +102,7 @@ class LiveRoutingTest {
     }
 
     @Test
-    @DisplayName("[MKT-R18.3] an abandoned call that holds late is released by its own key")
+    @DisplayName("[MKT-R18.3] [MKT-R22.5] an abandoned call that holds late is released by its own key")
     void lateHoldReleased() {
         LiveRouting r = routing(100, 1000, 30_000, false);
         answerAfter(250, true);

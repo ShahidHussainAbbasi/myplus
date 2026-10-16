@@ -89,6 +89,14 @@ public class MarketplaceSellerOrder {
     @Column(name = "replaces_seller_order_id")
     private Long replacesSellerOrderId;
 
+    /** MKT-4b (V39): a supplier's part must leave by this time (Accept + 24 hours); null for every other part. */
+    @Column(name = "dispatch_by")
+    private LocalDateTime dispatchBy;
+
+    /** MKT-4b (V39): DUE until its deadline passes, then ON_TIME, LATE or VOID; null when there is no deadline. */
+    @Column(name = "dispatch_status", length = 12)
+    private String dispatchStatus;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;

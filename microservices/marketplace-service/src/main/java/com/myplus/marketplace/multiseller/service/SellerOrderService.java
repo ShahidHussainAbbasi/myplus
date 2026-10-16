@@ -81,6 +81,8 @@ public class SellerOrderService {
     private final MarketplaceAuditService audit;
     /** MKT-2b: every part a seller does not fulfil is recorded, and moved to another seller when the operator allows. */
     private final MarketplaceShortageService shortages;
+    /** MKT-4b: a supplier's part must leave within a day of Accept; stamped here, shown on its row. */
+    private final SupplierDispatchService dispatch;
     private final com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;
 
     @Transactional(readOnly = true)
@@ -110,7 +112,7 @@ public class SellerOrderService {
                 : shortageRows.findBySellerOrderIdIn(soIds).stream()
                         .collect(Collectors.toMap(com.myplus.marketplace.multiseller.entity.MarketplaceShortage::getSellerOrderId, Function.identity()));
         return PageResponse.of(rows, so -> view(so, parents.get(so.getMktOrderId()), bySo.getOrDefault(so.getId(), List.of()),
-                MarketplaceShortageService.sellerView(shortBy.get(so.getId()))));
+                MarketplaceShortageService.sellerView(shortBy.get(so.getId())), dispatch.clock(so)));
     }
 
     /** Not {@code @Transactional}: the remote release and sale sit between short transactions. */
@@ -163,6 +165,7 @@ public class SellerOrderService {
             fresh.setInvoiceNo(sale.getInvoiceNo());
             fresh.setDecidedByUserId(access.userId());
             fresh.setDecidedAt(LocalDateTime.now());
+            SupplierDispatchService.stamp(fresh, lines.findBySellerOrderIdOrderByIdAsc(fresh.getId()), fresh.getDecidedAt());
             sellerOrders.save(fresh);
             MarketplaceOrder parent = orders.findById(fresh.getMktOrderId()).orElseThrow();
             MarketplaceCheckoutService.follow(parent, partsOf(parent.getId(), fresh), null);      // CONFIRMED, once
@@ -187,6 +190,10 @@ public class SellerOrderService {
         if (reason.length() > 300) throw new ValidationException("Keep the reason under 300 characters.");
         com.myplus.marketplace.multiseller.entity.MarketplaceShortage.Cause cause =
                 MarketplaceShortageService.sellerCause(req == null ? null : req.cause());      // before anything changes
+        // MKT-4d: a supplier is its own supplier, so "my supplier could not deliver" would excuse its own miss (R11.4)
+        if (cause == com.myplus.marketplace.multiseller.entity.MarketplaceShortage.Cause.SUPPLIER_STALE_STOCK
+                && MarketplaceCheckoutService.supplierStock(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))
+            throw new ValidationException("You are the supplier of these items, so the stock is yours: choose \"Out of stock in my shop\".");
 
         boolean[] moving = new boolean[1];
         tx().executeWithoutResult(s -> {
@@ -307,11 +314,11 @@ public class SellerOrderService {
 
     private MarketplaceOrderDTOs.SellerOrderView viewOf(MarketplaceSellerOrder so) {
         return view(so, orders.findById(so.getMktOrderId()).orElse(null), lines.findBySellerOrderIdOrderByIdAsc(so.getId()),
-                MarketplaceShortageService.sellerView(shortageRows.findBySellerOrderId(so.getId()).orElse(null)));
+                MarketplaceShortageService.sellerView(shortageRows.findBySellerOrderId(so.getId()).orElse(null)), dispatch.clock(so));
     }
 
     static MarketplaceOrderDTOs.SellerOrderView view(MarketplaceSellerOrder so, MarketplaceOrder o, List<MarketplaceOrderLine> ls,
-            MarketplaceOrderDTOs.SellerShortageView shortage) {
+            MarketplaceOrderDTOs.SellerShortageView shortage, SupplierDispatchService.Clock ship) {
         return new MarketplaceOrderDTOs.SellerOrderView(so.getId(), so.getVersion(), o == null ? null : o.getOrderNo(),
                 so.getAcceptanceStatus(), so.getAcceptBy(), MarketplaceCheckoutService.secondsLeft(so),
                 o == null ? null : o.getCustomerName(), o == null ? null : o.getCustomerPhone(),
@@ -321,7 +328,7 @@ public class SellerOrderService {
                 ls.stream().map(l -> new MarketplaceOrderDTOs.SellerLineView(l.getId(), MarketplaceCheckoutService.lineView(l),
                         l.getSourceProductId(), l.getCommissionPolicyId(), l.getCommissionBasis(), l.getCommissionRate(),
                         l.getCommissionFixed(), l.getSettlementStatus())).toList(), so.getStoreOrderId(), o == null ? null : o.getPaymentMode(), so.getDeliveredAt(),
-                shortage);
+                shortage, ship.secondsToShip(), ship.late());
     }
 
     private TransactionTemplate tx() {

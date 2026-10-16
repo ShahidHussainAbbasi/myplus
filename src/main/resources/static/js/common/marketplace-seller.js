@@ -61,6 +61,8 @@
 		// MKT-3c: stock sent to the MaxTheService warehouse (the warehouse receives it here)
 		$('#mktTransferBox').toggle(!!v.canSell);
 		if (v.canSell) mktTransfersLoad();
+		// MKT-5a: consignment agreements (shown once there is one)
+		if (a) mktConsignLoad(); else $('#mktConsignBox').hide();
 		// MKT-1g: the statement — loaded when asked for, it is a page of money, not a glance
 		$('#mktStatementBox').toggle(!!a);
 		// MKT-2e: the shop's own scorecard, the figures MaxTheService sees for it
@@ -363,6 +365,11 @@
 			$st.append(' ').append($('<b class="mkt-accept-countdown" style="font-variant-numeric:tabular-nums"></b>')
 				.attr('data-deadline', Date.now() + so.secondsLeft * 1000).text(mm(so.secondsLeft)));
 		}
+		// MKT-4b: a supplier's accepted order must leave within 24 hours of Accept
+		if (so.dispatchLate) $st.append($('<div class="mkt-ship-late" style="font-size:12px;color:#b3261e;font-weight:600"></div>')
+			.text(tr('ui.js.mktSoSendLate', 'Late: it was due to leave within 24 hours of accepting. Send it now.')));
+		else if (so.secondsToShip !== null && so.secondsToShip !== undefined) $st.append($('<div class="mkt-ship-by" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktSoSendWithin', 'Send within {0}').replace('{0}', hmm(so.secondsToShip))));
 		if (so.invoiceNo) $st.append($('<div style="font-size:12px"></div>').text(tr('ui.js.mktSoInvoice', 'Invoice {0}').replace('{0}', so.invoiceNo)));
 		if (so.rejectReason) $st.append($('<div class="text-muted" style="font-size:12px"></div>').text(so.rejectReason));
 		if (so.shortage) $st.append(shortageBox(so.shortage));
@@ -400,7 +407,12 @@
 			// MKT-2b: why it cannot be fulfilled — recorded against the seller (R11.4), never debited (R12.4)
 			var $cause = $('<select class="form-control input-sm mkt-reject-cause" style="margin-top:4px"></select>')
 				.attr('aria-label', tr('ui.js.mktCauseLabel', 'Cause'));
-			CAUSES.forEach(function (c) { $cause.append($('<option></option>').val(c[0]).text(tr(c[1], c[2]))); });
+			// MKT-4d: a supplier's own stock has no supplier behind it to blame
+			var ownSupply = (so.lines || []).some(function (l) { return l.line && l.line.stockSourceType === 'SUPPLIER'; });
+			CAUSES.forEach(function (c) {
+				if (ownSupply && c[0] === 'SUPPLIER_STALE_STOCK') return;
+				$cause.append($('<option></option>').val(c[0]).text(tr(c[1], c[2])));
+			});
 			$act.append($cause);
 			$('<button type="button" class="btn btn-xs btn-default mkt-reject" style="margin-top:4px"></button>')
 				.text(tr('ui.js.mktReject', 'Reject'))
@@ -571,12 +583,45 @@
 			var $sel = $('#mktTrProduct').empty();
 			(v.products || []).forEach(function (p) { $('<option></option>').val(p.mktProductId).text(p.name).appendTo($sel); });
 			$('#mktTransferForm').toggle(!v.warehouse);
+			// MKT-5b: the kind picker only under an active agreement; without one every transfer is a sale (BUY)
+			mktConsignUnder = v.consignUnder || null;
+			$('#mktTrKind').toggle(!v.warehouse && !!mktConsignUnder);
+			if (!mktConsignUnder) $('#mktTrKind').val('BUY');
+			mktTrKindChanged();
+			heldTable(v.held || [], v.warehouse);
 			if (!v.warehouse && !(v.products || []).length)
 				$('#mktTransferMsg').css('color', '').text(tr('ui.js.mktTrNoProducts', 'None of your products is carried by MaxTheService yet.'));
 			var rows = v.transfers || [];
 			if (!rows.length) $tb.append($('<tr><td colspan="7" class="text-muted"></td></tr>').find('td')
 				.text(v.warehouse ? tr('ui.js.mktTrNoneIn', 'Nothing has been sent to you.') : tr('ui.js.mktTrNoneOut', 'You have not sent anything yet.')).end());
 			rows.forEach(function (t) { $tb.append(transferRow(t, v.warehouse)); });
+		});
+	}
+
+	var mktConsignUnder = null;
+
+	/** MKT-5b — the form reads differently when the stock stays the seller's. */
+	function mktTrKindChanged() {
+		var consign = !!mktConsignUnder && $('#mktTrKind').val() === 'CONSIGN';
+		var price = consign ? tr('ui.js.mktTrValue', 'Value a unit') : tr('ui.js.mktTrPriceL', 'Price a unit');
+		$('#mktTrPrice').attr('placeholder', price).attr('aria-label', price);
+		$('#mktTrSend').text(consign ? tr('ui.js.mktTrSendConsign', 'Consign to MaxTheService') : tr('ui.js.mktTrSendBuy', 'Send to MaxTheService'));
+		if (consign) $('#mktTransferHint').text(tr('ui.js.mktTrConsignHint', 'On consignment under {0}: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells.').replace('{0}', mktConsignUnder));
+		else if (!$('#mktTransferForm').is(':hidden')) $('#mktTransferHint').text(tr('ui.js.mktTrOutHint', 'MaxTheService buys it: when the warehouse receives it, it is a sale in your books and MaxTheService owes you the total.'));
+	}
+
+	/** MKT-5b — consigned stock held at the warehouse: the owner sees its own; the warehouse sees every owner's. */
+	function heldTable(rows, warehouse) {
+		var $tb = $('#mktHeld tbody').empty();
+		$('#mktHeldBox').toggle(rows.length > 0);
+		$('#mktHeld .mkt-held-owner').toggle(!!warehouse);
+		rows.forEach(function (h) {
+			var $tr = $('<tr class="mkt-held"></tr>').attr('data-product', h.mktProductId);
+			if (warehouse) $('<td></td>').text(h.consignorName).appendTo($tr);
+			$('<td style="white-space:normal"></td>').text(h.productName).appendTo($tr);
+			$('<td class="mkt-held-units" style="font-variant-numeric:tabular-nums"></td>').text(h.units).appendTo($tr);
+			$('<td style="font-variant-numeric:tabular-nums"></td>').text(money(h.value)).appendTo($tr);
+			$tb.append($tr);
 		});
 	}
 
@@ -593,6 +638,8 @@
 		var $s = $('<td class="mkt-transfer-status"></td>').text(st[0] ? tr(st[0], st[1]) : st[1]).appendTo($tr);
 		if (t.status === 'REJECTED' && t.rejectReason) $s.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.rejectReason));
 		if (t.status === 'RECEIVED' && t.saleInvoiceNo) $s.append($('<div class="text-muted" style="font-size:12px"></div>').text(t.saleInvoiceNo));
+		if (t.kind === 'CONSIGN') $s.append($('<div class="text-muted mkt-tr-kind" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktTrConsigned', 'On consignment, {0}').replace('{0}', t.agreementNo || '')));
 		var $a = $('<td style="white-space:normal"></td>').appendTo($tr);
 		var open = t.status === 'OFFERED' || (warehouse && t.status === 'RECEIVING');
 		if (!open) return $tr;
@@ -628,19 +675,118 @@
 		var label = $b.text();
 		$b.prop('disabled', true);
 		var $msg = $('#mktTransferMsg').text('').css('color', '');
+		// a row's action redraws the list (see below); a refused Send keeps the form as typed
+		var refused = function (why) {
+			if (path === 'mkt/transferOffer') { $msg.css('color', '#b3261e').text(why); return; }
+			mktTransfersLoad().always(function () { $('#mktTransferMsg').css('color', '#b3261e').text(why); });
+		};
 		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
 			.done(function (res) {
-				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				// A refused Receive still moved the row (claimed, then given back), so the drawn version is stale: redraw it,
+				// then show the refusal, or the next press on the same row reads "changed meanwhile".
+				if (!ok(res)) {
+					var why = message(res, tr('ui.js.saveFailed', 'Save failed'));
+					refused(why);
+					return;
+				}
 				var said = message(res, '');
 				mktTransfersLoad().done(function () { $('#mktTransferMsg').css('color', '#1b5e20').text(said); });
 			})
-			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.fail(function (xhr) {
+				refused(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed')));
+			})
 			.always(function () { $b.prop('disabled', false).text(label); });
 	}
 
 	function mktTransferSend() {
 		transferPost('mkt/transferOffer', { mktProductId: Number($('#mktTrProduct').val()) || null, quantity: Number($('#mktTrQty').val()) || null,
-			unitPrice: $('#mktTrPrice').val() || null, note: $('#mktTrNote').val() }, $('#mktTrSend'));
+			unitPrice: $('#mktTrPrice').val() || null, note: $('#mktTrNote').val(),
+			kind: mktConsignUnder ? $('#mktTrKind').val() : 'BUY' }, $('#mktTrSend'));
+	}
+
+	// ── MKT-5a: consignment agreements ─────────────────────────────────────────────────────────────────
+
+	var CA_ST = { OFFERED: ['ui.js.mktCaOffered', 'Waiting for your answer'], ACTIVE: ['ui.js.mktCaActive', 'Active'],
+		DECLINED: ['ui.js.mktCaDeclined', 'Declined'], WITHDRAWN: ['ui.js.mktCaWithdrawn', 'Withdrawn by MaxTheService'],
+		ENDED: ['ui.js.mktCaEnded', 'Ended'], REPLACED: ['ui.js.mktCaReplaced', 'Replaced by {0}'] };
+
+	function mktConsignLoad() {
+		return $.ajax({ url: ctx() + 'mkt/consignments', dataType: 'json' }).done(function (res) {
+			var $list = $('#mktConsignList').empty();
+			if (!ok(res)) { $('#mktConsignBox').hide(); return; }
+			var v = data(res) || {}, rows = v.agreements || [];
+			$('#mktConsignBox').toggle(rows.length > 0);
+			if (v.warehouse) $('#mktConsignHint').text(tr('ui.js.mktCaHintWarehouse', 'The terms on which sellers\' stock is held and sold here. The stock stays theirs until it sells.'));
+			rows.forEach(function (a) { $list.append(consignCard(a, v.warehouse)); });
+		});
+	}
+
+	/** One agreement: its number, status and every term in plain words; the consignor's buttons while it can answer. */
+	function consignCard(a, warehouse) {
+		var $c = $('<div class="mkt-consign" style="border:1px solid #dde3ea;border-radius:6px;padding:10px 12px;margin-bottom:8px"></div>')
+			.attr('data-agreement-no', a.agreementNo).attr('data-status', a.status);
+		var st = CA_ST[a.status] || [null, a.status];
+		var label = (st[0] ? tr(st[0], st[1]) : st[1]).replace('{0}', a.replacedByNo || '');
+		if (warehouse && a.status === 'OFFERED') label = tr('ui.js.mktCaOfferedTo', 'Offered, waiting for the seller');
+		$('<div style="font-weight:700"></div>').text(a.agreementNo + ' · ' + (warehouse ? a.consignorName : tr('ui.js.mktCaWith', 'with MaxTheService')))
+			.append($('<span class="mkt-consign-status" style="font-weight:600;margin-left:8px"></span>')
+				.css('color', a.status === 'ACTIVE' ? '#1b5e20' : a.status === 'OFFERED' ? '#8a5a00' : '#555').text(label))
+			.appendTo($c);
+		var $terms = $('<ul class="mkt-consign-terms" style="font-size:13px;margin:6px 0 4px 18px;padding:0"></ul>').appendTo($c);
+		consignTerms(a.terms).forEach(function (t) { $('<li></li>').text(t).appendTo($terms); });
+		if (a.note) $('<div class="text-muted" style="font-size:12px"></div>').text(a.note).appendTo($c);
+		if (a.answerReason) $('<div class="mkt-consign-reason text-muted" style="font-size:12px"></div>')
+			.text(tr('ui.js.mktCaReason', 'Reason: {0}').replace('{0}', a.answerReason)).appendTo($c);
+		if (warehouse || (a.status !== 'OFFERED' && a.status !== 'ACTIVE')) return $c;
+		var $act = $('<div style="margin-top:6px"></div>').appendTo($c);
+		var $why = $('<input type="text" maxlength="500" class="form-control input-sm mkt-consign-why" style="max-width:360px;margin-bottom:4px">')
+			.attr('placeholder', tr('ui.js.mktCaWhy', 'Reason (needed to decline or end)')).attr('aria-label', tr('ui.js.mktCaWhy', 'Reason (needed to decline or end)'));
+		var post = function (action, $b) {
+			consignPost({ id: a.id, action: action, version: a.version, reason: $why.val() }, $b);
+		};
+		if (a.status === 'OFFERED') {
+			$('<button type="button" class="btn btn-xs btn-success mkt-consign-accept" style="margin-right:4px"></button>')
+				.text(tr('ui.js.mktCaAccept', 'Accept these terms')).on('click', function () { post('ACCEPT', $(this)); }).appendTo($act);
+			$act.append($why);
+			$('<button type="button" class="btn btn-xs btn-default mkt-consign-decline"></button>')
+				.text(tr('ui.js.mktCaDecline', 'Decline')).on('click', function () { post('DECLINE', $(this)); }).appendTo($act);
+		} else {
+			$act.append($why);
+			$('<button type="button" class="btn btn-xs btn-default mkt-consign-end"></button>')
+				.text(tr('ui.js.mktCaEnd', 'End the agreement')).on('click', function () { post('END', $(this)); }).appendTo($act);
+		}
+		return $c;
+	}
+
+	function consignPost(body, $b) {
+		var label = $b.text();
+		$b.prop('disabled', true);
+		var $msg = $('#mktConsignMsg').text('').css('color', '');
+		$.ajax({ url: ctx() + 'mkt/consignmentDecision', type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var said = message(res, '');
+				mktConsignLoad().done(function () { $('#mktConsignMsg').css('color', '#1b5e20').text(said); });
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
+	}
+
+	/** The terms in plain words, the same lines the operator reads (platform/marketplace-sellers.js). */
+	function consignTerms(t) {
+		if (!t) return [];
+		var who = function (p) { return p === 'CONSIGNEE' ? tr('ui.js.mktCaMts', 'MaxTheService') : p === 'NONE' ? tr('ui.js.mktCaNobody', 'nobody') : tr('ui.js.mktCaOwner', 'the owner'); };
+		var f = function (k, fb) { var s = tr(k, fb); for (var i = 2; i < arguments.length; i++) s = s.replace('{' + (i - 2) + '}', arguments[i]); return s; };
+		return [
+			t.ownershipTransfer === 'ON_DELIVERY' ? tr('ui.js.mktCaOwnDelivery', 'Ownership passes to the customer on delivery') : tr('ui.js.mktCaOwnSale', 'Ownership passes to the customer when it is sold'),
+			f('ui.js.mktCaPrice', 'Selling price set by {0}', who(t.priceSetBy)),
+			f('ui.js.mktCaCommission', 'MaxTheService keeps {0}% of each sale', Number(t.commissionPct)),
+			f('ui.js.mktCaSettle', 'Settled every {0} days, after the return period; reconciled every {1} days', t.settleEveryDays, t.reconcileEveryDays),
+			f('ui.js.mktCaCount', 'Stock counted every {0} days; up to {1}% shrinkage tolerated', t.countEveryDays, Number(t.shrinkageTolerancePct)),
+			f('ui.js.mktCaBearers', 'Damage borne by {0}; expiry borne by {1}; insured by {2}', who(t.damageBearer), who(t.expiryBearer), who(t.insuredBy)),
+			f(t.proofRequired ? 'ui.js.mktCaClaimProof' : 'ui.js.mktCaClaim', t.proofRequired ? 'Shrinkage claims within {0} days, with proof' : 'Shrinkage claims within {0} days', t.claimWindowDays),
+			f('ui.js.mktCaUnsold', 'Unsold stock goes back after {0} days, at the cost of {1}', t.unsoldReturnDays, who(t.unsoldReturnBearer))
+		];
 	}
 
 	function tick() {
@@ -779,11 +925,19 @@
 		}).fail(function (xhr) { $m.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))); });
 	}
 
+	/** MKT-4b — "h:mm" of the time left to send a supplier's order. */
+	function hmm(sec) {
+		sec = Math.max(0, Math.floor(sec || 0));
+		var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+		return h + ':' + ('0' + m).slice(-2);
+	}
+
 	// ── MKT-2e: your performance ──────────────────────────────────────────────────────────────────────
 	var PERF_FLAG = {
 		LOW_ACCEPTANCE: ['ui.js.mktPerfFlagAcceptance', 'Accepts fewer than 80% of its orders'],
 		LATE_DELIVERY: ['ui.js.mktPerfFlagLate', 'Delivers fewer than 90% on time'],
-		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders']
+		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders'],
+		LATE_DISPATCH: ['ui.js.mktPerfFlagDispatch', 'Sends fewer than 90% of its orders within 24 hours']
 	};
 	function perfRate(rate, part, whole) {
 		if (rate === null || rate === undefined) return tr('ui.js.mktPerfNotEnough', 'Not enough orders yet');
@@ -799,6 +953,9 @@
 			$('#mktPerfSpeed').text(m === null || m === undefined ? '—' : m < 1 ? tr('ui.js.mktPerfUnderMinute', 'Under a minute on average')
 				: tr('ui.js.mktPerfMinutes', '{0} min on average').replace('{0}', m));
 			$('#mktPerfOnTime').text(perfRate(r.onTimeRate, r.onTime || 0, r.due || 0));
+			if (r.shipDue) $('<div class="mkt-perf-ship text-muted" style="font-size:12px;font-weight:400"></div>')   // MKT-4b: suppliers
+				.text(tr('ui.js.mktPerfShipped', 'Sent within 24 hours: {0}').replace('{0}', perfRate(r.shipOnTimeRate, r.shippedOnTime, r.shipDue)))
+				.appendTo('#mktPerfOnTime');
 			$('#mktPerfReturns').text(String(r.sellerFaultReturns || 0));
 			if (r.disputed) $('<div class="text-muted" style="font-size:13px"></div>')
 				.text(tr('ui.js.mktPerfMineDisputed', '{0} unfulfilled orders you disputed are not counted until MaxTheService decides.').replace('{0}', r.disputed)).appendTo($f);
@@ -840,6 +997,8 @@
 	global.mktTasksLoad = mktTasksLoad;
 	global.mktTransfersLoad = mktTransfersLoad;
 	global.mktTransferSend = mktTransferSend;
+	global.mktTrKindChanged = mktTrKindChanged;
+	global.mktConsignLoad = mktConsignLoad;
 	global.mktStatementLoad = mktStatementLoad;
 	global.mktPerfLoad = mktPerfLoad;
 	global.mktMyReportLoad = mktMyReportLoad;

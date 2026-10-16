@@ -58,7 +58,8 @@ public final class OfferDTOs {
             BigDecimal price, BigDecimal availableQty, Integer promiseHours, BigDecimal rating,
             Integer warrantyMonths, String warrantyProvider, String warrantyStartsOn, String warrantyCovers,
             String warrantyExcludes, Integer returnDays, List<String> deliveryAreas, LocalDateTime lastSyncAt,
-            Long checkedSecondsAgo, boolean soldByMaxTheService) {
+            Long checkedSecondsAgo, boolean soldByMaxTheService, boolean dropship, boolean stockConfirmed,
+            Integer confirmMinutes) {
     }
 
     /** MKT-1d — one search result: the numbers come from the same eligibility as the offer table. */

@@ -81,6 +81,9 @@ public class OfferProjectionService {
         p.setSellerDisplayName(com.myplus.marketplace.multiseller.domain.StockSourceType.PLATFORM.name().equals(offer.getStockSourceType())
                 ? PlatformWarehouseService.NAME : seller == null ? "" : seller.getDisplayName());
         p.setStockSourceType(offer.getStockSourceType());
+        // MKT-4a (R4.4): supplier stock reads as confirmed only when the operator trusts that supplier's counts
+        p.setStockConfirmed(!com.myplus.marketplace.multiseller.domain.StockSourceType.SUPPLIER.name().equals(offer.getStockSourceType())
+                || (seller != null && Boolean.TRUE.equals(seller.getSupplierStockReliable())));
         p.setRegulatedStatus(product == null ? Regulated.NONE.name() : product.getRegulatedStatus());
         p.setPrice(offer.getMarketplacePrice());
         p.setDeliveryAreas(offer.getDeliveryAreas());

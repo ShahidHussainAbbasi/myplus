@@ -33,12 +33,18 @@ import com.myplus.commerce.contracts.dto.PurchaseRecordRequest;
 import com.myplus.commerce.contracts.dto.PurchaseRecordResult;
 import com.myplus.commerce.contracts.dto.SaleRecordRequest;
 import com.myplus.commerce.contracts.dto.SaleRecordResult;
+import com.myplus.commerce.contracts.dto.StockHoldRequest;
+import com.myplus.commerce.contracts.dto.StockHoldResponse;
+import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Match;
 import com.myplus.marketplace.multiseller.dto.TransferDTOs;
+import com.myplus.marketplace.multiseller.entity.MarketplaceConsignedStock;
+import com.myplus.marketplace.multiseller.entity.MarketplaceConsignmentAgreement;
 import com.myplus.marketplace.multiseller.entity.MarketplaceProductSource;
 import com.myplus.marketplace.multiseller.entity.MarketplaceSellerAccount;
 import com.myplus.marketplace.multiseller.entity.MarketplaceStockTransfer;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceProductRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceProductSourceRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRepository;
@@ -60,11 +66,14 @@ class StockTransferServiceTest {
     @Mock TradeClient trade;
     @Mock CatalogClient catalog;
     @Mock MarketplaceAuditService audit;
+    @Mock ConsignmentAgreementService consignments;
+    @Mock MarketplaceConsignedStockRepository consigned;
     StockTransferService service;
 
     @BeforeEach
     void wire() {
-        service = new StockTransferService(transfers, sources, products, accounts, settings, sellers, access, trade, catalog, audit);
+        service = new StockTransferService(transfers, sources, products, accounts, settings, sellers, access, trade, catalog, audit,
+                consignments, consigned);
         lenient().when(settings.warehouseOrg()).thenReturn(Optional.of(WAREHOUSE));
         lenient().when(transfers.save(any())).thenAnswer(i -> {
             MarketplaceStockTransfer t = i.getArgument(0);
@@ -263,5 +272,108 @@ class StockTransferServiceTest {
         verify(trade, never()).reverseSale(anyString(), anyString());
         assertThat(t.getStatus()).isEqualTo(MarketplaceStockTransfer.OFFERED);
         assertThat(t.getAttempt()).isZero();
+    }
+
+    // ── MKT-5b: consigned, not bought ─────────────────────────────────────────────────────────────────
+
+    static MarketplaceConsignmentAgreement agreement(long id) {
+        MarketplaceConsignmentAgreement a = new MarketplaceConsignmentAgreement();
+        a.setId(id);
+        a.setConsignorOrgId(SHOP);
+        a.setConsigneeOrgId(WAREHOUSE);
+        a.setStatus(MarketplaceConsignmentAgreement.ACTIVE);
+        return a;
+    }
+
+    MarketplaceStockTransfer consignOffered(int attempt) {
+        MarketplaceStockTransfer t = offered(attempt);
+        t.setKind(MarketplaceStockTransfer.CONSIGN);
+        t.setAgreementId(4L);
+        return t;
+    }
+
+    @Test
+    @DisplayName("[MKT-R2.1] [MKT-R4.5] consigning needs the seller's ACTIVE agreement with the warehouse; the transfer names it")
+    void consignOffer() {
+        as(SHOP);
+        when(consignments.activeFor(SHOP, WAREHOUSE)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.offer(new TransferDTOs.OfferRequest(PHONE, 2, new BigDecimal("40000"), null, "consign")))
+                .hasMessage("You have no active consignment agreement with MaxTheService. Accept its terms under Consignment "
+                        + "agreements first, or sell the stock to MaxTheService instead.");
+        assertThatThrownBy(() -> service.offer(new TransferDTOs.OfferRequest(PHONE, 2, new BigDecimal("40000"), null, "LEND")))
+                .hasMessage("Choose whether MaxTheService buys this stock or holds it on consignment.");
+        verify(transfers, never()).save(any());
+
+        when(consignments.activeFor(SHOP, WAREHOUSE)).thenReturn(Optional.of(agreement(4L)));
+        assertThatThrownBy(() -> service.offer(new TransferDTOs.OfferRequest(PHONE, 2, null, null, "CONSIGN")))
+                .hasMessage("Enter the value of one unit.");
+        TransferDTOs.Transfer t = service.offer(new TransferDTOs.OfferRequest(PHONE, 2, new BigDecimal("40000"), null, "consign"));
+        assertThat(t.kind()).isEqualTo(MarketplaceStockTransfer.CONSIGN);
+        assertThat(t.agreementNo()).isEqualTo("CA-000004");
+        verify(audit).event(eq("MKT_CONSIGN_OFFERED"), anyString(), eq("ST-000005"), eq(SHOP), any(), any(), any(), any(), any());
+        // the 3c default is unchanged: no kind is a sale to MaxTheService
+        assertThat(service.offer(new TransferDTOs.OfferRequest(PHONE, 1, BigDecimal.TEN, null)).kind())
+                .isEqualTo(MarketplaceStockTransfer.BUY);
+    }
+
+    @Test
+    @DisplayName("[MKT-R2.1] [MKT-R4.5] [MKT-R20.5] received on consignment: no sale, no purchase; the seller's stock is set aside for good and counted into the ledger once")
+    void consignReceive() {
+        MarketplaceStockTransfer t = consignOffered(1);
+        serialTracked(true);
+        as(WAREHOUSE);
+        when(consignments.activeFor(SHOP, WAREHOUSE)).thenReturn(Optional.of(agreement(4L)));
+        when(trade.holdStock(any())).thenReturn(StockHoldResponse.builder().held(true).build());
+
+        TransferDTOs.Transfer done = service.receive(decide(List.of("351", "352")));
+
+        ArgumentCaptor<StockHoldRequest> hold = ArgumentCaptor.forClass(StockHoldRequest.class);
+        verify(trade).holdStock(hold.capture());
+        assertThat(hold.getValue().getOrganizationId()).isEqualTo(SHOP);
+        assertThat(hold.getValue().getHoldKey()).isEqualTo("MKT-ST-000005-1-consign");
+        assertThat(hold.getValue().getHoldKind()).isEqualTo(StockReservationRequest.HoldKind.CONSIGNMENT);
+        assertThat(hold.getValue().getLines()).singleElement().satisfies(l -> {
+            assertThat(l.getItemId()).isEqualTo(SHOP_PRODUCT);
+            assertThat(l.getQuantity()).isEqualByComparingTo("2");
+        });
+        verify(trade, never()).recordSale(any());
+        verify(trade, never()).recordPurchase(any());
+        ArgumentCaptor<MarketplaceConsignedStock> row = ArgumentCaptor.forClass(MarketplaceConsignedStock.class);
+        verify(consigned).save(row.capture());
+        assertThat(row.getValue().getMovement()).isEqualTo(MarketplaceConsignedStock.RECEIVED);
+        assertThat(row.getValue().getQuantity()).isEqualTo(2);
+        assertThat(row.getValue().getConsignorOrgId()).isEqualTo(SHOP);
+        assertThat(row.getValue().getConsigneeOrgId()).isEqualTo(WAREHOUSE);
+        assertThat(row.getValue().getUnitValue()).isEqualByComparingTo("40000");
+        assertThat(row.getValue().getSerials()).isEqualTo("351,352");
+        assertThat(row.getValue().getAgreementId()).isEqualTo(4L);
+        assertThat(done.status()).isEqualTo(MarketplaceStockTransfer.RECEIVED);
+        assertThat(t.getHoldKey()).isEqualTo("MKT-ST-000005-1-consign");
+        assertThat(t.getSaleInvoiceNo()).isNull();
+
+        // a Receive retried from RECEIVING replays the hold (same key) and does not count the stock twice
+        t.setStatus(MarketplaceStockTransfer.RECEIVING);
+        when(consigned.existsByTransferIdAndMovement(5L, MarketplaceConsignedStock.RECEIVED)).thenReturn(true);
+        service.receive(decide(List.of("351", "352")));
+        verify(consigned).save(any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R2.1] stock the seller's books cannot set aside, or an agreement that ended meanwhile, receives nothing")
+    void consignRefused() {
+        MarketplaceStockTransfer t = consignOffered(0);
+        as(WAREHOUSE);
+        when(consignments.activeFor(SHOP, WAREHOUSE)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.receive(decide(null))).hasMessage("There is no active consignment agreement with "
+                + "this seller any more, so this stock cannot be taken on consignment. Choose Not taken and say why.");
+        verify(trade, never()).holdStock(any());
+
+        when(consignments.activeFor(SHOP, WAREHOUSE)).thenReturn(Optional.of(agreement(4L)));
+        when(trade.holdStock(any())).thenReturn(StockHoldResponse.builder().held(false).reason("Only 1 in stock").build());
+        assertThatThrownBy(() -> service.receive(decide(null))).hasMessage(
+                "The seller's books do not show 2 × Galaxy A32 free to set aside, so nothing was received: Only 1 in stock");
+        assertThat(t.getStatus()).isEqualTo(MarketplaceStockTransfer.OFFERED);
+        verify(consigned, never()).save(any());
+        verify(trade, never()).recordSale(any());
     }
 }

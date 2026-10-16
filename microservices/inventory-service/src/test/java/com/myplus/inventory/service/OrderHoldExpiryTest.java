@@ -74,6 +74,15 @@ class OrderHoldExpiryTest {
     }
 
     @Test
+    @DisplayName("MKT-5b — a CONSIGNMENT hold has no deadline, whatever the tenant configured")
+    void consignment_hold_never_lapses() {
+        // Not stubbed on purpose: a consignment hold reads no setting (Mockito's strict stubs would flag one unused).
+        assertThat(policy.expiryFor(ORG, NOW, HoldKind.CONSIGNMENT)).isNull();
+        // The sweeps skip a null deadline, so the stock stays set aside until the marketplace sells or returns it.
+        assertThat(policy.isExpired(null, NOW.plusYears(5))).isFalse();
+    }
+
+    @Test
     @DisplayName("POSITIVE CONTROL — the two are read from DIFFERENT settings, not one applied twice")
     void the_two_durations_are_independently_configurable() {
         /*

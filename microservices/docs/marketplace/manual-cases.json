@@ -7263,108 +7263,330 @@
   {
    "id": "M-4-01",
    "slice": "MKT-4",
-   "title": "Supplier stock is never \"in stock today\" without a promise",
-   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 4. A distributor offer with a 20-minute acceptance window.",
+   "title": "MaxTheService marks a dropship supplier; shoppers are told who confirms the stock",
+   "persona": "MaxTheService operator → Customer",
+   "pre": "Phone Supplier (owner.supplier@myplus.com) is an approved marketplace seller with a live offer for a phone that delivers to Karachi. It is not marked as a supplier yet.",
+   "reqs": [
+    "MKT-R4.3",
+    "MKT-R4.4"
+   ],
+   "auto": [
+    "MKT-4a-01",
+    "MKT-4a-02",
+    "MKT-4a-04",
+    "MKT-4a-06"
+   ],
+   "recordedAt": "2026-10-15T19:24:28.748Z",
+   "startedAt": "2026-10-15T19:24:00.777Z",
+   "result": "passed",
    "steps": [
     {
      "n": 1,
-     "do": "Open the product.",
-     "expect": "The supplier offer shows \"Ships from supplier · confirmation within 20 minutes\", never \"In stock, today\"."
+     "do": "Operator: Platform → Marketplace sellers → Approved → Phone Supplier. Tick \"Supplier: ships its own stock to customers\" (leave \"Its stock counts are reliable\" unticked) and press Save.",
+     "expect": "\"Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order.\" After a refresh the row carries a \"Supplier\" tag.",
+     "shot": "shots/M-4-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the phone on the marketplace, city Karachi.",
+     "expect": "The offer reads \"Phone Supplier\", \"Shipped by the supplier\" and \"The supplier confirms the stock within 20 minutes of your order\". It does not say \"Stock checked\".",
+     "shot": "shots/M-4-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Operator: back on Phone Supplier, tick \"Its stock counts are reliable\" and press Save.",
+     "expect": "\"Phone Supplier is a supplier. Customers see its stock as checked.\"",
+     "shot": "shots/M-4-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Customer: open the phone again.",
+     "expect": "Still \"Shipped by the supplier\", and now \"Stock checked …\" instead of the supplier-confirms sentence.",
+     "shot": "shots/M-4-01/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
-     "expect": "—"
+     "do": "Operator: on Phone Supplier, untick \"Supplier: ships its own stock to customers\" and press Save.",
+     "expect": "\"Phone Supplier sells its own stock as a seller.\" The reliable box is cleared and greyed out.",
+     "shot": "shots/M-4-01/c01.jpg"
     }
    ],
-   "reqs": [
-    "MKT-R4.3",
-    "MKT-R4.4",
-    "MKT-R20.5"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-4.",
-   "warn": false,
-   "auto": []
+   "evidence": "recorded"
   },
   {
    "id": "M-4-02",
    "slice": "MKT-4",
-   "title": "A slow supplier API does not hang checkout",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Phase 4. The supplier endpoint is delayed 5 s.",
+   "title": "A slow supplier does not hang checkout; after three misses it is not asked until the operator asks it again",
+   "persona": "MaxTheService operator, then a customer (incognito window)",
+   "pre": "A test system (marketplace-service started with MKT_ROUTING_TEST_SWITCH=true). Phone Supplier is marked as a supplier and lists one phone at Rs 46,000 in Karachi. Every seller is being asked.",
+   "reqs": [
+    "MKT-R22.5"
+   ],
+   "auto": [
+    "MKT-4c-01",
+    "MKT-4c-02"
+   ],
+   "recordedAt": "2026-10-15T20:43:02.921Z",
+   "startedAt": "2026-10-15T20:42:15.956Z",
+   "result": "passed",
    "steps": [
     {
      "n": 1,
-     "do": "Check out the supplier offer.",
-     "expect": "An answer within the routing deadline; the supplier call is cut at its timeout."
+     "do": "Operator: Platform → \"Marketplace policies\" → \"Asking sellers for stock at checkout\". Choose \"Phone Supplier\", delay 3000 → Save.",
+     "expect": "\"Test slowness is on.\" (Phone Supplier now answers after 3 seconds; each seller is given 800 ms.)",
+     "shot": "shots/M-4-02/01.jpg"
     },
     {
      "n": 2,
-     "do": "Repeat 5 times.",
-     "expect": "The circuit breaker opens; the operator sees it on the integration panel. A retried webhook is processed once."
+     "do": "Customer: open the phone (Karachi) → choose Phone Supplier → \"Buy now\". Name \"Ali\", phone 030048528792, address \"1 Clifton\" → \"Place order\".",
+     "expect": "Within about 2 seconds, under the button: \"This seller did not answer in time. Please choose another offer.\" No order number; the button works again.",
+     "shot": "shots/M-4-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Press \"Place order\" three more times, waiting for each answer.",
+     "expect": "The same sentence each time; the fourth comes at once, because Phone Supplier is no longer being asked.",
+     "shot": "shots/M-4-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Operator: Platform → \"Marketplace policies\" → \"Asking sellers for stock at checkout\".",
+     "expect": "\"Phone Supplier is not answering: not asked until hh:mm:ss.\" with a button \"Ask it again now\".",
+     "shot": "shots/M-4-02/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "The supplier says it is fixed: delay 0 → Save, then \"Ask it again now\" on Phone Supplier's line.",
+     "expect": "\"Test slowness is off.\", then \"The seller will be asked again on its next order.\" and \"Every seller is being asked.\"",
+     "shot": "shots/M-4-02/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "Customer: choose Phone Supplier again → \"Buy now\" → the same details → \"Place order\".",
+     "expect": "\"Waiting for Phone Supplier to confirm\" with an order number MKT-…: the only phone was given back after the slow calls.",
+     "shot": "shots/M-4-02/06.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Remove the delay.",
-     "expect": "The breaker closes."
+     "do": "Phone Supplier rejects the order with the reason \"walk cleanup\". Operator: Marketplace sellers → Phone Supplier, untick \"Supplier\" and Save.",
+     "expect": "The order reads Cancelled; \"Phone Supplier sells its own stock as a seller.\"",
+     "shot": "shots/M-4-02/c01.jpg"
+    }
+   ]
+  },
+  {
+   "id": "M-4-03",
+   "slice": "MKT-4",
+   "title": "A supplier accepts an order and has a day to send it; the shopper is told when",
+   "persona": "a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)",
+   "pre": "Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 47,000, delivering to Karachi.",
+   "reqs": [
+    "MKT-R20.5"
+   ],
+   "auto": [
+    "MKT-4b-01",
+    "MKT-4b-02"
+   ],
+   "recordedAt": "2026-10-15T20:31:13.445Z",
+   "startedAt": "2026-10-15T20:30:35.704Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer (incognito): open the phone (Karachi), choose Phone Supplier, \"Buy\", name \"Ali W07157d\", phone 030050715791, address \"1 Clifton\". Press \"Place order\".",
+     "expect": "\"Waiting for Phone Supplier to confirm\", with the minutes it has left (20 for a supplier).",
+     "shot": "shots/M-4-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.supplier@myplus.com: Sale → Marketplace → \"Incoming marketplace orders\". Press \"Accept\" on the order. Then show \"Accepted\".",
+     "expect": "The row reads \"Accepted\" with an invoice number, and \"Send within 23:59\" (hours and minutes left to send it).",
+     "shot": "shots/M-4-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer: open the order page again.",
+     "expect": "\"Phone Supplier sends it within 24 hours\" and \"Pay Rs. 47,000 in cash when it arrives.\"",
+     "shot": "shots/M-4-03/03.jpg"
     }
    ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: the order is left unsent on purpose; M-4-04 continues it two days later.",
+     "expect": "—"
+    }
+   ]
+  },
+  {
+   "id": "M-4-04",
+   "slice": "MKT-4",
+   "title": "Two days later the supplier has not sent it: both sides are told, the scorecard counts it, then it is sent",
+   "persona": "owner.supplier@myplus.com (Phone Supplier), a customer (incognito), MaxTheService operator",
+   "pre": "Two days after M-4-03 (the whole system restarted on a clock two days later). Phone Supplier accepted the order and has not sent it.",
    "reqs": [
-    "MKT-R22.5"
+    "MKT-R20.5",
+    "MKT-R8.2",
+    "MKT-R12.4"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-4.",
-   "warn": false,
-   "auto": []
+   "auto": [
+    "MKT-4b-04",
+    "MKT-4b-05",
+    "MKT-4b-06"
+   ],
+   "recordedAt": "2026-10-15T20:36:23.345Z",
+   "startedAt": "2026-10-15T20:35:04.697Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.supplier@: Sale → Marketplace → \"Incoming marketplace orders\", show \"Accepted\".",
+     "expect": "The order's row reads \"Late: it was due to leave within 24 hours of accepting. Send it now.\" in red.",
+     "shot": "shots/M-4-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the order page.",
+     "expect": "\"Phone Supplier is late sending this. MaxTheService is chasing it.\" and \"Pay Rs. 47,000 in cash when it arrives.\"",
+     "shot": "shots/M-4-04/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Operator: Platform → \"Seller performance\" (30 days). Find Phone Supplier.",
+     "expect": "Under \"Delivered on time\" the row reads \"Sent within 24 hours: …\" (a rate once five orders are settled, \"Not enough orders yet\" before).",
+     "shot": "shots/M-4-04/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.supplier@: Sale → Orders. Search \"Ali W65801d\", open it, \"Ship\". Carrier \"Leopards\", tracking number \"LP-W65801\". Press \"Record shipment\".",
+     "expect": "\"Shipment recorded: SHP-…\"; the order lists the parcel with Leopards.",
+     "shot": "shots/M-4-04/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Customer: open the order page again.",
+     "expect": "\"On its way from Phone Supplier\" and \"Leopards · tracking LP-W65801. Pay Rs. 47,000 in cash when it arrives.\" The late sentence is gone.",
+     "shot": "shots/M-4-04/05.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "As owner.supplier@: Sale → Orders, press \"Mark DELIVERED\" on the order. Operator: Marketplace sellers → Approved → Phone Supplier, untick \"Supplier\" and Save.",
+     "expect": "The order reads DELIVERED; \"Phone Supplier sells its own stock as a seller.\"",
+     "shot": "shots/M-4-04/c01.jpg"
+    }
+   ]
+  },
+  {
+   "id": "M-4-05",
+   "slice": "MKT-4",
+   "title": "A supplier that cannot fulfil an order names its own shop as the cause; \"My supplier\" is not offered",
+   "persona": "a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)",
+   "pre": "Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.",
+   "reqs": [
+    "MKT-R11.4",
+    "MKT-R20.5"
+   ],
+   "auto": [
+    "MKT-4d-01"
+   ],
+   "recordedAt": "2026-10-15T21:08:46.772Z",
+   "startedAt": "2026-10-15T21:08:12.274Z",
+   "result": "passed",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer (incognito): open the phone (Karachi), choose Phone Supplier, \"Buy\", name \"Ali W51167r\", phone 030065116793, address \"1 Clifton\". Press \"Place order\".",
+     "expect": "\"Waiting for Phone Supplier to confirm\", with an order number MKT-….",
+     "shot": "shots/M-4-05/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.supplier@myplus.com: Sale → Marketplace → \"Incoming marketplace orders\". On the order, open the \"Cause\" list under \"Reject\".",
+     "expect": "Two causes only: \"Out of stock in my shop\" and \"MaxTheService showed the wrong stock\". \"My supplier could not deliver\" is not offered: Phone Supplier is the supplier.",
+     "shot": "shots/M-4-05/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Type \"none left on the shelf\" as the reason, keep \"Out of stock in my shop\", press \"Reject\". Then show \"Rejected\".",
+     "expect": "The row leaves the waiting list. Under Rejected it reads \"Cause: Out of stock in my shop\" and \"Recorded\", with a \"Dispute\" button.",
+     "shot": "shots/M-4-05/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Customer: open the order page again.",
+     "expect": "\"Cancelled\" and \"The seller could not fulfil this order.\"",
+     "shot": "shots/M-4-05/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Operator: Marketplace sellers → Phone Supplier, untick \"Supplier\" and Save.",
+     "expect": "\"Phone Supplier sells its own stock as a seller.\"",
+     "shot": "shots/M-4-05/c01.jpg"
+    }
+   ]
   },
   {
    "id": "M-5-01",
    "slice": "MKT-5",
-   "title": "Consignment: owner and holder are different",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Phase 5. ABC Distributor places 10 phones with Shahzad Mobile Shop.",
+   "title": "Consignment terms come first: MaxTheService offers them, the seller reads and accepts them",
+   "persona": "MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)",
+   "pre": "The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.",
+   "reqs": [
+    "MKT-R2.1",
+    "MKT-R2.2",
+    "MKT-R4.6",
+    "MKT-R12.2"
+   ],
+   "auto": [
+    "MKT-5a-01",
+    "MKT-5a-02",
+    "MKT-5a-03"
+   ],
+   "recordedAt": "2026-10-16T00:15:08.900Z",
+   "startedAt": "2026-10-16T00:14:39.499Z",
+   "result": "passed",
    "steps": [
     {
      "n": 1,
-     "do": "Create the consignment agreement, leaving one term blank → Activate.",
-     "expect": "Refused while any term is blank."
+     "do": "Operator: Platform → \"Consignment agreements\". Choose Shahzad Mobile Shop, set \"MaxTheService keeps (% of each sale)\" to 60, leave the other terms as filled in → \"Offer these terms\".",
+     "expect": "\"Commission: enter a percentage from 0 to 50.\" Nothing is offered.",
+     "shot": "shots/M-5-01/01.jpg"
     },
     {
      "n": 2,
-     "do": "Fill every term → Activate.",
-     "expect": "Active."
+     "do": "Set it to 10 and press \"Offer these terms\" again.",
+     "expect": "\"Offered to Shahzad Mobile Shop as CA-…. Nothing can be consigned until they accept.\" The agreement is listed as \"Offered, waiting for the seller\" with every term in words: ownership passes when it is sold, the owner sets the price, MaxTheService keeps 10%, settled every 7 days, counted every 30 days with 1% tolerated, who bears damage and expiry, claims within 14 days with proof, unsold stock back after 180 days.",
+     "shot": "shots/M-5-01/02.jpg"
     },
     {
      "n": 3,
-     "do": "Sell one phone.",
-     "expect": "Owner ABC, custodian Shahzad; ABC is owed the price less Shahzad's commission, after the sell-through report and the return period."
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Consignment agreements\".",
+     "expect": "The agreement reads \"Waiting for your answer\" with the same eight terms, an \"Accept these terms\" button, a reason box and \"Decline\".",
+     "shot": "shots/M-5-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Press \"Accept these terms\".",
+     "expect": "\"CA-… is active. Stock can be consigned to MaxTheService on these terms.\" The agreement reads \"Active\", with \"End the agreement\".",
+     "shot": "shots/M-5-01/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Return the phone; end the agreement.",
-     "expect": "Ended."
+     "do": "As the seller: type \"walk cleanup\" in the reason box → \"End the agreement\".",
+     "expect": "\"CA-… has ended. No new stock can be consigned under it.\"",
+     "shot": "shots/M-5-01/c01.jpg"
     }
-   ],
-   "reqs": [
-    "MKT-R2.1",
-    "MKT-R2.2",
-    "MKT-R4.5",
-    "MKT-R4.6",
-    "MKT-R15.4",
-    "MKT-R20.5"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-5.",
-   "warn": false,
-   "auto": []
+   ]
   },
   {
    "id": "M-5-02",
@@ -7400,6 +7622,98 @@
    "source": "Slice MKT-5.",
    "warn": false,
    "auto": []
+  },
+  {
+   "id": "M-5-03",
+   "slice": "MKT-5",
+   "title": "A consigned phone sells: owner and holder are different",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 5. A seller has an active consignment agreement (M-5-01) and has consigned phones to the MaxTheService warehouse (M-5-04).",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Sell one consigned phone.",
+     "expect": "Owner Shahzad, custodian the warehouse; Shahzad is owed the price less MaxTheService's commission, after the sell-through report and the return period."
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Return the unsold phones; end the agreement.",
+     "expect": "Ended."
+    }
+   ],
+   "reqs": [
+    "MKT-R2.1",
+    "MKT-R4.5",
+    "MKT-R15.4",
+    "MKT-R20.5"
+   ],
+   "evidence": "design",
+   "source": "Slice MKT-5 (split from M-5-01 when 5a was built).",
+   "warn": false,
+   "auto": []
+  },
+  {
+   "id": "M-5-04",
+   "slice": "MKT-5",
+   "title": "A seller consigns phones to the MaxTheService warehouse: they stay its own",
+   "persona": "owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)",
+   "reqs": [
+    "MKT-R2.1",
+    "MKT-R4.5",
+    "MKT-R20.5"
+   ],
+   "pre": "The MaxTheService warehouse is named (M-3-01). Mobile Distributor has an active consignment agreement (accepted as in M-5-01) and 5 of a phone that MaxTheService also carries.",
+   "auto": [
+    "MKT-5b-02",
+    "MKT-5b-03",
+    "MKT-5b-04",
+    "MKT-5b-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace → \"Send stock to MaxTheService\". Choose \"On consignment: it stays mine\".",
+     "expect": "The price box now reads \"Value a unit\", the button \"Consign to MaxTheService\", and the sentence above it: \"On consignment under CA-…: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells.\"",
+     "shot": "shots/M-5-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Choose the phone, Quantity 2, Value a unit 40000 → \"Consign to MaxTheService\".",
+     "expect": "\"Sent to MaxTheService on consignment as ST-…, under CA-…. It stays yours, on the warehouse's shelf once received.\" The row reads \"Sent, waiting for the warehouse\" and \"On consignment, CA-…\", total Rs 80,000.",
+     "shot": "shots/M-5-04/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Stock sent to MaxTheService\". Find the row from Mobile Distributor → \"Receive\".",
+     "expect": "\"Received on consignment under CA-…. It is Mobile Distributor's stock on your shelf: nothing is owed until it sells.\" The row reads \"Received\" with no invoice. \"Consigned stock at MaxTheService\" lists Mobile Distributor, the phone, 2 units, Rs 80,000.",
+     "shot": "shots/M-5-04/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace, then look at the phone's stock.",
+     "expect": "\"Consigned stock at MaxTheService\" lists the phone, 2 units, Rs 80,000. The phone still counts 5 in your stock, of which 3 are free to sell: the 2 at the warehouse are set aside.",
+     "shot": "shots/M-5-04/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "\"Consignment agreements\" → type \"walk\" in the reason box → \"End the agreement\".",
+     "expect": "\"The warehouse still holds … units consigned under this agreement. They must be sold or returned before it can end.\" The agreement stays \"Active\".",
+     "shot": "shots/M-5-04/05.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo through the screens yet: the 2 phones stay consigned until the unsold-returns slice sends them back (M-5-03's cleanup). Check they are still listed under \"Consigned stock at MaxTheService\".",
+     "expect": "The phone is listed with 2 units; the agreement is still \"Active\".",
+     "shot": "shots/M-5-04/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-16T07:15:33.630Z",
+   "startedAt": "2026-10-16T07:14:22.520Z",
+   "result": "passed"
   },
   {
    "id": "M-6-01",

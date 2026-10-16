@@ -164,6 +164,22 @@ public class MarketplaceSettingsService {
         return acceptMinutesFor(partValue);
     }
 
+    /**
+     * MKT-4a (R4.4) — a part of SUPPLIER stock has the supplier's own defined window ({@code AcceptanceTerms}: 20 minutes),
+     * whatever the part is worth: the shopper is told the supplier confirms the stock within it. Every other part:
+     * {@link #acceptMinutesFor(Long, java.math.BigDecimal)}.
+     */
+    public int acceptMinutesFor(Long sellerOrg, java.math.BigDecimal partValue, boolean supplierStock) {
+        if (supplierStock) return supplierConfirmMinutes();
+        return acceptMinutesFor(sellerOrg, partValue);
+    }
+
+    /** MKT-4a — the window a supplier has to confirm a part, in minutes; the number the shopper reads. */
+    public static int supplierConfirmMinutes() {
+        return (int) com.myplus.marketplace.multiseller.domain.AcceptanceTerms.defaults()
+                .forSource(com.myplus.marketplace.multiseller.domain.StockSourceType.SUPPLIER).acceptWithin().toMinutes();
+    }
+
     @Transactional(readOnly = true)
     public com.myplus.marketplace.multiseller.domain.AcceptanceByValue operatorAcceptTiers() {
         access.assertOperator();
@@ -398,6 +414,22 @@ public class MarketplaceSettingsService {
     @Transactional(readOnly = true)
     public boolean platformStock() {
         return warehouseOrg().isPresent();
+    }
+
+    /**
+     * MKT-4a — SUPPLIER stock is sellable: the operator has marked at least one supplier. A stored fact rather than a
+     * count over seller accounts, so the public catalogue reads one row; {@link SupplierService} rewrites it on every mark.
+     */
+    @Transactional(readOnly = true)
+    public boolean supplierStock() {
+        return settings.findById(MarketplacePlatformSetting.SUPPLIER_STOCK)
+                .map(r -> "true".equals(r.getSettingValue())).orElse(false);
+    }
+
+    /** MKT-4a — written by {@link SupplierService} only, from the seller accounts themselves. */
+    void saveSupplierStock(boolean any) {
+        access.assertOperator();
+        save(MarketplacePlatformSetting.SUPPLIER_STOCK, String.valueOf(any));
     }
 
     /** MKT-3a — written by {@link PlatformWarehouseService} only, after its checks; null clears. */

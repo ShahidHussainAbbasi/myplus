@@ -157,7 +157,8 @@ const expectRefused = (r, sentencePart) => {
  * a seller FIRST on a fresh system decides it: a per-gate default once named Seller A "MKT gate seller" when the 1g gate
  * ran first, and 0a-07 (which reads "Shahzad Mobile Shop") then failed on every later run.
  */
-const SHOP_NAMES = { 'owner.business@myplus.com': 'Shahzad Mobile Shop', 'owner.mobile@myplus.com': 'Mobile Distributor' }
+const SHOP_NAMES = { 'owner.business@myplus.com': 'Shahzad Mobile Shop', 'owner.mobile@myplus.com': 'Mobile Distributor',
+  'owner.supplier@myplus.com': 'Phone Supplier' }
 const makeSeller = (email, displayName = SHOP_NAMES[email] || 'MKT gate seller') => {
   cy.loginAsOperator()
   cy.setEntitlement(email, 'marketplaceSelling', 'ACTIVE', 'mkt gate')

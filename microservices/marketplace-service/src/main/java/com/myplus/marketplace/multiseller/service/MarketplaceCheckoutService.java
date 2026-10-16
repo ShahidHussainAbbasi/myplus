@@ -118,6 +118,8 @@ public class MarketplaceCheckoutService {
     /** MKT-3b: the accepted part's store order and its parcels, read for the shopper's view. */
     private final com.myplus.marketplace.repository.OrderRepository storeOrders;
     private final com.myplus.marketplace.repository.ShipmentRepository shipments;
+    /** MKT-4b: how long a supplier has left to send a part, or that it is late. */
+    private final SupplierDispatchService dispatch;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -166,7 +168,8 @@ public class MarketplaceCheckoutService {
         boolean multiSeller = settings.multiSeller();
         rule(() -> MarketplaceCatalogService.PHASE.checkCheckout(items.stream().map(i -> new PhaseGuard.CheckoutLine(
                 i.offer().getId(), i.offer().getSellerOrganizationId(), StockSourceType.valueOf(i.offer().getStockSourceType()),
-                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller, settings.platformStock()));
+                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller, settings.platformStock(),
+                settings.supplierStock()));
 
         // one part per seller, in the order the shopper added them
         Map<Long, List<Item>> bySeller = new LinkedHashMap<>();
@@ -238,8 +241,9 @@ public class MarketplaceCheckoutService {
                     move(so, SellerOrder.OFFERED);
                     so.setHeld(true);
                     // MKT-2-06: each seller's window follows the value of ITS part, not the whole basket
+                    List<MarketplaceOrderLine> partLines = lines.findBySellerOrderIdOrderByIdAsc(so.getId());
                     so.setAcceptBy(now.plusMinutes(settings.acceptMinutesFor(so.getSellerOrganizationId(),
-                            partTotal(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))));
+                            partTotal(partLines), supplierStock(partLines))));
                 }
             }
             fresh.forEach(sellerOrders::save);
@@ -480,6 +484,7 @@ public class MarketplaceCheckoutService {
             int promise = ls.stream().map(MarketplaceOrderLine::getPromiseHours).filter(java.util.Objects::nonNull)
                     .max(Integer::compare).orElse(0);
             com.myplus.marketplace.entity.Order store = storeOrder(so);          // MKT-3b: read, never copied
+            SupplierDispatchService.Clock ship = dispatch.clock(so, store, LocalDateTime.now());
             LocalDateTime from = so.getDecidedAt() != null && SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus())
                     ? so.getDecidedAt() : so.getCreatedAt();
             out.add(new MarketplaceOrderDTOs.PartView(so.getId(), so.getVersion(), so.getSellerOrganizationId(),
@@ -487,7 +492,8 @@ public class MarketplaceCheckoutService {
                     so.getAcceptanceStatus(), secondsLeft(so), subtotal, BigDecimal.ZERO, subtotal,
                     from == null || promise == 0 ? null : from.plusHours(promise), so.getDeliveredAt(),
                     ls.stream().map(MarketplaceCheckoutService::lineView).toList(), shortageView(shortBy.get(so.getId()), subtotal),
-                    store == null || store.getFulfilmentStatus() == null ? null : store.getFulfilmentStatus().name(), parcels(store)));
+                    store == null || store.getFulfilmentStatus() == null ? null : store.getFulfilmentStatus().name(), parcels(store),
+                    ship.secondsToShip(), ship.late()));
         }
         return out;
     }
@@ -536,6 +542,11 @@ public class MarketplaceCheckoutService {
     }
 
     /** What one part costs the shopper. Phase 1: delivery is in the seller's price, so it is the sum of its lines. */
+    /** MKT-4a — a part of supplier stock: the supplier has its own window to confirm it (see the settings service). */
+    static boolean supplierStock(List<MarketplaceOrderLine> ls) {
+        return ls.stream().anyMatch(l -> StockSourceType.SUPPLIER.name().equals(l.getStockSourceType()));
+    }
+
     static BigDecimal partTotal(List<MarketplaceOrderLine> ls) {
         return ls.stream().map(MarketplaceOrderLine::getLineTotal).filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

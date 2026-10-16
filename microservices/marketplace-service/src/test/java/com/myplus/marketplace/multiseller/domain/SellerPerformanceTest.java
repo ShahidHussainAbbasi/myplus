@@ -112,4 +112,30 @@ class SellerPerformanceTest {
         parts.add(missed("REJECTED", "MERCHANT", "RECORDED"));
         assertThat(SellerPerformance.score(parts, NOW).flags(false)).as("8 of 11").containsExactly(SellerPerformance.FLAG_ACCEPTANCE);
     }
+
+    static SellerPerformance.Part supplierPart(String dispatch) {
+        return new SellerPerformance.Part(7L, "ACCEPTED", T, T.plusMinutes(5), null, null, null, null, dispatch);
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.5] MKT-4b: sent on time ÷ settled dispatch deadlines; DUE, VOID and other parts do not count; flagged below 90%")
+    void dispatch() {
+        List<SellerPerformance.Part> parts = new ArrayList<>(times(4, supplierPart("ON_TIME")));
+        parts.add(supplierPart("LATE"));
+        parts.add(supplierPart("DUE"));                                  // its deadline has not passed
+        parts.add(supplierPart("VOID"));                                 // ended before it had to be sent
+        parts.add(accepted(5, 24, 2));                                   // a shop's part: no dispatch deadline
+        SellerPerformance.Score s = SellerPerformance.score(parts, NOW);
+        assertThat(s.shipDue()).isEqualTo(5);
+        assertThat(s.shippedOnTime()).isEqualTo(4);
+        assertThat(s.shipOnTimeRate()).isEqualTo(0.8);
+        assertThat(s.flags(false)).contains(SellerPerformance.FLAG_DISPATCH);
+        // fewer than five settled: no rate, no flag
+        SellerPerformance.Score few = SellerPerformance.score(List.of(supplierPart("LATE"), supplierPart("LATE")), NOW);
+        assertThat(few.shipDue()).isEqualTo(2);
+        assertThat(few.shipOnTimeRate()).isNull();
+        assertThat(few.flags(false)).doesNotContain(SellerPerformance.FLAG_DISPATCH);
+        // a shop never has a dispatch figure
+        assertThat(SellerPerformance.score(times(6, accepted(5, 24, 2)), NOW).shipOnTimeRate()).isNull();
+    }
 }

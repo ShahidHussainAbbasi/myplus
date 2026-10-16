@@ -16,9 +16,16 @@ import java.time.Instant;
  * @param staleAfter       an offer whose projection is older than this is not shown (K-5)
  * @param now              the clock, injected so tests are deterministic
  * @param platformStock    MKT-3a: the operator has named the MaxTheService warehouse, so PLATFORM offers are shown
+ * @param supplierStock    MKT-4a: the operator has marked a supplier, so SUPPLIER offers are shown
  */
 public record EligibilityContext(String city, BigDecimal quantity, BigDecimal priceFloor, BigDecimal priceCeiling,
-        int enabledPhase, boolean blockRegulated, Duration staleAfter, Instant now, boolean platformStock) {
+        int enabledPhase, boolean blockRegulated, Duration staleAfter, Instant now, boolean platformStock,
+        boolean supplierStock) {
+
+    public EligibilityContext(String city, BigDecimal quantity, BigDecimal priceFloor, BigDecimal priceCeiling,
+            int enabledPhase, boolean blockRegulated, Duration staleAfter, Instant now, boolean platformStock) {
+        this(city, quantity, priceFloor, priceCeiling, enabledPhase, blockRegulated, staleAfter, now, platformStock, false);
+    }
 
     public EligibilityContext(String city, BigDecimal quantity, BigDecimal priceFloor, BigDecimal priceCeiling,
             int enabledPhase, boolean blockRegulated, Duration staleAfter, Instant now) {

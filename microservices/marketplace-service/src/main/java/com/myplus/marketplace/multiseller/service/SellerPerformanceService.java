@@ -133,7 +133,7 @@ public class SellerPerformanceService {
         for (Object[] r : rows) {
             SellerPerformance.Part p = new SellerPerformance.Part((Long) r[0], (String) r[1], (LocalDateTime) r[2],
                     (LocalDateTime) r[3], (LocalDateTime) r[4], r[5] == null ? null : ((Number) r[5]).intValue(),
-                    (String) r[6], (String) r[7]);
+                    (String) r[6], (String) r[7], (String) r[8]);
             out.computeIfAbsent(p.sellerOrgId(), k -> new ArrayList<>()).add(p);
         }
         return out;
@@ -158,6 +158,6 @@ public class SellerPerformanceService {
     private PerformanceDTOs.SellerScore view(Long org, SellerPerformance.Score s, long faults, boolean codLate) {
         return new PerformanceDTOs.SellerScore(org, sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).orElse(null),
                 s.accepted(), s.missed(), s.disputed(), s.excused(), s.acceptanceRate(), s.avgMinutesToAccept(), s.due(),
-                s.onTime(), s.onTimeRate(), faults, codLate, s.flags(codLate));
+                s.onTime(), s.onTimeRate(), faults, codLate, s.flags(codLate), s.shipDue(), s.shippedOnTime(), s.shipOnTimeRate());
     }
 }

@@ -4101,4 +4101,524 @@ on('MKT manual walk — recorded', () => {
       })
     cleanup('Nothing to undo: the phones now belong to the warehouse, as a received transfer should leave them.', 'Nothing to undo.', () => {}, { screen: false })
   })
+
+  const SUPPLIER = 'owner.supplier@myplus.com'
+  const SU = {}
+  const sellersList = () => {
+    asOperator(); cy.visit('/platformDashboard')
+    cy.get('#platMktSellersBtn').click()
+    cy.get('#platMktStatus button[data-status="APPROVED"]').click()
+    return cy.then(() => cy.get(`#platMktSellerList .plat-row[data-org="${SU.org}"]`).should('be.visible')
+      .scrollIntoView({ offset: { top: -160, left: 0 } }))
+  }
+  const supplierRow = () => `#platMktSellerList .plat-row[data-org="${SU.org}"]`
+  const productPage = () => {
+    customer()
+    cy.then(() => cy.visit(`${UI.publicPage}?product=${SU.offer.mktProductId}&city=Karachi`))
+    return cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${SU.offer.offerId}"]`).should('be.visible')
+      .scrollIntoView({ offset: { top: -160, left: 0 } }))
+  }
+  walk({ id: 'M-4-01', slice: 'MKT-4', title: 'MaxTheService marks a dropship supplier; shoppers are told who confirms the stock',
+    persona: 'MaxTheService operator → Customer',
+    reqs: ['MKT-R4.3', 'MKT-R4.4'],
+    pre: 'Phone Supplier (owner.supplier@myplus.com) is an approved marketplace seller with a live offer for a phone that delivers to Karachi. It is not marked as a supplier yet.',
+    auto: ['MKT-4a-01', 'MKT-4a-02', 'MKT-4a-04', 'MKT-4a-06'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: the supplier lists a phone as any seller does (M-1c walks those screens)
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: false }))
+      seedPolicies(`${run}s`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}s`, price: 48000, qty: 5,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { SU.offer = o })
+    })
+    step('Operator: Platform → Marketplace sellers → Approved → Phone Supplier. Tick "Supplier: ships its own stock to customers" (leave "Its stock counts are reliable" unticked) and press Save.',
+      '"Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order." After a refresh the row carries a "Supplier" tag.', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').check()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier is a supplier. Customers are told it confirms the stock within 20 minutes of an order.')
+        }))
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).find('.mkt-supplier-tag').should('have.text', 'Supplier'))
+      })
+    step('Customer: open the phone on the marketplace, city Karachi.',
+      'The offer reads "Phone Supplier", "Shipped by the supplier" and "The supplier confirms the stock within 20 minutes of your order". It does not say "Stock checked".', () => {
+        productPage()
+        cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${SU.offer.offerId}"]`).should('contain', 'Phone Supplier')
+          .and('contain', 'Shipped by the supplier').and('contain', 'The supplier confirms the stock within 20 minutes of your order')
+          .find('.mkt-stock-checked').should('not.exist'))
+      })
+    step('Operator: back on Phone Supplier, tick "Its stock counts are reliable" and press Save.',
+      '"Phone Supplier is a supplier. Customers see its stock as checked."', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-reliable').check()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier is a supplier. Customers see its stock as checked.')
+        }))
+      })
+    step('Customer: open the phone again.',
+      'Still "Shipped by the supplier", and now "Stock checked …" instead of the supplier-confirms sentence.', () => {
+        productPage()
+        cy.then(() => cy.get(`${UI.offerRow}[data-offer-id="${SU.offer.offerId}"]`).should('contain', 'Shipped by the supplier')
+          .and('contain', 'Stock checked').and('not.contain', 'The supplier confirms the stock'))
+      })
+    cleanup('Operator: on Phone Supplier, untick "Supplier: ships its own stock to customers" and press Save.',
+      '"Phone Supplier sells its own stock as a seller." The reliable box is cleared and greyed out.', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+          cy.get('.mkt-supplier-reliable').should('be.disabled').and('not.be.checked')
+        }))
+      })
+  })
+
+  // ── MKT-4c: a slow supplier never hangs checkout (R22.5). Needs the routing test switch, as M-2c.
+  const RS = {}
+  walk({ id: 'M-4-02', slice: 'MKT-4', title: 'A slow supplier does not hang checkout; after three misses it is not asked until the operator asks it again',
+    persona: 'MaxTheService operator, then a customer (incognito window)',
+    reqs: ['MKT-R22.5'],
+    pre: 'A test system (marketplace-service started with MKT_ROUTING_TEST_SWITCH=true). Phone Supplier is marked as a supplier and lists one phone at Rs 46,000 in Karachi. Every seller is being asked.',
+    auto: ['MKT-4c-01', 'MKT-4c-02'] }, (step, call, cleanup) => {
+    cy.then(() => {
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: true }))
+      cy.then(() => post('/platform/mkt/routingTest', { sellerOrganizationId: null, delayMs: 0 }))
+      cy.then(() => post('/platform/mkt/routingClose', { sellerOrganizationId: SU.org }))
+      seedPolicies(`${run}r`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}r`, price: 46000, qty: 1,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { RS.offer = o })
+    })
+    const supplierBuy = () => {
+      customer()
+      cy.visit(page(`product=${RS.offer.mktProductId}&city=Karachi`))
+      cy.get(`${UI.offerRow}[data-offer-id="${RS.offer.offerId}"] ${UI.chooseOffer}`).check()
+      cy.get(UI.buyButton).click()
+      contact(phone(92))
+    }
+    step('Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout". Choose "Phone Supplier", delay 3000 → Save.',
+      '"Test slowness is on." (Phone Supplier now answers after 3 seconds; each seller is given 800 ms.)', () => {
+        routingBox()
+        cy.get('#mktRoutingSeller').select('Phone Supplier')
+        cy.get('#mktRoutingDelay').clear().type('3000')
+        cy.get('#mktRoutingTestSave').click()
+        cy.get('#mktRoutingMsg').should('contain', 'Test slowness is on.')
+      })
+    step(`Customer: open the phone (Karachi) → choose Phone Supplier → "Buy now". Name "Ali", phone ${phone(92)}, address "1 Clifton" → "Place order".`,
+      `Within about 2 seconds, under the button: "${SLOW}" No order number; the button works again.`, () => {
+        supplierBuy()
+        cy.get('#mktCoPlace').click()
+        cy.get('#mktCoError', { timeout: 2500 }).should('have.text', SLOW)
+        cy.get('#mktCoOrderNo').should('have.text', '')
+        cy.get('#mktCoPlace').should('not.be.disabled')
+      })
+    step('Press "Place order" three more times, waiting for each answer.',
+      `The same sentence each time; the fourth comes at once, because Phone Supplier is no longer being asked.`, () => {
+        for (let i = 0; i < 2; i++) {
+          cy.get('#mktCoError').invoke('text', '')
+          cy.get('#mktCoPlace').should('not.be.disabled').click()
+          cy.get('#mktCoError', { timeout: 2500 }).should('have.text', SLOW)
+        }
+        cy.get('#mktCoError').invoke('text', '')
+        cy.get('#mktCoPlace').should('not.be.disabled').click()
+        cy.get('#mktCoError', { timeout: 500 }).should('have.text', SLOW)
+      })
+    step('Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout".',
+      '"Phone Supplier is not answering: not asked until hh:mm:ss." with a button "Ask it again now".', () => {
+        routingBox()
+        cy.contains('#mktRoutingOpen .mkt-routing-row', 'Phone Supplier').should('contain', 'is not answering: not asked until')
+          .find('.mkt-routing-close').should('contain', 'Ask it again now')
+      })
+    step('The supplier says it is fixed: delay 0 → Save, then "Ask it again now" on Phone Supplier\'s line.',
+      '"Test slowness is off.", then "The seller will be asked again on its next order." and "Every seller is being asked."', () => {
+        cy.get('#mktRoutingDelay').clear().type('0')
+        cy.get('#mktRoutingTestSave').click()
+        cy.get('#mktRoutingMsg').should('contain', 'Test slowness is off.')
+        cy.contains('#mktRoutingOpen .mkt-routing-row', 'Phone Supplier').find('.mkt-routing-close').click()
+        cy.get('#mktRoutingMsg').should('contain', 'The seller will be asked again on its next order.')
+        cy.get('#mktRoutingOpen').should('contain', 'Every seller is being asked.')
+      })
+    step('Customer: choose Phone Supplier again → "Buy now" → the same details → "Place order".',
+      '"Waiting for Phone Supplier to confirm" with an order number MKT-…: the only phone was given back after the slow calls.', () => {
+        cy.wait(3500)                                     // the last slow call's hold lands and is given back
+        supplierBuy()
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for Phone Supplier to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { RS.order = no })
+      })
+    cleanup('Phone Supplier rejects the order with the reason "walk cleanup". Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save.',
+      'The order reads Cancelled; "Phone Supplier sells its own stock as a seller."', () => {
+        cy.then(() => answer(SUPPLIER, RS.order, 'reject'))
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+        }))
+      })
+  })
+
+  // ── MKT-4b: a supplier's dispatch deadline. M-4-03 today; M-4-04 after the whole stack is restarted two days later
+  // (up.sh +3d when today's clock is +1d), with --env later=1. The order is kept between them in cypress/walk.
+  const DS_STATE = 'cypress/walk/state-M-4-03.json'   // not downloads: Cypress empties that folder before each run
+  const DS = {}
+  const dsOrders = () => {
+    cy.visit('/businessDashboard')
+    cy.get('#snavSell .snav-btn').click()
+    cy.get('#navMarketplaceOrders').should('be.visible').click()
+    cy.get('#ordFilterQ').clear().type(DS.name)
+    cy.get('#ordSearchBtn').click()
+    return cy.get('#ordersBody tr').should('have.length', 1)
+  }
+  const dsTrack = () => {
+    customer()
+    cy.visit(UI.publicPage)      // leave the dashboard first: its last requests, now without a session, would open sign-in
+    cy.visit(page(`order=${encodeURIComponent(DS.order)}&phone=${DS.phone}`))
+    cy.location('pathname').should('eq', UI.publicPage)
+  }
+  const dsAccepted = () => {
+    as(SUPPLIER)
+    openMarketplace()
+    cy.intercept('GET', '**/mkt/incomingOrders*status=ACCEPTED*').as('dsAccepted')
+    cy.get('#mktIncomingStatus').select('ACCEPTED', { force: true })
+    cy.wait('@dsAccepted')
+    return cy.then(() => cy.contains(`${UI.incoming} tbody tr`, DS.order).scrollIntoView({ offset: { top: -160, left: 0 } }))
+  }
+
+  walk({ id: 'M-4-03', slice: 'MKT-4', title: 'A supplier accepts an order and has a day to send it; the shopper is told when',
+    persona: 'a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)',
+    reqs: ['MKT-R20.5'],
+    pre: 'Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 47,000, delivering to Karachi.',
+    auto: ['MKT-4b-01', 'MKT-4b-02'] }, (step, call, cleanup) => {
+    DS.name = `Ali ${M}d`
+    DS.phone = phone(91)
+    cy.then(() => {   // the precondition: marked (M-4-01 walks that screen) and listing a phone
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: true }))
+      seedPolicies(`${run}d`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}d`, price: 47000, qty: 5,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { DS.offer = o })
+    })
+    step(`Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "${'Ali ' + M + 'd'}", phone ${phone(91)}, address "1 Clifton". Press "Place order".`,
+      '"Waiting for Phone Supplier to confirm", with the minutes it has left (20 for a supplier).', () => {
+        customer()
+        cy.visit(page(`product=${DS.offer.mktProductId}&city=Karachi`))
+        buy(DS.offer.offerId, { name: DS.name, ph: DS.phone })
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for Phone Supplier to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { DS.order = no })
+      })
+    step('As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". Press "Accept" on the order. Then show "Accepted".',
+      'The row reads "Accepted" with an invoice number, and "Send within 23:59" (hours and minutes left to send it).', () => {
+        as(SUPPLIER)
+        openMarketplace()
+        cy.contains(`${UI.incoming} tr`, DS.order).find(UI.acceptBtn).click()
+        cy.contains(`${UI.incoming} tr`, DS.order).should('contain', 'INV-')
+        dsAccepted().find('.mkt-ship-by').invoke('text').should('match', /^Send within (24:00|23:5\d)$/)
+      })
+    step('Customer: open the order page again.',
+      '"Phone Supplier sends it within 24 hours" and "Pay Rs. 47,000 in cash when it arrives."', () => {
+        dsTrack()
+        cy.get(UI.checkoutStatus).should('have.text', 'Phone Supplier sends it within 24 hours')
+        cy.get('#mktOrderDetail').should('have.text', 'Pay Rs. 47,000 in cash when it arrives.')
+        cy.then(() => cy.writeFile(DS_STATE, { name: DS.name, phone: DS.phone, order: DS.order }))
+      })
+    cleanup('None: the order is left unsent on purpose; M-4-04 continues it two days later.', '—', () => {}, { screen: false })
+  })
+
+  const laterDs = Cypress.env('later') ? walk : (meta) => it.skip(`${meta.id} ${meta.title} (run with later=1, two days later)`)
+  laterDs({ id: 'M-4-04', slice: 'MKT-4', title: 'Two days later the supplier has not sent it: both sides are told, the scorecard counts it, then it is sent',
+    persona: 'owner.supplier@myplus.com (Phone Supplier), a customer (incognito), MaxTheService operator',
+    reqs: ['MKT-R20.5', 'MKT-R8.2', 'MKT-R12.4'],
+    pre: 'Two days after M-4-03 (the whole system restarted on a clock two days later). Phone Supplier accepted the order and has not sent it.',
+    auto: ['MKT-4b-04', 'MKT-4b-05', 'MKT-4b-06'] }, (step, call, cleanup) => {
+    cy.readFile(DS_STATE).then((st) => Object.assign(DS, st))
+    cy.then(() => { asOperator(); cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id }) })
+    step('As owner.supplier@: Sale → Marketplace → "Incoming marketplace orders", show "Accepted".',
+      'The order\'s row reads "Late: it was due to leave within 24 hours of accepting. Send it now." in red.', () => {
+        cy.wait(35000)        // the sweeper's pass (every 30 seconds) after the restart
+        dsAccepted().find('.mkt-ship-late').should('have.text', 'Late: it was due to leave within 24 hours of accepting. Send it now.')
+      })
+    step('Customer: open the order page.',
+      '"Phone Supplier is late sending this. MaxTheService is chasing it." and "Pay Rs. 47,000 in cash when it arrives."', () => {
+        dsTrack()
+        cy.get(UI.checkoutStatus).should('have.text', 'Phone Supplier is late sending this. MaxTheService is chasing it.')
+        cy.get('#mktOrderDetail').should('have.text', 'Pay Rs. 47,000 in cash when it arrives.')
+      })
+    step('Operator: Platform → "Seller performance" (30 days). Find Phone Supplier.',
+      'Under "Delivered on time" the row reads "Sent within 24 hours: …" (a rate once five orders are settled, "Not enough orders yet" before).', () => {
+        asOperator()
+        cy.visit('/platformDashboard')
+        cy.intercept('GET', '**/platform/mkt/sellerPerformance*').as('dsPerf')
+        cy.get('#platMktPerformanceBtn').should('be.visible').click()
+        cy.wait('@dsPerf')
+        cy.then(() => cy.get(`#mktPerfList .mkt-perf-row[data-org="${SU.org}"] .mkt-perf-ship`)
+          .scrollIntoView({ offset: { top: -160, left: 0 } })
+          .invoke('text').should('match', /^Sent within 24 hours: (Not enough orders yet|\d+% \(\d+ of \d+\))$/))
+      })
+    step(`As owner.supplier@: Sale → Orders. Search "${'Ali ' + M + 'd'}", open it, "Ship". Carrier "Leopards", tracking number "LP-${M}". Press "Record shipment".`,
+      '"Shipment recorded: SHP-…"; the order lists the parcel with Leopards.', () => {
+        as(SUPPLIER)
+        dsOrders()
+        cy.get('#ordersBody tr').first().find('a').first().click()
+        cy.get('#orderShipBtn').click()
+        cy.get('#shipCarrier').type('Leopards')
+        cy.get('#shipTracking').type(`LP-${M}`)
+        cy.get('#shipConfirmBtn').click()
+        cy.get('#orderDetailBody', { timeout: 15000 }).should('contain', 'SHP-').and('contain', 'Leopards')
+      })
+    step('Customer: open the order page again.',
+      `"On its way from Phone Supplier" and "Leopards · tracking LP-${M}. Pay Rs. 47,000 in cash when it arrives." The late sentence is gone.`, () => {
+        dsTrack()
+        cy.get(UI.checkoutStatus).should('have.text', 'On its way from Phone Supplier')
+        cy.get('#mktOrderDetail').should('have.text', `Leopards · tracking LP-${M}. Pay Rs. 47,000 in cash when it arrives.`)
+      })
+    cleanup('As owner.supplier@: Sale → Orders, press "Mark DELIVERED" on the order. Operator: Marketplace sellers → Approved → Phone Supplier, untick "Supplier" and Save.',
+      'The order reads DELIVERED; "Phone Supplier sells its own stock as a seller."', () => {
+        as(SUPPLIER)
+        dsOrders()
+        cy.get('#ordersBody tr').first().find('[data-act="mark-DELIVERED"]').click()
+        cy.get('#ordersBody tr').first().should('contain', 'DELIVERED')
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+        }))
+      })
+  })
+  // ── MKT-4d: a supplier is its own supplier, so it cannot reject blaming one
+  const OS = {}
+  walk({ id: 'M-4-05', slice: 'MKT-4', title: 'A supplier that cannot fulfil an order names its own shop as the cause; "My supplier" is not offered',
+    persona: 'a customer (incognito), then owner.supplier@myplus.com (Phone Supplier)',
+    reqs: ['MKT-R11.4', 'MKT-R20.5'],
+    pre: 'Phone Supplier is marked as a supplier (M-4-01) and lists a phone at Rs 48,000, delivering to Karachi.',
+    auto: ['MKT-4d-01'] }, (step, call, cleanup) => {
+    OS.name = `Ali ${M}r`
+    OS.phone = phone(93)
+    cy.then(() => {   // the precondition: marked (M-4-01 walks that screen) and listing a phone
+      asOperator()
+      cy.orgOf(SUPPLIER).then((o) => { SU.org = o.id })
+      cy.then(() => post('/platform/mkt/sellerSupplier', { organizationId: SU.org, supplier: true }))
+      seedPolicies(`${run}o`).then((p) => cy.then(() => publishOffer(SUPPLIER, { run: `${run}o`, price: 48000, qty: 5,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { OS.offer = o })
+    })
+    const row = () => cy.contains(`${UI.incoming} tbody tr`, OS.order)
+    step(`Customer (incognito): open the phone (Karachi), choose Phone Supplier, "Buy", name "${'Ali ' + M + 'r'}", phone ${phone(93)}, address "1 Clifton". Press "Place order".`,
+      '"Waiting for Phone Supplier to confirm", with an order number MKT-….', () => {
+        customer()
+        cy.visit(page(`product=${OS.offer.mktProductId}&city=Karachi`))
+        buy(OS.offer.offerId, { name: OS.name, ph: OS.phone })
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for Phone Supplier to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { OS.order = no })
+      })
+    step('As owner.supplier@myplus.com: Sale → Marketplace → "Incoming marketplace orders". On the order, open the "Cause" list under "Reject".',
+      'Two causes only: "Out of stock in my shop" and "MaxTheService showed the wrong stock". "My supplier could not deliver" is not offered: Phone Supplier is the supplier.', () => {
+        as(SUPPLIER)
+        openMarketplace()
+        cy.then(() => row().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-reject-cause option')).then(($o) => {
+          expect([...$o].map((x) => x.textContent)).to.deep.eq(['Out of stock in my shop', 'MaxTheService showed the wrong stock'])
+        })
+      })
+    step('Type "none left on the shelf" as the reason, keep "Out of stock in my shop", press "Reject". Then show "Rejected".',
+      'The row leaves the waiting list. Under Rejected it reads "Cause: Out of stock in my shop" and "Recorded", with a "Dispute" button.', () => {
+        cy.then(() => row().within(() => {
+          cy.get('input[placeholder="Why you cannot fulfil it"]').type('none left on the shelf')
+          cy.get('.mkt-reject-cause').select('MERCHANT_STALE_STOCK')
+          cy.get(UI.rejectBtn).click()
+        }))
+        cy.intercept('GET', '**/mkt/incomingOrders*status=REJECTED*').as('osRejected')
+        cy.get('#mktIncomingStatus').select('REJECTED', { force: true })
+        cy.wait('@osRejected')
+        cy.then(() => row().scrollIntoView({ offset: { top: -160, left: 0 } }).find('.mkt-so-shortage')
+          .should('contain', 'Cause: Out of stock in my shop').and('contain', 'Recorded'))
+      })
+    step('Customer: open the order page again.',
+      '"Cancelled" and "The seller could not fulfil this order."', () => {
+        customer()
+        cy.visit(UI.publicPage)
+        cy.visit(page(`order=${encodeURIComponent(OS.order)}&phone=${OS.phone}`))
+        cy.location('pathname').should('eq', UI.publicPage)
+        cy.contains('The seller could not fulfil this order.').should('be.visible')
+        cy.contains('Cancelled').should('be.visible')
+      })
+    cleanup('Operator: Marketplace sellers → Phone Supplier, untick "Supplier" and Save.',
+      '"Phone Supplier sells its own stock as a seller."', () => {
+        sellersList()
+        cy.then(() => cy.get(supplierRow()).within(() => {
+          cy.get('.mkt-supplier-on').uncheck()
+          cy.get('.mkt-supplier-save').click()
+          cy.get('.mkt-supplier-msg').should('have.text', 'Phone Supplier sells its own stock as a seller.')
+        }))
+      })
+  })
+
+  // ── MKT-5a: consignment agreements. The operator offers the terms, the seller (owner of the stock) accepts them
+  const CS = {}
+  walk({ id: 'M-5-01', slice: 'MKT-5', title: 'Consignment terms come first: MaxTheService offers them, the seller reads and accepts them',
+    persona: 'MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)',
+    reqs: ['MKT-R2.1', 'MKT-R2.2', 'MKT-R4.6', 'MKT-R12.2'],
+    pre: 'The MaxTheService warehouse is named (M-3-01). Shahzad Mobile Shop is an approved seller with no consignment agreement waiting or active.',
+    auto: ['MKT-5a-01', 'MKT-5a-02', 'MKT-5a-03'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: the shop sells on the marketplace (M-0a-01), nothing waiting or active for it
+      makeSeller(SELLER_A)
+      asOperator()
+      cy.orgOf(SELLER_A).then((o) => { CS.org = o.id })
+      cy.then(() => get('/platform/mkt/consignments')).then((r) => (data(r.body) || [])
+        .filter((a) => a.consignorOrganizationId === CS.org && (a.status === 'OFFERED' || a.status === 'ACTIVE'))
+        .forEach((a) => post('/platform/mkt/consignmentDecision', { id: a.id, version: a.version,
+          action: a.status === 'OFFERED' ? 'WITHDRAW' : 'END', reason: 'walk reset' })))
+    })
+    const panel = () => {
+      asOperator()
+      cy.visit('/platformDashboard')
+      cy.intercept('GET', '**/platform/mkt/consignments*').as('csList')
+      cy.get('#platMktConsignBtn').should('be.visible').click()
+      cy.wait('@csList')
+    }
+    step('Operator: Platform → "Consignment agreements". Choose Shahzad Mobile Shop, set "MaxTheService keeps (% of each sale)" to 60, leave the other terms as filled in → "Offer these terms".',
+      '"Commission: enter a percentage from 0 to 50." Nothing is offered.', () => {
+        panel()
+        cy.get('#mktCaSeller').select(String(CS.org))
+        cy.get('#mktCaCommission').clear().type('60')
+        cy.get('#mktCaOffer').click()
+        cy.get('#mktCaMsg').should('have.text', 'Commission: enter a percentage from 0 to 50.')
+      })
+    step('Set it to 10 and press "Offer these terms" again.',
+      '"Offered to Shahzad Mobile Shop as CA-…. Nothing can be consigned until they accept." The agreement is listed as "Offered, waiting for the seller" with every term in words: ownership passes when it is sold, the owner sets the price, MaxTheService keeps 10%, settled every 7 days, counted every 30 days with 1% tolerated, who bears damage and expiry, claims within 14 days with proof, unsold stock back after 180 days.', () => {
+        cy.get('#mktCaCommission').clear().type('10')
+        cy.get('#mktCaOffer').click()
+        cy.get('#mktCaMsg').invoke('text').should('match', /^Offered to Shahzad Mobile Shop as CA-\d{6}\. Nothing can be consigned until they accept\.$/)
+          .then((t) => { CS.no = t.match(/CA-\d{6}/)[0] })
+        cy.then(() => cy.contains('#mktCaList .mkt-ca-row', CS.no).scrollIntoView({ offset: { top: -120, left: 0 } }).within(() => {
+          cy.get('.mkt-ca-status').should('have.text', 'Offered, waiting for the seller')
+          cy.get('.mkt-ca-terms li').should('have.length', 8).first().should('have.text', 'Ownership passes to the customer when it is sold')
+        }))
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Consignment agreements".',
+      'The agreement reads "Waiting for your answer" with the same eight terms, an "Accept these terms" button, a reason box and "Decline".', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).scrollIntoView({ offset: { top: -120, left: 0 } }).within(() => {
+          cy.get('.mkt-consign-status').should('have.text', 'Waiting for your answer')
+          cy.get('.mkt-consign-terms li').should('have.length', 8).eq(2).should('have.text', 'MaxTheService keeps 10% of each sale')
+          cy.get('.mkt-consign-accept').should('have.text', 'Accept these terms')
+        }))
+      })
+    step('Press "Accept these terms".',
+      '"CA-… is active. Stock can be consigned to MaxTheService on these terms." The agreement reads "Active", with "End the agreement".', () => {
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).find('.mkt-consign-accept').click())
+        cy.then(() => cy.get('#mktConsignMsg').should('have.text', `${CS.no} is active. Stock can be consigned to MaxTheService on these terms.`))
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).within(() => {
+          cy.get('.mkt-consign-status').should('have.text', 'Active')
+          cy.get('.mkt-consign-end').should('exist')
+        }))
+      })
+    cleanup('As the seller: type "walk cleanup" in the reason box → "End the agreement".',
+      '"CA-… has ended. No new stock can be consigned under it."', () => {
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CS.no).within(() => {
+          cy.get('.mkt-consign-why').type('walk cleanup')
+          cy.get('.mkt-consign-end').click()
+        }))
+        cy.then(() => cy.get('#mktConsignMsg').should('have.text', `${CS.no} has ended. No new stock can be consigned under it.`))
+      })
+  })
+  // ── MKT-5b: consigned stock into the warehouse. The owner keeps owning it; the warehouse holds it. Mobile Distributor
+  //    consigns, not the 5a shop: consigned stock cannot go back until the unsold-returns slice.
+  const CN = {}
+  walk({ id: 'M-5-04', slice: 'MKT-5', title: 'A seller consigns phones to the MaxTheService warehouse: they stay its own',
+    persona: 'owner.mobile@myplus.com (Mobile Distributor) → owner.warehouse@myplus.com (the MaxTheService warehouse)',
+    reqs: ['MKT-R2.1', 'MKT-R4.5', 'MKT-R20.5'],
+    pre: 'The MaxTheService warehouse is named (M-3-01). Mobile Distributor has an active consignment agreement (accepted as in M-5-01) and 5 of a phone that MaxTheService also carries.',
+    auto: ['MKT-5b-02', 'MKT-5b-03', 'MKT-5b-04', 'MKT-5b-05'] }, (step, call, cleanup) => {
+    cy.then(() => {   // the precondition: an active agreement for the owner, one phone both list, 5 on the owner's shelf
+      makeSeller(SELLER_B)
+      makeSeller(WAREHOUSE, 'Central Warehouse')
+      asOperator()
+      cy.orgOf(SELLER_B).then((o) => { CN.org = o.id })
+      cy.orgOf(WAREHOUSE).then((o) => post('/platform/mkt/warehouse', { organizationId: o.id }))
+      cy.then(() => get('/platform/mkt/consignments?status=ACTIVE')).then((r) => {
+        const a = (data(r.body) || []).find((x) => x.consignorOrganizationId === CN.org)
+        if (a) { CN.no = a.agreementNo; return }
+        post('/platform/mkt/consignmentOffer', { consignorOrganizationId: CN.org, note: 'walk M-5-04', terms: {
+          ownershipTransfer: 'ON_SALE', priceSetBy: 'CONSIGNOR', commissionPct: 10, settleEveryDays: 7, reconcileEveryDays: 30,
+          countEveryDays: 30, shrinkageTolerancePct: 1, damageBearer: 'CONSIGNEE', expiryBearer: 'CONSIGNOR', insuredBy: 'CONSIGNEE',
+          claimWindowDays: 14, proofRequired: true, unsoldReturnDays: 180, unsoldReturnBearer: 'CONSIGNOR' } }).then((o) => {
+          const x = data(o.body)
+          CN.no = x.agreementNo
+          as(SELLER_B)
+          post('/mkt/consignmentDecision', { id: x.id, action: 'ACCEPT', version: x.version })
+        })
+      })
+      seedPolicies(`${run}cn`).then((p) => {
+        asOperator()
+        cy.then(() => publishOffer(WAREHOUSE, { run: `${run}cn`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))
+          .then((o) => { CN.mkt = o.mktProductId })
+        cy.then(() => publishOffer(SELLER_B, { run: `${run}cn`, price: 52000, qty: 5, mktProductId: CN.mkt, warrantyPolicyId: p.warranty,
+          returnPolicyId: p.returns })).then((o) => { CN.product = o.sourceProductId })
+      })
+    })
+    const free = () => cy.request('/productStockLevels').then((r) => {
+      const l = (r.body.levels || {})[String(CN.product)]
+      return Number(l.sellable != null ? l.sellable : l.onHand)
+    })
+    const trRow = () => cy.get(`#mktTransfers tr[data-transfer-no="${CN.st}"]`)
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Send stock to MaxTheService". Choose "On consignment: it stays mine".',
+      'The price box now reads "Value a unit", the button "Consign to MaxTheService", and the sentence above it: "On consignment under CA-…: the stock stays yours. When the warehouse receives it, it is set aside in your books so your shop cannot sell it, and nothing is owed until it sells."', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.get('#mktTrKind').scrollIntoView({ offset: { top: -160, left: 0 } }).should('be.visible').select('CONSIGN')
+        cy.get('#mktTrPrice').should('have.attr', 'placeholder', 'Value a unit')
+        cy.get('#mktTrSend').should('have.text', 'Consign to MaxTheService')
+        cy.then(() => cy.get('#mktTransferHint').should('contain', `On consignment under ${CN.no}: the stock stays yours.`))
+        cy.get('#mktTransferTitle').scrollIntoView({ offset: { top: -40, left: 0 } })
+      })
+    step('Choose the phone, Quantity 2, Value a unit 40000 → "Consign to MaxTheService".',
+      '"Sent to MaxTheService on consignment as ST-…, under CA-…. It stays yours, on the warehouse\'s shelf once received." The row reads "Sent, waiting for the warehouse" and "On consignment, CA-…", total Rs 80,000.', () => {
+        cy.get('#mktTrProduct').select(String(CN.mkt), { force: true })
+        cy.get('#mktTrQty').clear().type('2')
+        cy.get('#mktTrPrice').clear().type('40000')
+        cy.get('#mktTrSend').click()
+        cy.get('#mktTransferMsg').should('contain', 'on consignment as ST-').invoke('text').then((t) => { CN.st = t.match(/ST-\d+/)[0] })
+        cy.then(() => trRow().scrollIntoView({ offset: { top: -160, left: 0 } }).should('contain', 'Sent, waiting for the warehouse')
+          .and('contain', `On consignment, ${CN.no}`).and('contain', '80,000'))
+      })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Stock sent to MaxTheService". Find the row from Mobile Distributor → "Receive".',
+      '"Received on consignment under CA-…. It is Mobile Distributor\'s stock on your shelf: nothing is owed until it sells." The row reads "Received" with no invoice. "Consigned stock at MaxTheService" lists Mobile Distributor, the phone, 2 units, Rs 80,000.', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.then(() => trRow().scrollIntoView({ offset: { top: -160, left: 0 } }).should('contain', 'From Mobile Distributor').find('.mkt-tr-receive').click())
+        cy.then(() => cy.get('#mktTransferMsg').should('have.text',
+          `Received on consignment under ${CN.no}. It is Mobile Distributor's stock on your shelf: nothing is owed until it sells.`))
+        cy.then(() => trRow().should('contain', 'Received').and('not.contain', 'INV-'))
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${CN.mkt}"]`).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('contain', 'Mobile Distributor').and('contain', '80,000').find('.mkt-held-units').should('have.text', '2'))
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace, then look at the phone\'s stock.',
+      '"Consigned stock at MaxTheService" lists the phone, 2 units, Rs 80,000. The phone still counts 5 in your stock, of which 3 are free to sell: the 2 at the warehouse are set aside.', () => {
+        as(SELLER_B)
+        openMarketplace()
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${CN.mkt}"]`).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('contain', '80,000').find('.mkt-held-units').should('have.text', '2'))
+        cy.then(() => free()).then((n) => expect(n, '3 of 5 free to sell').to.eq(3))
+      })
+    step('"Consignment agreements" → type "walk" in the reason box → "End the agreement".',
+      '"The warehouse still holds … units consigned under this agreement. They must be sold or returned before it can end." The agreement stays "Active".', () => {
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CN.no).scrollIntoView({ offset: { top: -120, left: 0 } }).within(() => {
+          cy.get('.mkt-consign-why').type('walk')
+          cy.get('.mkt-consign-end').click()
+        }))
+        cy.get('#mktConsignMsg').invoke('text').should('match', /^The warehouse still holds \d+ units? consigned under this agreement\. They must be sold or returned before it can end\.$/)
+        cy.then(() => cy.contains('#mktConsignList .mkt-consign', CN.no).find('.mkt-consign-status').should('have.text', 'Active'))
+        cy.get('#mktConsignMsg').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    cleanup('Nothing to undo through the screens yet: the 2 phones stay consigned until the unsold-returns slice sends them back (M-5-03\'s cleanup). Check they are still listed under "Consigned stock at MaxTheService".',
+      'The phone is listed with 2 units; the agreement is still "Active".', () => {
+        cy.then(() => cy.get(`#mktHeld tr.mkt-held[data-product="${CN.mkt}"] .mkt-held-units`).scrollIntoView({ offset: { top: -160, left: 0 } })
+          .should('have.text', '2'))
+      })
+  })
 })

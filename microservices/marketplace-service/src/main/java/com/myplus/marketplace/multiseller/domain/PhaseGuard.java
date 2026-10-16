@@ -39,13 +39,19 @@ public final class PhaseGuard {
 
     /** @param platformStock MKT-3a: the operator has named the MaxTheService warehouse (PLATFORM stock is sellable). */
     public void checkCheckout(Collection<CheckoutLine> lines, boolean multiSellerOn, boolean platformStock) {
+        checkCheckout(lines, multiSellerOn, platformStock, false);
+    }
+
+    /** @param supplierStock MKT-4a: the operator has marked a supplier (SUPPLIER stock is sellable). */
+    public void checkCheckout(Collection<CheckoutLine> lines, boolean multiSellerOn, boolean platformStock,
+            boolean supplierStock) {
         if (lines == null || lines.isEmpty())
             throw new MarketplaceRuleException("EMPTY_CHECKOUT", "Your basket is empty.");
         long sellers = lines.stream().map(CheckoutLine::sellerOrganizationId).distinct().count();
         if (enabledPhase < 2 && !multiSellerOn && sellers > 1)
             throw new MarketplaceRuleException("ONE_SELLER_PER_CHECKOUT",
                     "Items from different sellers must be checked out separately.");
-        for (CheckoutLine l : lines) checkOffer(l.source(), l.regulated(), platformStock);
+        for (CheckoutLine l : lines) checkOffer(l.source(), l.regulated(), platformStock, supplierStock);
     }
 
     public void checkOffer(StockSourceType source, MarketplaceStatus.Regulated regulated) {
@@ -53,8 +59,13 @@ public final class PhaseGuard {
     }
 
     public void checkOffer(StockSourceType source, MarketplaceStatus.Regulated regulated, boolean platformStock) {
+        checkOffer(source, regulated, platformStock, false);
+    }
+
+    public void checkOffer(StockSourceType source, MarketplaceStatus.Regulated regulated, boolean platformStock,
+            boolean supplierStock) {
         Objects.requireNonNull(source, "source");
-        if (!source.enabledIn(enabledPhase, platformStock))
+        if (!source.enabledIn(enabledPhase, platformStock, supplierStock))
             throw new MarketplaceRuleException("SOURCE_NOT_ENABLED",
                     "Offers from " + source.name().toLowerCase() + " stock are not available yet.");
         if (blockRegulated && regulated != null && regulated != MarketplaceStatus.Regulated.NONE)

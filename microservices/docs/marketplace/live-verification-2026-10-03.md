@@ -448,3 +448,86 @@ Migration V37 applied. Unit: marketplace-service 451 / 451, business-service 572
 **Open (3c):** any `AsOrg` call carries no capabilities (pre-existing, row 76 fixed only the warehouse's purchase);
 the ownership ruling (bought, the default taken, vs consignment) awaits confirmation.
 
+## 20. MKT-4a — dropship suppliers (run 2026-10-15)
+
+**Gate `mkt-4a-supplier-offers.cy.js`: 6 / 6.** Re-run on the same build: 1c 11 / 11, 1d 10 / 10, 1e 10 / 10,
+2b 8 / 8, 2-06 7 / 7, 3a 6 / 6, 3c 6 / 6. Migration V38 applied. Unit: marketplace-service 458 / 458.
+
+**Walk M-4-01: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 78 | gate MKT-1c-06 (regression) | the first name of the public flag, `supplierStock`, put "supplier" in the public offer's keys, which R9.2 forbids | renamed `dropship` | gate MKT-1c-06, MKT-4a-01 |
+| 79 | walk M-4-01 (first recording) | "Phone SupplierShipped by the supplier" ran together on the shopper's offer row | the label sits on its own line, as "Sold and shipped by MaxTheService" does | walk M-4-01 step 2 |
+| 80 | the trace against design case M-4-01 | the plan's 20-minute supplier window (`AcceptanceTerms`) was defined and never read: a supplier would have had a shop's window | a part of supplier stock gets 20 minutes; the shopper is told so | unit `supplierWindow`, gate MKT-4a-03 |
+
+**Open (4a):** the warehouse's row shows the supplier boxes (saving is refused in a sentence).
+
+## 21. MKT-4b — a supplier's dispatch deadline (run 2026-10-15)
+
+**Gate `mkt-4b-supplier-dispatch.cy.js`: 6 / 6**, in two phases: 4b-01..03 on the usual clock, then the whole stack
+restarted two days later, 4b-04..06. Re-run after the clock was restored: 4a 6 / 6, 3b 6 / 6, 2e 8 / 8, 1e 10 / 10,
+2-06 7 / 7, 3a 6 / 6, 1c 11 / 11. Migration V39 applied. Unit: marketplace-service 464 / 464.
+
+**Walks M-4-03 and M-4-04: recorded** (M-4-04 two days later), each expected result asserted, screens captured and
+looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 81 | gate MKT-4b phase 2 (first run) | the gate kept its two orders in `cypress/downloads`, which Cypress empties before each run: phase 2 found nothing | kept in `cypress/walk/` | gate MKT-4b-04 |
+| 82 | gate MKT-4b-04 | opening the shopper's page straight after the supplier's dashboard: the dashboard's last requests, now without a session, sent the tab to the sign-in page | leave the dashboard first, then open the order page | gate MKT-4b-04, walk M-4-04 step 2 |
+| 83 | recording | later Cypress runs empty `cypress/screenshots`, so the first M-4-03 / M-4-04 shots were lost before they were copied | both walks recorded again, the shots copied at once | walks M-4-03, M-4-04 |
+
+**Unverified:** one phase-2 run, started about 20 seconds after a restart, failed 4b-04..05 before its screenshots
+were overwritten; its cause was not captured. The same cases passed on a fresh pair of orders with the stack given
+90 seconds to warm up. Its 4b-06 had already sent and delivered those orders, which is why a fresh pair was needed.
+
+**Open (4b):** the deadline is a fixed 24 hours; no support case is opened automatically for a late part.
+
+## 22. MKT-4c — a slow supplier never hangs checkout (run 2026-10-15)
+
+**Gate `mkt-4c-supplier-resilience.cy.js`: 3 / 3** on the usual clock, marketplace-service started with the routing
+test switch. No product code changed; three `LiveRoutingTest` cases gained the R22.5 tag (run: green).
+
+**Walk M-4-02: recorded**, 6 steps and a cleanup, each expected result asserted, screens captured and looked at. It
+replaces the design case of the same id, written for an outside supplier API before the 2026-10-15 ruling.
+
+No defects found.
+
+## 23. MKT-4d — a supplier answers for its own shortages, returns and settlement (run 2026-10-15)
+
+**Gate `mkt-4d-supplier-returns.cy.js`: 3 / 3** on the usual clock, after marketplace-service and the monolith were
+rebuilt with the change. Regression after the change: MKT-2b 8/8, MKT-4a 6/6, MKT-1f 12/12. Unit: 60/60 in
+`MarketplaceOrderFlowTest`.
+
+**Walk M-4-05: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+**Defect found and fixed:** a marked supplier could reject naming "My supplier could not deliver". The miss was then
+recorded with no responsible business and excused on its scorecard. Now refused by the server and not offered in the
+picker; a shop is unaffected.
+
+## 24. MKT-5a — consignment agreements (run 2026-10-16)
+
+**Gate `mkt-5a-consignment-agreements.cy.js`: 6 / 6** on the usual clock, after marketplace-service (V40) and the
+monolith were rebuilt. Regression: MKT-3c 6/6, MKT-0a 8/8. Unit: `ConsignmentAgreementServiceTest` 6/6.
+
+**Walk M-5-01: recorded**, 4 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+Found while running: MKT-0a leaves the shared shop's marketplace module switched off when it ends (by design), so the
+first walk attempt could not open Sale → Marketplace. The 5a gate and walk now switch it on first, as other gates do.
+The container had restarted, so Docker, MySQL and Redis were started again before the stack.
+
+
+## 25. MKT-5b — consigned stock into the warehouse (run 2026-10-16)
+
+**Gate `mkt-5b-consigned-stock.cy.js`: 6 / 6** on the usual clock, after commerce-contracts, inventory-service,
+business-service, marketplace-service (V41, started under `ddl-auto=validate`) and the monolith were rebuilt.
+Regression: MKT-3c 6/6 (the buy path and the same screens), MKT-5a 6/6, MKT-3a 6/6. Unit: marketplace-service 476/476,
+inventory-service reservation and hold tests 40/40, `InternalStockControllerHoldKindTest` 3/3.
+
+**Walk M-5-04: recorded**, 5 steps and a cleanup, each expected result asserted, screens captured and looked at.
+
+**Defect found and fixed (also in 3c):** after a refused Receive the warehouse's row kept the version it was drawn
+with, while the server had claimed and given the row back. The next press on it read "This transfer changed
+meanwhile." A refused row action now redraws the list before showing the refusal; a refused Send keeps the form as
+typed. One consignment the first, failing run left waiting (ST-000036) was cancelled in the test database.

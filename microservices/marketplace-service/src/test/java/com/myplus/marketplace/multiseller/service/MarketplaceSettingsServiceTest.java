@@ -77,6 +77,14 @@ class MarketplaceSettingsServiceTest {
     }
 
     @Test
+    @DisplayName("[MKT-R4.4] a part of supplier stock has the supplier's defined window (20 minutes), whatever it is worth")
+    void supplierWindow() {
+        assertThat(service.acceptMinutesFor(7L, new java.math.BigDecimal("52000"), true)).isEqualTo(20);
+        assertThat(MarketplaceSettingsService.supplierConfirmMinutes()).isEqualTo(20);
+        assertThat(service.acceptMinutesFor(7L, new java.math.BigDecimal("52000"), false)).as("anyone else: the operator's window").isEqualTo(5);
+    }
+
+    @Test
     @DisplayName("[MKT-R10.5] [MKT-R4.2] the warehouse has the PLATFORM hold (24 hours) to pick and pack; every other seller its own window")
     void warehouseWindow() {
         MarketplacePlatformSetting w = new MarketplacePlatformSetting();

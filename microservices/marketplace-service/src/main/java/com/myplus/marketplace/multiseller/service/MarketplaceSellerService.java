@@ -138,6 +138,12 @@ public class MarketplaceSellerService {
                                     + (account.getStatusReason() != null ? ": " + account.getStatusReason() : "."));
     }
 
+    /** MKT-4a — the operator has marked this business as a supplier, so its offers are SUPPLIER stock. */
+    @Transactional(readOnly = true)
+    public boolean isSupplier(Long org) {
+        return org != null && accounts.findByOrganizationId(org).map(a -> Boolean.TRUE.equals(a.getSupplier())).orElse(false);
+    }
+
     // ── operator ───────────────────────────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -227,7 +233,8 @@ public class MarketplaceSellerService {
 
     static SellerDTOs.Account toDto(MarketplaceSellerAccount a) {
         return new SellerDTOs.Account(a.getOrganizationId(), a.getDisplayName(), a.getStatus(), a.getStatusReason(),
-                a.getAppliedAt(), a.getDecidedAt(), a.getVersion());
+                a.getAppliedAt(), a.getDecidedAt(), a.getVersion(), Boolean.TRUE.equals(a.getSupplier()),
+                Boolean.TRUE.equals(a.getSupplierStockReliable()));
     }
 
     private static String trim(String s) {

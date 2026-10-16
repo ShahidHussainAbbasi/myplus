@@ -14,6 +14,7 @@ import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerAccount
 import com.myplus.marketplace.multiseller.dto.SellerDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceOffer;
 import com.myplus.marketplace.multiseller.entity.MarketplaceSellerAccount;
+import com.myplus.marketplace.multiseller.repository.MarketplaceConsignedStockRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceOfferRepository;
 import com.myplus.marketplace.multiseller.repository.MarketplaceSellerAccountRepository;
 
@@ -42,6 +43,7 @@ public class PlatformWarehouseService {
     private final MarketplaceOfferRepository offers;
     private final SellerAccess access;
     private final MarketplaceAuditService audit;
+    private final MarketplaceConsignedStockRepository consigned;
 
     @Transactional(readOnly = true)
     public SellerDTOs.Warehouse view() {
@@ -68,6 +70,8 @@ public class PlatformWarehouseService {
             MarketplaceSellerAccount a = accounts.findByOrganizationId(org).orElse(null);
             if (a == null || !SellerAccount.APPROVED.name().equals(a.getStatus()))
                 throw new ValidationException("Choose an approved seller account.");
+            if (Boolean.TRUE.equals(a.getSupplier()))   // MKT-4a: a supplier owns what it sells; the warehouse sells MaxTheService's
+                throw new ValidationException("A supplier sells its own stock, so it cannot be the MaxTheService warehouse.");
             if (!offers.findByOrganizationId(org).isEmpty())
                 throw new ValidationException("This organisation already has offers of its own. Choose one with none: "
                         + "its offers would become MaxTheService's.");
@@ -75,6 +79,10 @@ public class PlatformWarehouseService {
         if (current != null && liveOffers(current) > 0)
             throw new ValidationException("The warehouse has offers live or waiting for approval. Suspend them before "
                     + (org == null ? "removing" : "changing") + " the warehouse.");
+        // MKT-5b: consigned stock sits on the current warehouse's shelf under agreements naming it as the holder.
+        if (current != null && !current.equals(org) && consigned.heldAt(current) > 0)
+            throw new ValidationException("The warehouse holds consigned stock. It must be sold or returned to its owners "
+                    + "before " + (org == null ? "removing" : "changing") + " the warehouse.");
         settings.saveWarehouseOrg(org);
         audit.event(org == null ? "MKT_WAREHOUSE_REMOVED" : "MKT_WAREHOUSE_SET", "MKT_SETTING", "platform.warehouseOrg", org,
                 MarketplaceAuditService.Actor.OPERATOR, current == null ? null : String.valueOf(current),

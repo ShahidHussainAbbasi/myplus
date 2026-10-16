@@ -116,6 +116,24 @@ public class MarketplaceSellerController {
         }
     }
 
+    /** MKT-4a — mark a seller as a supplier. Body: {organizationId, supplier, stockReliable, version}. */
+    @RequestMapping(value = "/platform/mkt/sellerSupplier", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> sellerSupplier(@RequestBody final Map<String, Object> body) {
+        try {
+            Object org = body == null ? null : body.get("organizationId");
+            if (org == null || !String.valueOf(org).matches("\\d+")) return refusal("Choose the business.");
+            Map<String, Object> rest = new HashMap<>(body);
+            rest.remove("organizationId");
+            return client.postJson("/mkt/operator/sellers/" + org + "/supplier", rest);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not save the supplier setting.");
+        } catch (Exception e) {
+            LOGGER.error("mkt sellerSupplier proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     // ── MKT-1b: product proposals and match review ─────────────────────────────────────────────────────────
 
     /** Propose one of the seller's catalog products. Body: {sourceProductId, brand, model, variant, colour, …}. */
@@ -446,6 +464,44 @@ public class MarketplaceSellerController {
     @ResponseBody
     public Map<String, Object> transferReceive(@RequestBody final Map<String, Object> body) {
         return relayPost("/mkt/seller/transfers/receive", body, "Could not receive it.");
+    }
+
+    // ── MKT-5a: consignment agreements (the operator offers terms; the consignor accepts, declines or ends) ──
+
+    @RequestMapping(value = "/mkt/consignments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> consignments(final HttpServletRequest request) {
+        return relayGet("/mkt/seller/consignments", request, "Could not load the consignment agreements.");
+    }
+
+    /** Body: {id, action: ACCEPT|DECLINE|END, version, reason}. */
+    @RequestMapping(value = "/mkt/consignmentDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignmentDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/consignments/decision", body, "Could not record your answer.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/consignments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> operatorConsignments(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/consignments", request, "Could not load the consignment agreements.", "status");
+    }
+
+    /** Body: {consignorOrganizationId, terms: {…every term…}, note}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/consignmentOffer", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> consignmentOffer(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/consignments", body, "Could not offer the agreement.");
+    }
+
+    /** Body: {id, action: WITHDRAW|END, version, reason}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/consignmentDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> operatorConsignmentDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/consignments/decision", body, "Could not record it.");
     }
 
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

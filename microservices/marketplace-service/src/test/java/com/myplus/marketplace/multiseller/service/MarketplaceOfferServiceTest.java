@@ -274,4 +274,21 @@ class MarketplaceOfferServiceTest {
         assertThat(offerRows.get(o.id()).getStockSourceType()).isEqualTo("PLATFORM");
         assertThat(offerRows.get(o.id()).getStockOwnerOrganizationId()).isEqualTo(SELLER_A);
     }
+
+    @Test
+    @DisplayName("[MKT-R4.3] a marked supplier's offers are SUPPLIER stock; no one else may ask for it, and an unmarked one's become MERCHANT")
+    void supplierStock() {
+        org = SELLER_B;
+        assertThatThrownBy(() -> service.save(new OfferDTOs.SaveRequest(null, PHONE, "SUPPLIER", null, null,
+                new BigDecimal("52000"), "Karachi", 4, WARRANTY, RETURN, null, null)))
+                .hasMessage("Only a business MaxTheService has marked as a supplier sells supplier stock.");
+        when(sellers.isSupplier(SELLER_B)).thenReturn(true);
+        OfferDTOs.Offer o = service.save(new OfferDTOs.SaveRequest(null, PHONE, "MERCHANT", null, null,
+                new BigDecimal("52000"), "Karachi", 4, WARRANTY, RETURN, null, null));
+        assertThat(offerRows.get(o.id()).getStockSourceType()).isEqualTo("SUPPLIER");
+        when(sellers.isSupplier(SELLER_B)).thenReturn(false);
+        service.save(new OfferDTOs.SaveRequest(o.id(), PHONE, null, null, null,
+                new BigDecimal("51000"), null, null, null, null, null, null));
+        assertThat(offerRows.get(o.id()).getStockSourceType()).isEqualTo("MERCHANT");
+    }
 }
